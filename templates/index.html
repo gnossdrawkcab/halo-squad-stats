@@ -103,6 +103,9 @@
 {{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid) }}
 {% endif %}
 
+{% from "_report_card.html" import render_full_stat_table with context %}
+{{ render_full_stat_table(squad_report_card, 'rc') }}
+
 {# ══════════════════════════════════════════════════════════
    LIVE NOW — someone's currently in a session (last 45 min)
    ══════════════════════════════════════════════════════════ #}

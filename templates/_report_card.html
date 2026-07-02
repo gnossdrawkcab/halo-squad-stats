@@ -191,9 +191,23 @@
     {% endfor %}
   </div>
 
-  {# ── Full detail table (expanded by default per Pat's request) ── #}
-  <details class="ranked-details rc-detail-table-wrap" style="margin-top:8px" open>
-    <summary class="ranked-summary-toggle"><span class="muted">Full per-stat breakdown table</span></summary>
+
+</section>
+{% endmacro %}
+
+
+{% macro render_full_stat_table(rc, pfx) %}
+{# ── THE full stat table — every stat, one row per player, heatmapped
+     per column (green=best, red=worst across the players shown). Rendered
+     as the FIRST panel on the squad and solo dashboards. ── #}
+{% if rc and rc.rows %}
+<section class="panel rc-fullstat-panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">📊 Full Stat Table
+      <span class="session-kind kind-{{ rc.kind|default('squad') }}">{{ (rc.kind|default('squad'))|upper }}</span>
+    </div>
+    <span class="muted">{{ rc.session_date }} · {{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }} · color = best → worst across players</span>
+  </div>
   <div class="table-wrap" style="margin-top:12px">
       <table class="data-table compact" id="{{ pfx }}-detail-table" data-table="report-card">
         <thead><tr>
@@ -224,6 +238,7 @@
           <th title="Accuracy">Acc</th>
           {% if rc.has_hill %}<th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>{% endif %}
           {% for oc in rc.obj_columns %}<th title="{{ oc.label }} per game of that mode ({{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session)">{{ oc.emoji }} {{ oc.label }}/g</th>{% endfor %}
+          <th title="Average enemy-lobby MMR this player faced this session">⚔️ Faced</th>
           <th title="CSR change this session">CSR Δ</th>
           <th title="Current CSR">CSR</th>
         </tr></thead>
@@ -233,8 +248,8 @@
             <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
             <td><span class="grade-badge {{ row.grade_class }}">{{ row.grade }}</span></td>
             <td>{{ row.games }}</td>
-            <td>{{ row.wins }}</td>
-            <td>{{ row.win_pct }}</td>
+            <td data-val="{{ row.wins }}">{{ row.wins }}</td>
+            <td data-val="{{ row.win_pct|replace('%','') }}">{{ row.win_pct }}</td>
             <td><span class="sub-grade {{ row.kda_grade_class }}">{{ row.kda_grade }}</span></td>
             <td><strong data-val="{{ row.kda }}">{{ row.kda }}</strong></td>
             <td data-val="{{ row.kd1 }}">{{ row.kd1 }}</td>
@@ -257,13 +272,15 @@
             <td data-val="{{ row.accuracy|replace('%','') }}">{{ row.accuracy }}</td>
             {% if rc.has_hill %}<td data-val="{{ row.hill_pg_secs }}" title="{{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }}">{{ row.hill_pg or '—' }}</td>{% endif %}
             {% for oc in rc.obj_columns %}<td data-val="{{ row.objs[oc.key].val }}" title="{{ row.objs[oc.key].total }} total this session">{{ row.objs[oc.key].display or '—' }}</td>{% endfor %}
+            <td data-val="{{ row.opp_mmr or '' }}">{{ row.opp_mmr or '—' }}</td>
             <td data-val="{{ row.csr_delta|replace('+','') }}">{{ row.csr_delta }}</td>
-            <td>{{ row.current_csr }}</td>
+            <td data-val="{{ row.current_csr|replace('—','') }}">{{ row.current_csr }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
   </div>
-  </details>
+  
 </section>
+{% endif %}
 {% endmacro %}

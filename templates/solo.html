@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-{% from "_report_card.html" import render_report_card with context %}
+{% from "_report_card.html" import render_report_card, render_full_stat_table with context %}
 {% from "_session_nav.html" import session_nav %}
 {% from "_grade_timeline.html" import grade_timeline_panel %}
 
@@ -23,6 +23,7 @@
 {% endif %}
 
 {% if solo_card and solo_card.rows %}
+{{ render_full_stat_table(solo_card, 'rc') }}
 {{ render_report_card(solo_card, 'rc', '/?stay=1', '🏠 Squad dash →', true, 'Solo Session Report Card') }}
 {% else %}
 <section class="panel">

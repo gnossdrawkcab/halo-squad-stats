@@ -52,10 +52,7 @@
     display: grid;
     /* auto-fit (not auto-fill) so a squad of 2 doesn't leave the right half
        empty — cards widen into the available room instead of clipping the
-       game-by-game rows. Capped so they don't sprawl on ultrawide, and the
-       cap is low enough that a 1400px viewport fits THREE columns — with big
-       rosters (up to 20 tracked players) a 560px cap forced two columns and
-       doubled the page height. A single player still gets one tidy card. */
+       game-by-game rows. Capped so they don't sprawl on ultrawide. */
     grid-template-columns: repeat(auto-fit, minmax(350px, 420px));
     justify-content: start;
     gap: 16px;
@@ -509,4 +506,15 @@
   }
   .solo-xlink-txt { font-size: 0.9rem; }
   .solo-xlink .btn { white-space: nowrap; }
+</style>
+<style>
+/* ── Full stat table panel (top of squad + solo dash) ── */
+.rc-fullstat-panel .table-wrap{max-height:none;border-radius:10px;border:1px solid rgba(255,255,255,0.06)}
+.rc-fullstat-panel table{font-size:.92em}
+.rc-fullstat-panel thead th{position:sticky;top:0;z-index:3;background:var(--panel-bg,#14161d);box-shadow:0 1px 0 rgba(255,255,255,0.08)}
+.rc-fullstat-panel th:first-child,.rc-fullstat-panel td:first-child{position:sticky;left:0;z-index:2;background:var(--panel-bg,#14161d)}
+.rc-fullstat-panel thead th:first-child{z-index:4}
+.rc-fullstat-panel tbody tr{transition:background .12s ease}
+.rc-fullstat-panel tbody tr:hover td:first-child{filter:brightness(1.15)}
+.rc-fullstat-panel td,.rc-fullstat-panel th{padding:7px 10px;white-space:nowrap}
 </style>
