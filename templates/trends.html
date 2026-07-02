@@ -180,7 +180,7 @@
 
 {% block scripts %}
 <script>
-const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
+const chartColors = {{ player_palette|tojson|safe }};  // 20-color server palette (matches .player-cN)
 // Server-assigned palette: lowercase gamertag → hex (matches the .player-cN CSS classes).
 const playerColorMap = {{ player_colors|default({})|tojson|safe }};
 

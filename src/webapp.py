@@ -491,12 +491,19 @@ STATIC_VERSION_PATHS = [
 ]
 
 # ── Dynamic per-player palette ───────────────────────────────────────────────
-# 8 distinct colors paired with generic CSS classes .player-c0 … .player-c7
-# (see static/styles.css). Configured roster players get stable sorted-index
-# colors (always distinct up to 8 players); anyone else gets a deterministic
-# hash-based color so the same name is always tinted the same way.
+# 20 distinct colors paired with generic CSS classes .player-c0 … .player-c19
+# (see static/styles.css — the .player-cN rule families are generated from this
+# list; keep the two in sync). Configured roster players get stable
+# sorted-index colors (always distinct up to 20 players); anyone else gets a
+# deterministic hash-based color so the same name is always tinted the same
+# way. Adjacent indices are deliberately far apart on the hue wheel so an
+# alphabetically-sorted roster never puts two near-identical colors side by
+# side.
 PLAYER_PALETTE = ['#3dbfb8', '#e0a800', '#4f7cf0', '#e0566b',
-                  '#4ade80', '#a78bfa', '#ff7a3d', '#f472b6']
+                  '#4ade80', '#a78bfa', '#ff7a3d', '#f472b6',
+                  '#38bdf8', '#facc15', '#818cf8', '#a3e635',
+                  '#f87171', '#22d3ee', '#fb923c', '#34d399',
+                  '#c084fc', '#d4a373', '#94a3b8', '#e879f9']
 
 _PLAYER_CLASS_CACHE = {'ts': 0.0, 'map': {}}
 
@@ -521,7 +528,7 @@ def _player_class_map() -> dict:
 
 
 def get_player_class(player_name: str) -> str:
-    """Return the generic palette CSS class for a player (player-c0…c7)."""
+    """Return the generic palette CSS class for a player (player-c0…c19)."""
     if not player_name:
         return ''
     name_lower = str(player_name).strip().lower()

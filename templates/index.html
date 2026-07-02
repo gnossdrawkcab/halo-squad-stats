@@ -138,8 +138,11 @@
     display: grid;
     /* auto-fit (not auto-fill) so a squad of 2 doesn't leave the right half
        empty — cards widen into the available room instead of clipping the
-       game-by-game rows. Capped so they don't sprawl on ultrawide. */
-    grid-template-columns: repeat(auto-fit, minmax(380px, 560px));
+       game-by-game rows. Capped so they don't sprawl on ultrawide, and the
+       cap is low enough that a 1400px viewport fits THREE columns — with big
+       rosters (up to 20 tracked players) a 560px cap forced two columns and
+       doubled the page height. A single player still gets one tidy card. */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 420px));
     justify-content: start;
     gap: 16px;
     margin-bottom: 6px;
@@ -1628,7 +1631,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=docum
 const csrOverviewTrends = {{ (csr_overview_trends if csr_overview_trends is defined else {})|tojson|safe }};
 const csrTrendCanvas = document.getElementById('csrOverviewTrend');
 if (csrTrendCanvas && csrOverviewTrends && Object.keys(csrOverviewTrends).length > 0 && typeof Chart !== 'undefined') {
-  const chartColors = ['#3dbfb8','#ff7a3d','#ffd700','#86efac','#fca5a5','#c4b5fd'];
+  const chartColors = {{ player_palette|tojson|safe }};  // 20-color server palette (matches .player-cN)
   // Server-assigned palette: lowercase gamertag → hex (matches the .player-cN CSS classes).
   const playerColorMap = {{ player_colors|default({})|tojson|safe }};
 

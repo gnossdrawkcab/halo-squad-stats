@@ -612,7 +612,10 @@
 <script>
 const radarData = {% if radar %}{{ radar|tojson|safe }}{% else %}null{% endif %};
 if (radarData && radarData.players && radarData.players.length && document.getElementById('radarChart')) {
-  const palette = ['#ff7a3d','#3dbfb8','#a78bfa','#f472b6','#facc15','#4ade80'];
+  const palette = {{ player_palette|tojson|safe }};  // 20-color server palette
+  const radarColorMap = {{ player_colors|default({})|tojson|safe }};
+  const radarColor = (name, i) =>
+    radarColorMap[String(name || '').trim().toLowerCase()] || palette[i % palette.length];
   const ctx = document.getElementById('radarChart').getContext('2d');
   new Chart(ctx, {
     type: 'radar',
@@ -621,8 +624,8 @@ if (radarData && radarData.players && radarData.players.length && document.getEl
       datasets: radarData.players.map((p, i) => ({
         label: p.name,
         data: p.scores,
-        borderColor: palette[i % palette.length],
-        backgroundColor: palette[i % palette.length] + '22',
+        borderColor: radarColor(p.name, i),
+        backgroundColor: radarColor(p.name, i) + '22',
         borderWidth: 2,
         pointRadius: 3
       }))

@@ -159,8 +159,10 @@
 
     {% if current %}
     <div class="info-box">
-      <h3>Currently tracked</h3>
-      <ul>
+      <h3>Currently tracked <span class="muted">({{ current|length }})</span></h3>
+      {# Multi-column chip grid — a flat <ul> turned into a 20-row wall with a
+         full roster; this stays compact from 1 to 20 players. #}
+      <ul class="tracked-roster">
         {% for p in current %}
         <li><span class="player-name {{ p.gamertag|player_class }}">{{ p.gamertag }}</span>
             <code>{{ p.xuid }}</code></li>

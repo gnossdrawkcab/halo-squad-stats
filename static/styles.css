@@ -1647,7 +1647,7 @@ html[data-theme="light"] .table-wrap .data-table th:first-child {
 }
 
 /* Light-mode player name colors live with the generic palette classes
-   (.player-c0 … .player-c7) further down. */
+   (.player-c0 … .player-c19) further down. */
 
 /* ============================================
    EXPORT DROPDOWN
@@ -2053,6 +2053,66 @@ html[data-theme="light"] .table-wrap .data-table th:first-child {
   border-left: 3px solid #f472b6;
 }
 
+.player-c8 {
+  background: rgba(56, 189, 248, 0.35) !important;
+  border-left: 3px solid #38bdf8;
+}
+
+.player-c9 {
+  background: rgba(250, 204, 21, 0.35) !important;
+  border-left: 3px solid #facc15;
+}
+
+.player-c10 {
+  background: rgba(129, 140, 248, 0.35) !important;
+  border-left: 3px solid #818cf8;
+}
+
+.player-c11 {
+  background: rgba(163, 230, 53, 0.35) !important;
+  border-left: 3px solid #a3e635;
+}
+
+.player-c12 {
+  background: rgba(248, 113, 113, 0.35) !important;
+  border-left: 3px solid #f87171;
+}
+
+.player-c13 {
+  background: rgba(34, 211, 238, 0.35) !important;
+  border-left: 3px solid #22d3ee;
+}
+
+.player-c14 {
+  background: rgba(251, 146, 60, 0.35) !important;
+  border-left: 3px solid #fb923c;
+}
+
+.player-c15 {
+  background: rgba(52, 211, 153, 0.35) !important;
+  border-left: 3px solid #34d399;
+}
+
+.player-c16 {
+  background: rgba(192, 132, 252, 0.35) !important;
+  border-left: 3px solid #c084fc;
+}
+
+.player-c17 {
+  background: rgba(212, 163, 115, 0.35) !important;
+  border-left: 3px solid #d4a373;
+}
+
+.player-c18 {
+  background: rgba(148, 163, 184, 0.35) !important;
+  border-left: 3px solid #94a3b8;
+}
+
+.player-c19 {
+  background: rgba(232, 121, 249, 0.35) !important;
+  border-left: 3px solid #e879f9;
+}
+
 /* Player name styling in tables */
 .player-name {
   padding: 4px 8px;
@@ -2060,14 +2120,26 @@ html[data-theme="light"] .table-wrap .data-table th:first-child {
   font-weight: 600;
 }
 
-.player-name.player-c0 { background: rgba(61, 191, 184, 0.32); color: #99e6e1; }
-.player-name.player-c1 { background: rgba(224, 168, 0, 0.32); color: #fbd76b; }
-.player-name.player-c2 { background: rgba(79, 124, 240, 0.32); color: #a8c0f8; }
-.player-name.player-c3 { background: rgba(224, 86, 107, 0.32); color: #f3a8b3; }
-.player-name.player-c4 { background: rgba(74, 222, 128, 0.32); color: #a7f3c5; }
-.player-name.player-c5 { background: rgba(167, 139, 250, 0.32); color: #d3c5fd; }
-.player-name.player-c6 { background: rgba(255, 122, 61, 0.32); color: #ffbb9b; }
-.player-name.player-c7 { background: rgba(244, 114, 182, 0.32); color: #fab6d9; }
+.player-name.player-c0 { background: rgba(61, 191, 184, 0.32); color: #9adeda; }
+.player-name.player-c1 { background: rgba(224, 168, 0, 0.32); color: #efd27a; }
+.player-name.player-c2 { background: rgba(79, 124, 240, 0.32); color: #a3bbf7; }
+.player-name.player-c3 { background: rgba(224, 86, 107, 0.32); color: #efa7b2; }
+.player-name.player-c4 { background: rgba(74, 222, 128, 0.32); color: #a1eebd; }
+.player-name.player-c5 { background: rgba(167, 139, 250, 0.32); color: #d1c3fc; }
+.player-name.player-c6 { background: rgba(255, 122, 61, 0.32); color: #ffba9a; }
+.player-name.player-c7 { background: rgba(244, 114, 182, 0.32); color: #f9b6d9; }
+.player-name.player-c8 { background: rgba(56, 189, 248, 0.32); color: #98ddfb; }
+.player-name.player-c9 { background: rgba(250, 204, 21, 0.32); color: #fce485; }
+.player-name.player-c10 { background: rgba(129, 140, 248, 0.32); color: #bdc3fb; }
+.player-name.player-c11 { background: rgba(163, 230, 53, 0.32); color: #cff296; }
+.player-name.player-c12 { background: rgba(248, 113, 113, 0.32); color: #fbb5b5; }
+.player-name.player-c13 { background: rgba(34, 211, 238, 0.32); color: #8ce8f6; }
+.player-name.player-c14 { background: rgba(251, 146, 60, 0.32); color: #fdc69a; }
+.player-name.player-c15 { background: rgba(52, 211, 153, 0.32); color: #95e8ca; }
+.player-name.player-c16 { background: rgba(192, 132, 252, 0.32); color: #debffd; }
+.player-name.player-c17 { background: rgba(212, 163, 115, 0.32); color: #e9cfb6; }
+.player-name.player-c18 { background: rgba(148, 163, 184, 0.32); color: #c7cfda; }
+.player-name.player-c19 { background: rgba(232, 121, 249, 0.32); color: #f3b9fc; }
 
 html[data-theme="light"] .player-name {
   color: #1f1a16;
@@ -2075,14 +2147,26 @@ html[data-theme="light"] .player-name {
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-html[data-theme="light"] .player-name.player-c0 { background: rgba(61, 191, 184, 0.18); color: #0f5c57; border-color: rgba(61, 191, 184, 0.35); }
-html[data-theme="light"] .player-name.player-c1 { background: rgba(224, 168, 0, 0.18); color: #7a5b00; border-color: rgba(224, 168, 0, 0.35); }
-html[data-theme="light"] .player-name.player-c2 { background: rgba(79, 124, 240, 0.18); color: #1e3fae; border-color: rgba(79, 124, 240, 0.35); }
-html[data-theme="light"] .player-name.player-c3 { background: rgba(224, 86, 107, 0.18); color: #8f1f31; border-color: rgba(224, 86, 107, 0.35); }
-html[data-theme="light"] .player-name.player-c4 { background: rgba(74, 222, 128, 0.18); color: #14652f; border-color: rgba(74, 222, 128, 0.35); }
-html[data-theme="light"] .player-name.player-c5 { background: rgba(167, 139, 250, 0.18); color: #4c2ea3; border-color: rgba(167, 139, 250, 0.35); }
-html[data-theme="light"] .player-name.player-c6 { background: rgba(255, 122, 61, 0.18); color: #96420f; border-color: rgba(255, 122, 61, 0.35); }
-html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182, 0.18); color: #99205e; border-color: rgba(244, 114, 182, 0.35); }
+html[data-theme="light"] .player-name.player-c0 { background: rgba(61, 191, 184, 0.18); color: #1a504d; border-color: rgba(61, 191, 184, 0.35); }
+html[data-theme="light"] .player-name.player-c1 { background: rgba(224, 168, 0, 0.18); color: #5e4700; border-color: rgba(224, 168, 0, 0.35); }
+html[data-theme="light"] .player-name.player-c2 { background: rgba(79, 124, 240, 0.18); color: #213465; border-color: rgba(79, 124, 240, 0.35); }
+html[data-theme="light"] .player-name.player-c3 { background: rgba(224, 86, 107, 0.18); color: #5e242d; border-color: rgba(224, 86, 107, 0.35); }
+html[data-theme="light"] .player-name.player-c4 { background: rgba(74, 222, 128, 0.18); color: #1f5d36; border-color: rgba(74, 222, 128, 0.35); }
+html[data-theme="light"] .player-name.player-c5 { background: rgba(167, 139, 250, 0.18); color: #463a69; border-color: rgba(167, 139, 250, 0.35); }
+html[data-theme="light"] .player-name.player-c6 { background: rgba(255, 122, 61, 0.18); color: #6b331a; border-color: rgba(255, 122, 61, 0.35); }
+html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182, 0.18); color: #66304c; border-color: rgba(244, 114, 182, 0.35); }
+html[data-theme="light"] .player-name.player-c8 { background: rgba(56, 189, 248, 0.18); color: #184f68; border-color: rgba(56, 189, 248, 0.35); }
+html[data-theme="light"] .player-name.player-c9 { background: rgba(250, 204, 21, 0.18); color: #695609; border-color: rgba(250, 204, 21, 0.35); }
+html[data-theme="light"] .player-name.player-c10 { background: rgba(129, 140, 248, 0.18); color: #363b68; border-color: rgba(129, 140, 248, 0.35); }
+html[data-theme="light"] .player-name.player-c11 { background: rgba(163, 230, 53, 0.18); color: #446116; border-color: rgba(163, 230, 53, 0.35); }
+html[data-theme="light"] .player-name.player-c12 { background: rgba(248, 113, 113, 0.18); color: #682f2f; border-color: rgba(248, 113, 113, 0.35); }
+html[data-theme="light"] .player-name.player-c13 { background: rgba(34, 211, 238, 0.18); color: #0e5964; border-color: rgba(34, 211, 238, 0.35); }
+html[data-theme="light"] .player-name.player-c14 { background: rgba(251, 146, 60, 0.18); color: #693d19; border-color: rgba(251, 146, 60, 0.35); }
+html[data-theme="light"] .player-name.player-c15 { background: rgba(52, 211, 153, 0.18); color: #165940; border-color: rgba(52, 211, 153, 0.35); }
+html[data-theme="light"] .player-name.player-c16 { background: rgba(192, 132, 252, 0.18); color: #51376a; border-color: rgba(192, 132, 252, 0.35); }
+html[data-theme="light"] .player-name.player-c17 { background: rgba(212, 163, 115, 0.18); color: #594430; border-color: rgba(212, 163, 115, 0.35); }
+html[data-theme="light"] .player-name.player-c18 { background: rgba(148, 163, 184, 0.18); color: #3e444d; border-color: rgba(148, 163, 184, 0.35); }
+html[data-theme="light"] .player-name.player-c19 { background: rgba(232, 121, 249, 0.18); color: #613369; border-color: rgba(232, 121, 249, 0.35); }
 
 .player-hover-card {
   position: fixed;
@@ -2509,6 +2593,18 @@ html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182
 .sb-card.player-c5 { border-left-color: #a78bfa; }
 .sb-card.player-c6 { border-left-color: #ff7a3d; }
 .sb-card.player-c7 { border-left-color: #f472b6; }
+.sb-card.player-c8 { border-left-color: #38bdf8; }
+.sb-card.player-c9 { border-left-color: #facc15; }
+.sb-card.player-c10 { border-left-color: #818cf8; }
+.sb-card.player-c11 { border-left-color: #a3e635; }
+.sb-card.player-c12 { border-left-color: #f87171; }
+.sb-card.player-c13 { border-left-color: #22d3ee; }
+.sb-card.player-c14 { border-left-color: #fb923c; }
+.sb-card.player-c15 { border-left-color: #34d399; }
+.sb-card.player-c16 { border-left-color: #c084fc; }
+.sb-card.player-c17 { border-left-color: #d4a373; }
+.sb-card.player-c18 { border-left-color: #94a3b8; }
+.sb-card.player-c19 { border-left-color: #e879f9; }
 
 .sb-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .sb-id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -2750,9 +2846,12 @@ html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182
 .mvp-card.tone-bad  { border-left: 4px solid #f87171; }
 .mvp-card.tone-neutral { border-left: 4px solid var(--accent); }
 
-/* Settings: native selects rendered as out-of-theme OS widgets. Theme them. */
+/* Settings: native selects rendered as out-of-theme OS widgets. Theme them.
+   (type="password" included — /setup's client-secret field used to render as
+   a bare full-width OS widget next to the themed 420px text inputs.) */
 .settings-form select,
 .settings-form input[type="number"],
+.settings-form input[type="password"],
 .settings-form input[type="text"] {
   padding: 11px 14px;
   border-radius: 10px;
@@ -3487,6 +3586,18 @@ html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182
   .player-c5 { background: rgba(167,139,250,.07) !important; }
   .player-c6 { background: rgba(255,122,61,.07) !important; }
   .player-c7 { background: rgba(244,114,182,.07) !important; }
+  .player-c8 { background: rgba(56,189,248,.07) !important; }
+  .player-c9 { background: rgba(250,204,21,.07) !important; }
+  .player-c10 { background: rgba(129,140,248,.07) !important; }
+  .player-c11 { background: rgba(163,230,53,.07) !important; }
+  .player-c12 { background: rgba(248,113,113,.07) !important; }
+  .player-c13 { background: rgba(34,211,238,.07) !important; }
+  .player-c14 { background: rgba(251,146,60,.07) !important; }
+  .player-c15 { background: rgba(52,211,153,.07) !important; }
+  .player-c16 { background: rgba(192,132,252,.07) !important; }
+  .player-c17 { background: rgba(212,163,115,.07) !important; }
+  .player-c18 { background: rgba(148,163,184,.07) !important; }
+  .player-c19 { background: rgba(232,121,249,.07) !important; }
   .sb-card { border-radius: 16px !important; padding: 15px 15px 13px !important; }
   .sb-card[class*="player-"] { border-left-width: 4px !important; }
   /* Refined: tint hugs the accent border and fades to neutral (prettier than a flat wash) */
@@ -3498,6 +3609,18 @@ html[data-theme="light"] .player-name.player-c7 { background: rgba(244, 114, 182
   .sb-card.player-c5 { background: linear-gradient(100deg, rgba(167,139,250,.16), rgba(167,139,250,0) 42%), #17140f !important; }
   .sb-card.player-c6 { background: linear-gradient(100deg, rgba(255,122,61,.16), rgba(255,122,61,0) 42%), #17140f !important; }
   .sb-card.player-c7 { background: linear-gradient(100deg, rgba(244,114,182,.16), rgba(244,114,182,0) 42%), #17140f !important; }
+  .sb-card.player-c8 { background: linear-gradient(100deg, rgba(56,189,248,.16), rgba(56,189,248,0) 42%), #17140f !important; }
+  .sb-card.player-c9 { background: linear-gradient(100deg, rgba(250,204,21,.16), rgba(250,204,21,0) 42%), #17140f !important; }
+  .sb-card.player-c10 { background: linear-gradient(100deg, rgba(129,140,248,.16), rgba(129,140,248,0) 42%), #17140f !important; }
+  .sb-card.player-c11 { background: linear-gradient(100deg, rgba(163,230,53,.16), rgba(163,230,53,0) 42%), #17140f !important; }
+  .sb-card.player-c12 { background: linear-gradient(100deg, rgba(248,113,113,.16), rgba(248,113,113,0) 42%), #17140f !important; }
+  .sb-card.player-c13 { background: linear-gradient(100deg, rgba(34,211,238,.16), rgba(34,211,238,0) 42%), #17140f !important; }
+  .sb-card.player-c14 { background: linear-gradient(100deg, rgba(251,146,60,.16), rgba(251,146,60,0) 42%), #17140f !important; }
+  .sb-card.player-c15 { background: linear-gradient(100deg, rgba(52,211,153,.16), rgba(52,211,153,0) 42%), #17140f !important; }
+  .sb-card.player-c16 { background: linear-gradient(100deg, rgba(192,132,252,.16), rgba(192,132,252,0) 42%), #17140f !important; }
+  .sb-card.player-c17 { background: linear-gradient(100deg, rgba(212,163,115,.16), rgba(212,163,115,0) 42%), #17140f !important; }
+  .sb-card.player-c18 { background: linear-gradient(100deg, rgba(148,163,184,.16), rgba(148,163,184,0) 42%), #17140f !important; }
+  .sb-card.player-c19 { background: linear-gradient(100deg, rgba(232,121,249,.16), rgba(232,121,249,0) 42%), #17140f !important; }
 
   /* Cards & list rows: unify radius + soft border site-wide */
   .card, .stat-card, .mvp-card, .sh-run-card, .ls-panel, .cl-card,
@@ -3832,3 +3955,133 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
 .wcp-vals{color:#9a8f82;font-size:.85em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wcp-vals em{font-style:normal;opacity:.75}
 .wcp-sub{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+
+/* ════════════════════════════════════════════════════════════════
+   POLISH + 1-TO-20-PLAYER SCALE PASS — 2026-07-02
+   Consistent interactive states (hover / active / focus / disabled),
+   unified input styling, and roster surfaces that stay tidy from a
+   single tracked player up to a full 20-player roster.
+   Scoped away from embed mode (?embed=1) and /live watch mode — no
+   rules here touch .sl-watch / body.live-watch-mode / embed chrome.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Buttons: one motion language everywhere ── */
+.btn {
+  transition: box-shadow 0.18s ease, transform 0.12s ease, filter 0.18s ease;
+}
+.btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.btn:active { transform: translateY(0); filter: brightness(0.96); box-shadow: 0 2px 6px rgba(255, 122, 61, 0.25); }
+.btn:disabled,
+.btn[disabled],
+.btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  filter: grayscale(0.35);
+}
+.btn-danger:active { box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3); }
+
+/* Keyboard focus: same visible ring on every interactive control. */
+.btn:focus-visible,
+.nav-link:focus-visible,
+.nav-toggle:focus-visible,
+.theme-toggle:focus-visible,
+.tab-btn:focus-visible,
+.rate-btn:focus-visible,
+.filter-chip:focus-visible,
+.filter-clear:focus-visible,
+.trend-range-btn:focus-visible,
+.timeline-btn:focus-visible,
+.rcg-chip:focus-visible,
+.dsn-arrow:focus-visible,
+.dsn-dd-btn:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+/* Small pill-buttons get the same gentle feedback as .btn. */
+.filter-chip,
+.filter-clear,
+.nav-toggle,
+.theme-toggle,
+.tab-btn,
+.nav-close {
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease, transform 0.12s ease;
+}
+.filter-chip:active,
+.filter-clear:active,
+.theme-toggle:active,
+.nav-toggle:active { transform: scale(0.97); }
+
+/* ── Inputs: unified hover / focus feedback ── */
+.form-input,
+.settings-form select,
+.settings-form input[type="number"],
+.settings-form input[type="password"],
+.settings-form input[type="text"],
+.suggestions-form input,
+.suggestions-form textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.form-input:hover,
+.settings-form select:hover,
+.settings-form input:hover,
+.suggestions-form input:hover,
+.suggestions-form textarea:hover { border-color: var(--muted); }
+.form-input:focus,
+.settings-form select:focus,
+.settings-form input:focus,
+.suggestions-form input:focus,
+.suggestions-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 122, 61, 0.12);
+}
+.form-input:disabled,
+.settings-form input:disabled,
+.settings-form select:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── /setup: tracked-roster chip grid (1 → 20 players) ── */
+/* A flat bullet list became a 20-row wall with a full roster; this wraps the
+   same items into responsive columns and keeps XUIDs legible. */
+.tracked-roster {
+  list-style: none;
+  margin: 8px 0 10px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 6px 14px;
+}
+.tracked-roster li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.tracked-roster .player-name { flex-shrink: 0; }
+.tracked-roster code {
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="light"] .tracked-roster li {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+/* ── Rosters page: quick-add buttons wrap cleanly at 20 players ── */
+.roster-quick-add { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow-y: auto; }
+
+/* Light theme: .help-text / .info-box copy were white rgba() (invisible on the
+   light background — e.g. the "Saved to players.json" note under /setup's
+   tracked roster). Give them proper light-ink colors. */
+[data-theme="light"] .help-text { color: #5b5249; }
+[data-theme="light"] .info-box p { color: #3a3128; }
