@@ -2298,7 +2298,8 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
         score_pg = score_series(p_df).sum() / games if games else 0
 
         obj_scores = objective_score_series(p_df)
-        obj_score_pg = float(obj_scores.sum()) / games if games and not obj_scores.empty else 0.0
+        _obj_games = int((obj_scores > 0).sum()) if not obj_scores.empty else 0
+        obj_score_pg = float(obj_scores.sum()) / _obj_games if _obj_games else 0.0
 
         team_score = pd.to_numeric(p_df.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
         total_score = score_series(p_df).sum()
@@ -2665,7 +2666,8 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
         _pcts = {'kda': pct_kda, 'ddiff': pct_ddiff, 'life': pct_life,
                  'obj': pct_obj, 'scorepct': pct_sc, 'dmgmin': pct_dmgm,
                  'kdamin': pct_kdamin, 'objmin': pct_objmin}
-        composite_pct = sum(w * _pcts[k] for k, w in W.items())
+        composite_pct = (0.75 * sum(w * _pcts[k] for k, w in W.items())
+                         + 0.25 * float(r.get('win_pct') or 0.0))
 
         kda_g    = _grade_pct(pct_kda)
         ddiff_g  = _grade_pct(pct_ddiff)
@@ -2697,7 +2699,7 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             'scorepct_pctile': round(pct_sc),
             'dmgm_pctile': round(pct_dmgm),
             'grade': grade, 'grade_class': _grade_class(grade),
-            'grade_tip': f"composite {composite_pct:.0f}th percentile, weighted by the stats most correlated with our wins  (S=top 10%, A=top 25%, B=top 50%)",
+            'grade_tip': f"composite {composite_pct:.0f}/100 — 75% performance (win-correlated stats) + 25% session result  (S=top 10%, A=top 25%, B=top 50%)",
             'kda_grade': kda_g, 'kda_grade_class': _grade_class(kda_g),
             'kda_tip': _pct_tip('KDA', r['kda'], pct_kda, _p(A['kda'], 90), _p(A['kda'], 50)),
             'kda_heat': _heat_class_from_pct(pct_kda),
@@ -3253,9 +3255,16 @@ def _rc_win_weights(hist_df: pd.DataFrame) -> dict:
 
 
 def _rc_composite(st: dict, A: dict, W: dict) -> float:
-    """Weighted composite of a session-stats dict against arrays A."""
-    return sum(w * _rc_percentile(st.get(_RC_STAT_FIELD[k]) or 0, A[k])
+    """Weighted composite of a session-stats dict against arrays A.
+    75% how you played (win-correlated stat percentiles) + 25% how it went
+    (session win rate) — a 5-0 night should not grade like an 0-5 night."""
+    base = sum(w * _rc_percentile(st.get(_RC_STAT_FIELD[k]) or 0, A[k])
                for k, w in W.items())
+    games = st.get('games')
+    if games:
+        win_pct = st.get('wins', 0) / games * 100.0
+        return 0.75 * base + 0.25 * win_pct
+    return base
 
 
 def _rc_heat(pct: float) -> str:
@@ -3286,7 +3295,8 @@ def _rc_session_stats(frame: pd.DataFrame):
     dmg_diff_pg = (dmg_p - dmg_m) / games
     avg_life_pg = float(numeric_series(frame, 'average_life_duration').mean() or 0.0)
     obj_scores = objective_score_series(frame)
-    obj_score_pg = float(obj_scores.sum()) / games if not obj_scores.empty else 0.0
+    _obj_games = int((obj_scores > 0).sum()) if not obj_scores.empty else 0
+    obj_score_pg = float(obj_scores.sum()) / _obj_games if _obj_games else 0.0
     team_score = pd.to_numeric(frame.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
     total_score = score_series(frame).sum()
     score_pct = float(total_score / team_score * 100) if team_score > 0 else 0.0
@@ -7166,14 +7176,20 @@ def kda_per_min(df) -> float:
 
 
 def obj_per_min(df) -> float:
-    """True per-minute objective-score rate over a group."""
+    """True per-minute objective-score rate over a group — OBJECTIVE-MODE games
+    only, so slayer games can't dilute the rate (the grading arrays are built
+    from objective-mode games, and mixing populations tanked mixed sessions)."""
     if df is None or df.empty or 'duration' not in df.columns:
         return 0.0
-    mins = float(numeric_series(df, 'duration').sum()) / 60.0
-    if mins <= 0:
-        return 0.0
     try:
-        return float(objective_score_series(df).sum()) / mins
+        obj = objective_score_series(df)
+        mask = obj > 0
+        if not bool(mask.any()):
+            return 0.0
+        mins = float(numeric_series(df, 'duration')[mask].sum()) / 60.0
+        if mins <= 0:
+            return 0.0
+        return float(obj[mask].sum()) / mins
     except Exception:
         return 0.0
 
