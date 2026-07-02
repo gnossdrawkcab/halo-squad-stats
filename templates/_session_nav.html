@@ -1,0 +1,35 @@
+{# Shared session picker (‹ prev / dropdown / next ›) used by the squad dash
+   (base='/') and the Solo Dash (base='/solo'). Extracted from index.html —
+   edit HERE so both dashboards keep the same browser. #}
+{% macro session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid, base='/', label='📅 Session') %}
+{% set cur = cur_session %}
+<div class="dash-session-nav">
+  <span class="dsn-label">{{ label }}</span>
+  {% if prev_sid %}<a href="{{ base }}?sid={{ prev_sid }}" class="dsn-arrow" title="Previous (older) session" aria-label="Previous session">←</a>{% else %}<span class="dsn-arrow dsn-off">←</span>{% endif %}
+  <div class="dsn-dd" id="dsnDD">
+    <button type="button" class="dsn-dd-btn" onclick="dsnToggle(event)" aria-haspopup="listbox">
+      {% if cur %}<span class="dsn-dd-win" style="background:hsl({{ (cur.win_pct * 1.2)|int if cur.win_pct is not none else 0 }},62%,42%)"></span>
+      <span class="dsn-dd-cur"><span class="dsn-dd-date">{{ cur.date }} · {{ cur.games }}g · {{ cur.record }}{% if cur.win_pct is not none %} ({{ cur.win_pct }}%){% endif %}</span><span class="dsn-dd-sub">{% if cur.mvp %}MVP <b class="player-name {{ cur.mvp|player_class }}">{{ cur.mvp }}</b>{% endif %}{% if cur.players_str %} · {{ cur.players_str }}{% endif %}</span></span>{% else %}<span class="dsn-dd-cur">Pick a session</span>{% endif %}
+      <span class="dsn-dd-caret">▾</span>
+    </button>
+    <div class="dsn-dd-menu" id="dsnMenu" role="listbox">
+      {% for s in session_list %}
+      <a href="{{ base }}?sid={{ s.sid }}" class="dsn-dd-item{{ ' dsn-dd-sel' if (s.sid == selected_sid or (not selected_sid and loop.first)) }}" role="option">
+        <span class="dsn-dd-win" style="background:hsl({{ (s.win_pct * 1.2)|int if s.win_pct is not none else 0 }},62%,42%)" title="{% if s.win_pct is not none %}{{ s.win_pct }}% win{% endif %}"></span>
+        <span class="dsn-dd-main">
+          <span class="dsn-dd-date">{{ s.date }} · {{ s.games }}g · {{ s.record }}{% if s.win_pct is not none %} ({{ s.win_pct }}%){% endif %}</span>
+          <span class="dsn-dd-sub">{% if s.mvp %}MVP <b class="player-name {{ s.mvp|player_class }}">{{ s.mvp }}</b>{% if s.players_str %} · {% endif %}{% endif %}{{ s.players_str }}</span>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if next_sid %}<a href="{{ base }}?sid={{ next_sid }}" class="dsn-arrow" title="Next (newer) session" aria-label="Next session">→</a>{% else %}<span class="dsn-arrow dsn-off">→</span>{% endif %}
+  {% if selected_sid %}<a href="{{ base }}" class="dsn-latest" title="Back to the latest session">⟲ latest</a>{% endif %}
+</div>
+<script>
+function dsnToggle(e){e.stopPropagation();document.getElementById('dsnDD').classList.toggle('open');}
+document.addEventListener('click',function(e){var d=document.getElementById('dsnDD');if(d&&!d.contains(e.target))d.classList.remove('open');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=document.getElementById('dsnDD');if(d)d.classList.remove('open');}});
+</script>
+{% endmacro %}

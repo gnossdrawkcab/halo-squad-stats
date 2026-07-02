@@ -2923,7 +2923,8 @@ def build_player_solo_cards(df: pd.DataFrame) -> list[dict]:
 
 def build_session_list(df: pd.DataFrame, mode: str = 'squad', limit: int = 40) -> list[dict]:
     """Recent sessions (gap-clustered) for the session-browser picker. Each entry
-    carries the anchor match_id (sid) so /report can render that session's card."""
+    carries the anchor match_id (sid) so /report (mode='squad') or /solo
+    (mode='solo') can render that session's card. mode='all' = no stack filter."""
     if df.empty or 'match_id' not in df.columns or 'player_gamertag' not in df.columns:
         return []
     ranked = _ranked_only(df)
@@ -2936,6 +2937,11 @@ def build_session_list(df: pd.DataFrame, mode: str = 'squad', limit: int = 40) -
     ppm = ranked.groupby('match_id')['player_gamertag'].nunique()
     if mode == 'squad':
         ids = set(ppm[ppm >= 2].index)
+        pool = ranked[ranked['match_id'].isin(ids)]
+    elif mode == 'solo':
+        # Solo Dash browser: matches where exactly ONE tracked player played
+        # (same pool rule as build_squad_report_card(mode='solo')).
+        ids = set(ppm[ppm == 1].index)
         pool = ranked[ranked['match_id'].isin(ids)]
     else:
         pool = ranked
@@ -7443,7 +7449,7 @@ INDEX_SLOW_CACHE = {'ts': 0.0, 'count': -1, 'payload': None}
 
 def _index_slow_aggregates(df: pd.DataFrame, count: int) -> dict:
     """The heavy, slow-moving parts of the dashboard (all-time / multi-timeframe
-    aggregates, solo cards, full session list). These barely change from one game
+    aggregates, full session list). These barely change from one game
     to the next, so they get a 5-minute time cache that is NOT invalidated by
     every new game — that's what kept initial load at 7-10s during active play."""
     e = INDEX_SLOW_CACHE
@@ -7454,7 +7460,6 @@ def _index_slow_aggregates(df: pd.DataFrame, count: int) -> dict:
     # cards for the full 5-min TTL even after the DB recovers.
     _ok = df is not None and not df.empty
     slow = {
-        'solo_player_cards': build_player_solo_cards(df),
         'session_list': build_session_list(df, mode='squad'),
         'csr_overview_trends': build_csr_trends(apply_trend_range(normalize_trend_df(df), '90')),
         'ranked_arena_rows': build_ranked_arena_summary(df),
@@ -7502,7 +7507,10 @@ def _index_base_build(df: pd.DataFrame) -> dict:
     # Fast tier: the live-ish, per-game stuff (report card + grade chart + CSR).
     fast = {
         'squad_report_card': build_squad_report_card(df, mode='squad'),
-        'latest_report_card': build_squad_report_card(df, mode='latest'),
+        # Cheap probe for the "latest session was a solo run" cross-link strip:
+        # just the newest ranked session's metadata (any kind), NOT a full
+        # graded report card — the solo card itself lives on /solo now.
+        'latest_any_session': build_session_list(df, mode='all', limit=1),
         'grade_timeline': build_grade_timeline(df, mode='squad'),
         'squad_skill_perf': build_squad_skill_performance(df),
         'csr_overview_rows': build_csr_overview(df),
@@ -9009,6 +9017,16 @@ def index():
     next_sid = _sids[_cur - 1] if _cur - 1 >= 0 else ''
     cur_session = session_list[_cur] if 0 <= _cur < len(session_list) else None
 
+    # Cross-link strip: if the very latest ranked session was a SOLO run (newer
+    # than the squad card's night), point at /solo instead of rendering solo
+    # content here — the squad dash stays squad-only.
+    _latest_any = base.get('latest_any_session') or []
+    solo_xlink = None
+    if (_latest_any and session_list
+            and _latest_any[0].get('kind') == 'solo'
+            and _latest_any[0].get('sid') != session_list[0].get('sid')):
+        solo_xlink = _latest_any[0]
+
     # Lightweight per-request work
     map_rows = build_breakdown(filtered, 'map')
     playlist_rows = build_breakdown(filtered, 'playlist')
@@ -9081,7 +9099,7 @@ def index():
                           session_highlights=session_highlights,
                           session_mvp=session_mvp,
                           squad_report_card=squad_card,
-                          latest_report_card=base.get('latest_report_card'),
+                          solo_xlink=solo_xlink,
                           session_list=session_list,
                           selected_sid=sel_sid,
                           prev_sid=prev_sid,
@@ -9095,7 +9113,6 @@ def index():
                           sb_stack_labels=SCOREBOARD_STACKS,
                           grade_timeline=base.get('grade_timeline', {}),
                           squad_skill_perf=base.get('squad_skill_perf', []),
-                          solo_player_cards=base.get('solo_player_cards', []),
                           csr_overview_rows=base['csr_overview_rows'],
                           csr_overview_trends=base['csr_overview_trends'],
                           player_analysis_rows=base['player_analysis_rows'],
@@ -9314,15 +9331,46 @@ def suggestions():
 
 @app.route('/solo')
 def solo_dashboard():
-    """Solo dashboard: latest solo session report card + every player's most
-    recent solo grind, mirroring the squad dashboard for lone-queue play."""
+    """Solo dashboard: solo session report card (browsable via ?sid=, like the
+    squad dash), every player's most recent solo grind, and the solo-mode grade
+    timeline — the lone-queue mirror of the squad dashboard."""
     df = cache.get()
     payload = get_cached_page_payload('solo_page', lambda: {
         'solo_card': build_squad_report_card(df, mode='solo'),
         'solo_player_cards': build_player_solo_cards(df),
         'grade_timeline': build_grade_timeline(df, mode='solo'),
-    })
-    return render_template('solo.html', app_title=APP_TITLE, **(payload or {}))
+        'session_list': build_session_list(df, mode='solo'),
+    }) or {}
+
+    # Session browser (same pattern as index): pick any SOLO session to anchor
+    # the report card on that night instead of the latest.
+    session_list = payload.get('session_list', [])
+    sel_sid = request.args.get('sid', '')
+    solo_card = payload.get('solo_card') or {}
+    if sel_sid:
+        _sc = get_cached_page_payload(
+            'solo_session_card',
+            lambda: build_squad_report_card(df, mode='solo', anchor_match_id=sel_sid),
+            key=sel_sid)
+        if _sc and _sc.get('rows'):
+            solo_card = _sc
+    _sids = [s['sid'] for s in session_list]
+    _cur = _sids.index(sel_sid) if sel_sid in _sids else 0
+    prev_sid = _sids[_cur + 1] if 0 <= _cur + 1 < len(_sids) else ''
+    next_sid = _sids[_cur - 1] if _cur - 1 >= 0 else ''
+    cur_session = session_list[_cur] if 0 <= _cur < len(session_list) else None
+
+    return render_template('solo.html',
+                           app_title=APP_TITLE,
+                           solo_card=solo_card,
+                           solo_player_cards=payload.get('solo_player_cards', []),
+                           grade_timeline=payload.get('grade_timeline', {}),
+                           session_list=session_list,
+                           selected_sid=sel_sid,
+                           prev_sid=prev_sid,
+                           next_sid=next_sid,
+                           cur_session=cur_session,
+                           db_row_count=count_cache.get())
 
 
 @app.route('/lifetime')

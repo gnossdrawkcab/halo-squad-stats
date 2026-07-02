@@ -1,0 +1,94 @@
+{# Shared grade-over-time panel (canvas + Chart.js + emoji legend), used by
+   the squad dash (squad-mode timeline) and the Solo Dash (solo-mode).
+   Extracted from index.html — edit HERE for both pages. Requires Chart.js
+   (loaded synchronously in base.html) and copyGradeTimeline() from
+   _report_card_scripts.html. #}
+{% macro grade_timeline_panel(gt, title='📈 Grade Over Time', subtitle=None) %}
+{% if gt and gt.players %}
+<section class="panel grade-timeline-panel" data-count="{{ gt.count }}">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">{{ title }}</div>
+    {% if subtitle %}<span class="muted">{{ subtitle }}</span>{% endif %}
+    <button class="btn btn-small" type="button" onclick="copyGradeTimeline()" id="gt-copy-btn">📋 Copy trend</button>
+  </div>
+  <div class="gt-chart-wrap"><canvas id="gradeTimelineChart"></canvas></div>
+  <div class="gt-legend">
+    {% for p in gt.players %}
+    <span class="gt-legend-item" data-player="{{ p.player }}" data-emoji="{{ p.emoji }}" data-trend="{{ p.trend }}" data-trend-pct="{{ p.trend_pct }}" data-cls="{{ p.cls }}">
+      <span class="player-name {{ p.cls }}">{{ p.player }}</span>
+      <span class="gt-spark">{{ p.emoji }}</span>
+      <span class="gt-trend muted">{{ p.trend }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  <script type="application/json" id="grade-timeline-data">{{ gt|tojson|safe }}</script>
+</section>
+<script>
+// ── Grade-over-time chart (session report-card grade per player) ──
+(function () {
+  const el = document.getElementById('grade-timeline-data');
+  const canvas = document.getElementById('gradeTimelineChart');
+  if (!el || !canvas || typeof Chart === 'undefined') return;
+  let data;
+  try { data = JSON.parse(el.textContent); } catch (e) { return; }
+  if (!data || !data.players || !data.players.length) return;
+
+  // Resolve each player's themed color from CSS (same colors used site-wide).
+  function colorFor(cls) {
+    const probe = document.createElement('span');
+    probe.className = 'player-name ' + (cls || '');
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    return c || '#7c8aff';
+  }
+  const datasets = data.players.map(p => {
+    const col = colorFor(p.cls);
+    return {
+      label: p.player,
+      data: p.points.map(pt => pt ? pt.pct : null),
+      _grades: p.points.map(pt => pt ? pt.grade : null),
+      borderColor: col,
+      backgroundColor: col,
+      borderWidth: 2,
+      tension: 0.25,
+      spanGaps: true,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    };
+  });
+  new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: data.labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aeb7c7', boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const g = ctx.dataset._grades?.[ctx.dataIndex];
+              return `${ctx.dataset.label}: ${g || '—'} (${Math.round(ctx.parsed.y)}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0, max: 100,
+          ticks: {
+            color: '#8b95a7',
+            callback: (v) => ({ 90: 'S', 75: 'A', 50: 'B', 25: 'C', 10: 'D', 0: 'F' }[v] ?? '')
+          },
+          grid: { color: 'rgba(255,255,255,.06)' }
+        },
+        x: { ticks: { color: '#8b95a7', maxRotation: 0, autoSkip: true }, grid: { display: false } }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endmacro %}

@@ -43,6 +43,9 @@ def parse_args():
                     help='total matches to synthesize (spread over ~10 sessions)')
     ap.add_argument('--port', type=int, default=5601)
     ap.add_argument('--seed', type=int, default=7)
+    ap.add_argument('--solo-latest', action='store_true',
+                    help='make the MOST RECENT synthetic session a solo grind '
+                         '(exercises the squad dash cross-link strip to /solo)')
     return ap.parse_args()
 
 
@@ -63,7 +66,7 @@ def setup_env(n_players: int) -> list:
     return names
 
 
-def build_frame(names: list, n_games: int, seed: int = 7):
+def build_frame(names: list, n_games: int, seed: int = 7, solo_latest: bool = False):
     """Synthetic ranked-arena history shaped like load_dataframe()'s output.
 
     Column names mirror what the dashboards read (see load_dataframe /
@@ -72,6 +75,10 @@ def build_frame(names: list, n_games: int, seed: int = 7):
     personal_score, team_personal_score, average_life_duration, date,
     match_id, player_gamertag, playlist, map, game_type, csr columns,
     shots_fired/hit, callout_assists and the small named medal keep-set.
+
+    Roughly every third session is a SOLO grind (exactly one tracked player in
+    the match → ppm == 1) so the Solo Dash (/solo), the Latest Solo Sessions
+    table and the squad dash's solo cross-link strip all have data to render.
     """
     import pandas as pd
     rng = random.Random(seed)
@@ -88,6 +95,11 @@ def build_frame(names: list, n_games: int, seed: int = 7):
         # one session every ~3 days, most recent session last night
         session_games = min(games_left, rng.randint(6, 10))
         session_start = now - timedelta(days=3 * session_idx, hours=rng.randint(1, 4))
+        # Solo session = one tracked player queueing alone. Newest session
+        # (idx 0) stays a squad night unless --solo-latest flips it.
+        solo_session = len(names) > 1 and (
+            (session_idx == 0 and solo_latest) or (session_idx > 0 and session_idx % 3 == 2))
+        roster = [names[session_idx % len(names)]] if solo_session else names
         for g in range(session_games):
             mid = f'm{session_idx:03d}-{g:02d}'
             when = session_start - timedelta(minutes=14 * (session_games - g))
@@ -97,7 +109,7 @@ def build_frame(names: list, n_games: int, seed: int = 7):
             gmap = rng.choice(MAPS)
             team_score_total = 0
             match_rows = []
-            for gt in names:
+            for gt in roster:
                 sk = skill[gt]
                 kills = max(0, round(rng.gauss(14 + 6 * sk, 4)))
                 deaths = max(1, round(rng.gauss(13 - 4 * sk, 3.5)))
@@ -154,7 +166,7 @@ def build_frame(names: list, n_games: int, seed: int = 7):
                 })
             team_dmg = sum(r['damage_dealt'] for r in match_rows)
             team_kills = sum(r['kills'] for r in match_rows)
-            team_mmr = round(sum(csr[gt] for gt in names) / len(names)) + rng.randint(-40, 40)
+            team_mmr = round(sum(csr[gt] for gt in roster) / len(roster)) + rng.randint(-40, 40)
             for r in match_rows:
                 r['team_personal_score'] = team_score_total
                 r['team_damage_dealt'] = team_dmg
@@ -206,7 +218,8 @@ def main():
     sys.path.insert(0, str(ROOT / 'src'))
     import webapp  # noqa: E402  (env must be set before this import)
 
-    frame = webapp.normalize_df(build_frame(names, args.games, args.seed))
+    frame = webapp.normalize_df(build_frame(names, args.games, args.seed,
+                                            solo_latest=args.solo_latest))
     webapp.cache = FakeDataCache(frame)
     webapp.medal_cache = FakeDataCache(frame)
     webapp.count_cache = FakeCountCache(len(frame))

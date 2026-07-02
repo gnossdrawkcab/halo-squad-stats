@@ -1,0 +1,512 @@
+{# Shared report-card / grade / mobile-list styling used by BOTH the squad
+   dash (index.html) and the Solo Dash (solo.html). Extracted from index.html
+   so the two dashboards stay visually identical — edit HERE, not per-page.
+   Refresh trigger: any .rc-* / .mobile-* / grade-badge styling change. #}
+<style>
+  /* ── Section labels ─────────────────────────────────────────── */
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ── Grade badges ────────────────────────────────────────── */
+  .grade-badge {
+    display: inline-block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    min-width: 2.4rem;
+    text-align: center;
+    border-radius: 6px;
+    padding: 1px 4px;
+  }
+  .grade-s { background: #6d28d9; color: #ede9fe; }
+  .grade-a { background: #166534; color: #bbf7d0; }
+  .grade-b { background: #1e40af; color: #bfdbfe; }
+  .grade-c { background: #b45309; color: #fde68a; }
+  .grade-d { background: #991b1b; color: #fecaca; }
+  .grade-f { background: #1f2937; color: #f87171; border: 1px solid #f87171; }
+
+  .sub-grade {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    min-width: 2.2rem;
+    text-align: center;
+    border-radius: 5px;
+    padding: 1px 4px;
+  }
+
+  .report-card-meta {
+    font-size: 0.84rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  /* ── Report card player cards ──────────────────────────────── */
+  .rc-cards {
+    display: grid;
+    /* auto-fit (not auto-fill) so a squad of 2 doesn't leave the right half
+       empty — cards widen into the available room instead of clipping the
+       game-by-game rows. Capped so they don't sprawl on ultrawide, and the
+       cap is low enough that a 1400px viewport fits THREE columns — with big
+       rosters (up to 20 tracked players) a 560px cap forced two columns and
+       doubled the page height. A single player still gets one tidy card. */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 420px));
+    justify-content: start;
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+
+  .rc-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 12px;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .rc-card.grade-s { border-left-color: #7c3aed; background: rgba(109, 40, 217, 0.05); }
+  .rc-card.grade-a { border-left-color: #16a34a; background: rgba(22, 101, 52, 0.06); }
+  .rc-card.grade-b { border-left-color: #2563eb; background: rgba(30, 64, 175, 0.06); }
+  .rc-card.grade-c { border-left-color: #d97706; background: rgba(180, 83, 9, 0.06); }
+  .rc-card.grade-d { border-left-color: #dc2626; background: rgba(153, 27, 27, 0.06); }
+  .rc-card.grade-f { border-left-color: #374151; }
+
+  .rc-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .rc-card-top .grade-badge {
+    font-size: 1.4rem;
+    min-width: 3rem;
+    padding: 3px 6px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    line-height: 1.1;
+  }
+
+  .rc-card-header-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .rc-card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rc-card-record {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .rc-card-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .rc-stat {
+    display: grid;
+    grid-template-columns: 52px 2.5rem 1fr;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    min-height: 28px; /* comfortable tap target */
+  }
+
+  .rc-stat-label {
+    color: var(--muted);
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .rc-stat-val {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .rc-stat-val .sub-grade {
+    display: none; /* grade chip is in its own column now */
+  }
+
+  .rc-stat-grade {
+    /* the grade chip column */
+  }
+
+  .rc-card-footer {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.73rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 7px;
+  }
+
+  .mobile-only,
+  .mobile-session-summary,
+  .mobile-dashboard-links {
+    display: none;
+  }
+
+  .mobile-session-summary {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 12px;
+    margin: 0 0 12px;
+  }
+
+  .mss-top {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mss-title {
+    min-width: 0;
+  }
+
+  .mss-title strong,
+  .mss-title span {
+    display: block;
+  }
+
+  .mss-title span,
+  .mss-stat span {
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
+  .mss-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .mss-stat {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 0;
+  }
+
+  .mss-stat strong {
+    display: block;
+    font-size: 1.05rem;
+    line-height: 1.1;
+  }
+
+  .mobile-dashboard-links {
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 0 2px;
+  }
+
+  .mobile-dashboard-links::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-row-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 10px;
+    min-width: 0;
+  }
+
+  .mobile-row-main {
+    min-width: 0;
+  }
+
+  .mobile-row-main strong,
+  .mobile-row-main span {
+    display: block;
+  }
+
+  .mobile-row-main span,
+  .mobile-row-side span {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+
+  .mobile-row-side {
+    text-align: right;
+    min-width: 4.3rem;
+  }
+
+  .mobile-row-side strong {
+    display: block;
+    line-height: 1.1;
+  }
+
+  .mobile-obj-chips {
+    grid-column: 2 / -1;
+    display: none; /* desktop shows the .rc-card-footer chips; mobile media query turns these on */
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: -2px;
+  }
+
+  .mobile-obj-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(61, 191, 184, 0.08);
+    color: var(--ink);
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── Baselines legend ───────────────────────────────────────── */
+  .rc-baselines {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .rc-baselines-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 2px;
+  }
+
+  .rc-baseline-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    cursor: default;
+  }
+
+  .rc-baseline-stat {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .rc-baseline-val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .rc-baseline-sep {
+    color: var(--border);
+    font-size: 0.7rem;
+  }
+
+  .rc-baseline-s {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Mobile overrides ──────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .mobile-only {
+      display: block;
+    }
+
+    .mobile-session-summary {
+      display: block;
+    }
+
+    .mobile-dashboard-links {
+      display: flex;
+      margin: 8px 0 2px;
+    }
+
+    .mss-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mobile-defer {
+      display: none !important;
+    }
+
+    .rc-baselines,
+    .grade-help,
+    .report-card-meta,
+    .rc-card-footer,
+    .rc-stat.mobile-extra:not(.mobile-obj-keep) {
+      display: none !important;
+    }
+
+    /* Full per-stat session table stays available on mobile too (Pat: "main
+       session table back on mobile with every stat for every player"). It's a
+       wide fixed matrix, so it horizontal-scrolls inside its .table-wrap. */
+    .rc-detail-table-wrap {
+      display: block !important;
+    }
+
+    .mobile-obj-chips {
+      display: flex;
+    }
+
+    #rc-copy-btn,
+    #rcsq-copy-btn,
+    .rc-grade-toggle {
+      font-size: 0.74rem;
+      padding: 4px 8px;
+    }
+
+    .panel-header {
+      align-items: flex-start;
+    }
+
+    .panel-header > div[style*="display:flex"] {
+      flex-wrap: wrap;
+    }
+
+    /* Single column cards on phone */
+    .rc-cards {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    /* Larger stat rows for thumb-friendliness */
+    .rc-stat {
+      grid-template-columns: 58px 2.6rem 1fr;
+      min-height: 32px;
+      font-size: 0.92rem;
+    }
+
+    .rc-stat-label {
+      font-size: 0.72rem;
+    }
+
+    .rc-stat-val {
+      font-size: 0.95rem;
+    }
+
+    .rc-card-top .grade-badge {
+      font-size: 1.5rem;
+      min-width: 3.2rem;
+    }
+
+    .rc-card-name {
+      font-size: 1.1rem;
+    }
+
+    .rc-card-record {
+      font-size: 0.8rem;
+    }
+
+    .rc-card-footer {
+      font-size: 0.78rem;
+      gap: 8px;
+    }
+
+    .rc-baseline-pill {
+      padding: 4px 10px;
+    }
+
+    /* Detail table: horizontal scroll with clear affordance */
+    #rc-detail-table, #rcsq-detail-table {
+      font-size: 0.78rem;
+    }
+    /* Pin the Player column so names stay put while scrolling the wide table. */
+    #rc-detail-table th:first-child, #rc-detail-table td:first-child,
+    #rcsq-detail-table th:first-child, #rcsq-detail-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--bg-2, #1b2230);
+      box-shadow: 1px 0 0 var(--border, #38415a);
+    }
+    .rc-detail-table-wrap > summary {
+      font-size: 0.8rem;
+    }
+    .rc-detail-table-wrap .table-wrap::after {
+      content: "⇄ scroll for all stats";
+      display: block;
+      font-size: 0.68rem;
+      color: var(--text-3, #8b95a7);
+      text-align: right;
+      padding: 4px 2px 0;
+    }
+
+    /* Tappable stat/chip affordance on touch — subtle dotted underline */
+    .mobile-obj-chip { cursor: pointer; }
+  }
+
+  /* Tap-to-reveal tooltip (touch devices have no hover for title=) */
+  .tap-tooltip {
+    position: absolute;
+    z-index: 9999;
+    max-width: min(260px, 80vw);
+    background: var(--bg-2, #1b2230);
+    color: var(--text-1, #e8edf6);
+    border: 1px solid var(--border, #38415a);
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    pointer-events: none;
+    animation: tapTipIn .12s ease-out;
+  }
+  @keyframes tapTipIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+  /* ── Solo cross-link strip (squad dash → /solo) ────────────── */
+  .solo-xlink {
+    display: flex;
+    flex-direction: row;  /* .panel is a column flex — lay the strip out as one row */
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+  .solo-xlink-txt { font-size: 0.9rem; }
+  .solo-xlink .btn { white-space: nowrap; }
+</style>

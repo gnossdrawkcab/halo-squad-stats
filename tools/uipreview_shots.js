@@ -25,6 +25,7 @@ const OUT = arg('out', '/tmp/uipreview-shots');
 const TAG = arg('tag', 'n');
 const PAGES = [
   ['dashboard', '/'],
+  ['solo', '/solo'],
   ['trends', '/trends'],
   ['setup', '/setup'],
 ];

@@ -1,37 +1,74 @@
 {% extends "base.html" %}
-{% from "_report_card.html" import render_report_card with context %}
-{% block content %}
 
-<section class="panel" style="padding:14px 18px">
-  <div class="panel-header" style="margin:0">
-    <div class="section-label" style="margin-bottom:0">🎯 Solo Dashboard</div>
-    <span class="muted">Lone-queue play only — squad games excluded</span>
+{% block title %}Solo Dash - {{ app_title }}{% endblock %}
+
+{% block head %}
+{% include "_report_card_css.html" %}
+{% endblock %}
+
+{% block content %}
+{% from "_report_card.html" import render_report_card with context %}
+{% from "_session_nav.html" import session_nav %}
+{% from "_grade_timeline.html" import grade_timeline_panel %}
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>🎯 Solo Dash</h2>
+    <span class="muted">Lone-queue ranked only — squad games excluded, graded vs solo history</span>
   </div>
 </section>
 
-{% if solo_card and solo_card.rows %}
-{{ render_report_card(solo_card, 'rc', '/?stay=1', '🏠 Squad dash →', true, 'Latest Solo Session Report Card') }}
-{% else %}
-<section class="panel"><p class="muted">No solo ranked sessions recorded yet.</p></section>
+{% if session_list %}
+{{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid, base='/solo', label='📅 Solo session') }}
 {% endif %}
 
-{% include "_solo_sessions.html" %}
-
-{% if grade_timeline and grade_timeline.players %}
+{% if solo_card and solo_card.rows %}
+{{ render_report_card(solo_card, 'rc', '/?stay=1', '🏠 Squad dash →', true, 'Solo Session Report Card') }}
+{% else %}
 <section class="panel">
   <div class="panel-header">
-    <div class="section-label" style="margin-bottom:0">📈 Solo Grade Trend</div>
-    <span class="muted">last {{ grade_timeline.count }} solo sessions</span>
+    <h2>Solo Session Report Card</h2>
+    <a href="/?stay=1" class="btn btn-small">🏠 Squad dash →</a>
   </div>
-  <div class="gt-legend">
-    {% for p in grade_timeline.players %}
-    <span class="gt-legend-item">
-      <span class="player-name {{ p.cls }}">{{ p.player }}</span>
-      <span class="gt-spark">{{ p.emoji }}</span>
-      <span class="gt-trend muted">{{ p.trend }}</span>
-    </span>
+  <p class="muted">No solo ranked sessions yet — this page fills in once someone queues ranked alone. Squad nights live on the <a href="/?stay=1">squad dash</a>.</p>
+</section>
+{% endif %}
+
+{# Every player's most recent solo grind — full table on desktop… #}
+{% include "_solo_sessions.html" %}
+
+{# …and the compact per-player list on phones (moved here from the squad dash). #}
+{% if solo_player_cards %}
+<section class="panel mobile-only">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Latest Solo Sessions</div>
+    <a href="/sessions" class="btn btn-small">All →</a>
+  </div>
+  <p class="muted section-intro">Graded vs solo games only.</p>
+  <div class="mobile-list">
+    {% for c in solo_player_cards %}
+    <a class="mobile-row-card" href="{% if c.sid %}/session/{{ c.sid }}{% else %}{{ c.player|player_href }}{% endif %}" style="text-decoration:none;color:inherit">
+      <span class="grade-badge {{ c.grade_class }}" title="{{ c.grade_tip }}">{{ c.grade }}</span>
+      <span class="mobile-row-main">
+        <strong class="player-name {{ c.css }}">{{ c.player }}</strong>
+        <span>{{ c.session_date }} · {{ c.games }}g · {{ c.record }} · ObjSc {{ c.obj_score }} · CSR {{ c.csr_delta }}{% if c.opp_mmr %} · ⚔️ {{ c.opp_mmr }}{% endif %}</span>
+      </span>
+      <span class="mobile-row-side">
+        <span>KDA</span>
+        <strong class="{{ c.kda_heat }}">{{ c.kda }}</strong>
+        <span>ObjSc</span>
+        <strong class="{{ c.obj_score_heat }}">{{ c.obj_score }}</strong>
+      </span>
+    </a>
     {% endfor %}
   </div>
 </section>
 {% endif %}
+
+{{ grade_timeline_panel(grade_timeline, title='📈 Solo Grade Over Time',
+                        subtitle=('last ' ~ grade_timeline.count ~ ' solo sessions') if grade_timeline and grade_timeline.count else none) }}
+{% endblock %}
+
+{% block scripts %}
+{% include "_report_card_scripts.html" %}
 {% endblock %}
