@@ -308,7 +308,16 @@ function applyRcHeatmap(pfx) {
   const table = document.getElementById((pfx || 'rc') + '-detail-table');
   if (!table) return;
   const rows = Array.from(table.querySelectorAll('tbody tr'));
-  if (rows.length < 2) return; // nothing to compare with 1 player
+  if (rows.length === 1) {
+    // One player (e.g. a solo session): column-relative heat is meaningless,
+    // so tint graded stats by their percentile vs the 365d history instead.
+    rows[0].querySelectorAll('td[data-pct]').forEach(td => {
+      const p = parseFloat(td.getAttribute('data-pct'));
+      if (!isNaN(p)) td.style.background = heatColor(p / 100);
+    });
+    return;
+  }
+  if (rows.length < 2) return;
 
   // Gather all cells that have data-val per column index
   const colCells = {}; // colIdx -> [{td, val, invert}]

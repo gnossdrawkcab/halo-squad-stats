@@ -22,8 +22,10 @@
 {{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid, base='/solo', label='📅 Solo session') }}
 {% endif %}
 
-{% if solo_card and solo_card.rows %}
 {{ render_full_stat_table(solo_card, 'rc') }}
+
+
+{% if solo_card and solo_card.rows %}
 {{ render_report_card(solo_card, 'rc', '/?stay=1', '🏠 Squad dash →', true, 'Solo Session Report Card') }}
 {% else %}
 <section class="panel">

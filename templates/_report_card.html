@@ -251,24 +251,24 @@
             <td data-val="{{ row.wins }}">{{ row.wins }}</td>
             <td data-val="{{ row.win_pct|replace('%','') }}">{{ row.win_pct }}</td>
             <td><span class="sub-grade {{ row.kda_grade_class }}">{{ row.kda_grade }}</span></td>
-            <td><strong data-val="{{ row.kda }}">{{ row.kda }}</strong></td>
+            <td data-val="{{ row.kda }}" data-pct="{{ row.kda_pctile }}"><strong>{{ row.kda }}</strong></td>
             <td data-val="{{ row.kd1 }}">{{ row.kd1 }}</td>
             <td data-val="{{ row.kills }}">{{ row.kills }}</td>
             <td data-val="{{ row.deaths }}" data-heat-invert>{{ row.deaths }}</td>
             <td data-val="{{ row.assists }}">{{ row.assists }}</td>
             <td data-val="{{ row.perfect_pg }}" title="{{ row.perfect_total }} perfect medals this session">{{ row.perfect_pg }}</td>
             <td><span class="sub-grade {{ row.ddiff_grade_class }}">{{ row.ddiff_grade }}</span></td>
-            <td data-val="{{ row.dmg_diff_pg|replace('+','') }}">{{ row.dmg_diff_pg }}</td>
+            <td data-val="{{ row.dmg_diff_pg|replace('+','') }}" data-pct="{{ row.ddiff_pctile }}">{{ row.dmg_diff_pg }}</td>
             <td data-val="{{ row.dmg_plus }}">{{ row.dmg_plus }}</td>
             <td data-val="{{ row.dmg_minus }}" data-heat-invert>{{ row.dmg_minus }}</td>
             <td><span class="sub-grade {{ row.dmgm_grade_class }}">{{ row.dmgm_grade }}</span></td>
-            <td data-val="{{ row.dmg_per_min }}">{{ row.dmg_per_min }}</td>
+            <td data-val="{{ row.dmg_per_min }}" data-pct="{{ row.dmgm_pctile }}">{{ row.dmg_per_min }}</td>
             <td><span class="sub-grade {{ row.life_grade_class }}">{{ row.life_grade }}</span></td>
-            <td data-val="{{ row.avg_life|replace('s','') }}">{{ row.avg_life }}</td>
+            <td data-val="{{ row.avg_life|replace('s','') }}" data-pct="{{ row.life_pctile }}">{{ row.avg_life }}</td>
             <td><span class="sub-grade {{ row.obj_grade_class }}">{{ row.obj_grade }}</span></td>
-            <td data-val="{{ row.obj_score }}">{{ row.obj_score }}</td>
+            <td data-val="{{ row.obj_score }}" data-pct="{{ row.obj_pctile if row.obj_pctile is not none else '' }}">{{ row.obj_score }}</td>
             <td><span class="sub-grade {{ row.score_grade_class }}">{{ row.score_grade }}</span></td>
-            <td data-val="{{ row.score_pct|replace('%','') }}">{{ row.score_pct }}</td>
+            <td data-val="{{ row.score_pct|replace('%','') }}" data-pct="{{ row.scorepct_pctile }}">{{ row.score_pct }}</td>
             <td data-val="{{ row.accuracy|replace('%','') }}">{{ row.accuracy }}</td>
             {% if rc.has_hill %}<td data-val="{{ row.hill_pg_secs }}" title="{{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }}">{{ row.hill_pg or '—' }}</td>{% endif %}
             {% for oc in rc.obj_columns %}<td data-val="{{ row.objs[oc.key].val }}" title="{{ row.objs[oc.key].total }} total this session">{{ row.objs[oc.key].display or '—' }}</td>{% endfor %}
