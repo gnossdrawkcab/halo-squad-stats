@@ -1,0 +1,645 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Players - {{ app_title }}{% endblock %}
+
+{% block content %}
+{% from "_grade_help.html" import grade_legend %}
+<section class="panel">
+  <h2>Player Comparison</h2>
+  <p class="muted">Comprehensive analysis of each player's strengths and weaknesses</p>
+  {% if compare_picker %}
+  <div class="cmp-picker" id="cmpPicker">
+    <span class="cmp-picker-lbl">Compare:</span>
+    {% for p in compare_picker %}
+    <label class="cmp-chip {{ p.css }}{% if p.selected %} on{% endif %}">
+      <input type="checkbox" value="{{ p.name }}"{% if p.selected %} checked{% endif %}> {{ p.name }}
+    </label>
+    {% endfor %}
+    <span class="cmp-picker-hint muted">tick two to focus head-to-head · all = whole squad</span>
+  </div>
+  {% endif %}
+  {{ grade_legend() }}
+</section>
+
+{% if matrix and matrix.players %}
+<section class="panel">
+  <h2>Head-to-Head &mdash; Every Stat</h2>
+  <p class="muted">Per-game averages side by side. 👑 = best in each row.</p>
+  <div class="table-wrap cmp-wrap">
+    <table class="cmp-matrix">
+      <thead>
+        <tr>
+          <th class="cmp-stat-col">Stat</th>
+          {% for p in matrix.players %}
+          <th class="cmp-phead">
+            <a href="{{ p.name|player_href }}" class="player-name {{ p.css }}">{{ p.name }}</a>
+            <span class="cmp-pgames">{{ p.games }} games</span>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in matrix.groups %}
+        <tr class="cmp-grouprow"><td colspan="{{ matrix.players|length + 1 }}">{{ group.title }}</td></tr>
+        {% for row in group.rows %}
+        <tr>
+          <th class="cmp-stat-col cmp-rowlabel">{{ row.label }}{% if not row.higher_is_better %} <span class="cmp-low" title="lower is better">▾</span>{% endif %}</th>
+          {% for c in row.cells %}
+          <td class="cmp-cell{% if c.best %} cmp-best{% endif %}{% if c.worst %} cmp-worst{% endif %}">
+            <span class="cmp-val">{% if c.best %}<span class="cmp-crown">👑</span>{% endif %}{{ c.value }}</span>
+            <span class="cmp-bar"><span class="cmp-bar-fill" style="width: {{ (c.norm * 100)|round(1) }}%; background: {{ c.color }};"></span></span>
+            {% if c.val30 %}<span class="cmp-30d" title="Average over the past 30 days">30d {{ c.val30 }}</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if radar and radar.players %}
+<section class="panel">
+  <h2>Skill Radar</h2>
+  <p class="muted">Absolute report-card grades (0-100) across the squad.</p>
+  <div class="chart-container" style="max-width:580px;margin:0 auto;height:430px">
+    <canvas id="radarChart"></canvas>
+  </div>
+</section>
+{% endif %}
+
+{% if player_summaries %}
+  {% for player, profile in player_summaries.items() %}
+  <section class="panel">
+    <div class="player-profile">
+      <h3><a href="{{ player|player_href }}" class="player-name {{ player|player_class }}">{{ player }}</a></h3>
+      {% if profile.title %}
+        <p class="player-title">{{ profile.title }}</p>
+      {% endif %}
+      {% if profile.writeup %}
+        <p class="player-writeup">{{ profile.writeup|safe }}</p>
+      {% endif %}
+      
+      <div class="profile-stats-grid">
+        <div class="stat-group">
+          <h4>Overview</h4>
+          <div class="stat-row">
+            <span class="stat-label">Games Played:</span>
+            <span class="stat-value">{{ profile.games }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Win Rate:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.win_pct) }}%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">KDA:</span>
+            <span class="stat-value">{{ "%.2f"|format(profile.kda) }}</span>
+          </div>
+        </div>
+
+        <div class="stat-group">
+          <h4>Per Game</h4>
+          <div class="stat-row">
+            <span class="stat-label">Kills/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.kills_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Deaths/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.deaths_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Assists/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.assists_pg) }}</span>
+          </div>
+        </div>
+
+        <div class="stat-group">
+          <h4>Combat</h4>
+          <div class="stat-row">
+            <span class="stat-label">Accuracy:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.accuracy) }}%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage/Game:</span>
+            <span class="stat-value">{{ "%.0f"|format(profile.dmg_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage Diff/Game:</span>
+            <span class="stat-value">{{ "%+.0f"|format(profile.dmg_diff_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage/Minute:</span>
+            <span class="stat-value">{{ "%.0f"|format(profile.dmg_per_min) }}</span>
+          </div>
+        </div>
+
+        <div class="stat-group">
+          <h4>Medals/Game</h4>
+          <div class="stat-row">
+            <span class="stat-label">Average:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.medals_pg) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="strengths-weaknesses">
+        <div class="strengths">
+          <h4>Stat Strengths</h4>
+          {% if profile.strengths and profile.strengths|length > 0 %}
+            <ul>
+            {% for strength in profile.strengths %}
+              <li><span class="strength-number">{{ loop.index }}</span>{{ strength }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout strengths identified</p>
+          {% endif %}
+        </div>
+
+        <div class="weaknesses">
+          <h4>Stat Weaknesses</h4>
+          {% if profile.weaknesses and profile.weaknesses|length > 0 %}
+            <ul>
+            {% for weakness in profile.weaknesses %}
+              <li><span class="weakness-number">{{ loop.index }}</span>{{ weakness }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">Well-rounded performance across the board</p>
+          {% endif %}
+        </div>
+
+        <div class="medal-strengths">
+          <h4>Medal Strengths</h4>
+          {% if profile.medal_strengths and profile.medal_strengths|length > 0 %}
+            <ul>
+            {% for strength in profile.medal_strengths %}
+              <li><span class="medal-strength-number">{{ loop.index }}</span>{{ strength }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout medal strengths identified</p>
+          {% endif %}
+        </div>
+
+        <div class="medal-weaknesses">
+          <h4>Medal Weaknesses</h4>
+          {% if profile.medal_weaknesses and profile.medal_weaknesses|length > 0 %}
+            <ul>
+            {% for weakness in profile.medal_weaknesses %}
+              <li><span class="medal-weakness-number">{{ loop.index }}</span>{{ weakness }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout medal weaknesses identified</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+{% else %}
+<section class="panel">
+  <p class="empty">No player data available</p>
+</section>
+{% endif %}
+
+<style>
+/* ── Head-to-head comparison matrix ───────────────────────── */
+.cmp-wrap { overflow-x: auto; }
+.cmp-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.cmp-matrix th, .cmp-matrix td {
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: middle;
+}
+.cmp-stat-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--panel, #1f1b18);
+  min-width: 150px;
+  white-space: nowrap;
+}
+.cmp-phead {
+  text-align: center;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+.cmp-phead .player-name { display: inline-block; }
+.cmp-pgames {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--muted, #9a8f82);
+  font-weight: 500;
+}
+.cmp-rowlabel {
+  font-weight: 600;
+  color: #e8dfd3;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.cmp-low { color: #fca5a5; font-size: 0.8em; }
+.cmp-grouprow td {
+  background: rgba(255,255,255,0.03);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: var(--accent-2, #3dbfb8);
+  padding: 0.45rem 0.7rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.cmp-cell {
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  min-width: 96px;
+}
+.cmp-val {
+  display: block;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+  color: #d8cdbf;
+  margin-bottom: 4px;
+}
+.cmp-crown { margin-right: 3px; }
+.cmp-best { background: rgba(251, 191, 36, 0.10); }
+.cmp-best .cmp-val { color: #ffffff; }
+.cmp-worst .cmp-val { color: #9a8f82; }
+.cmp-30d { display: block; margin-top: 3px; font-size: 0.66rem; color: var(--muted, #9a8f82); font-variant-numeric: tabular-nums; }
+[data-theme="light"] .cmp-30d { color: #6b5e54; }
+.cmp-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 2px; }
+.cmp-picker-lbl { font-weight: 700; font-size: 0.85rem; color: var(--accent-2, #3dbfb8); }
+.cmp-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border, rgba(255,255,255,0.15)); cursor: pointer; font-size: 0.82rem; font-weight: 600; opacity: 0.5; user-select: none; }
+.cmp-chip.on { opacity: 1; border-color: currentColor; }
+.cmp-chip input { accent-color: currentColor; margin: 0; }
+.cmp-picker-hint { font-size: 0.72rem; }
+.cmp-bar {
+  display: block;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+}
+.cmp-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+[data-theme="light"] .cmp-stat-col { background: #fffaf3; }
+[data-theme="light"] .cmp-rowlabel { color: #1f1a16; }
+[data-theme="light"] .cmp-val { color: #3a3128; }
+[data-theme="light"] .cmp-best { background: rgba(234, 179, 8, 0.14); }
+[data-theme="light"] .cmp-best .cmp-val { color: #1f1a16; }
+[data-theme="light"] .cmp-bar { background: rgba(0,0,0,0.08); }
+[data-theme="light"] .cmp-grouprow td { background: #f3ece1; }
+@media (max-width: 560px) {
+  .cmp-matrix { font-size: 0.82rem; }
+  .cmp-stat-col { min-width: 116px; }
+  .cmp-cell { min-width: 74px; }
+}
+
+.player-profile {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(61, 191, 184, 0.05) 0%, rgba(255, 122, 61, 0.05) 100%);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.player-profile h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+}
+
+.player-title {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.95rem;
+  color: #fbbf24;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.player-writeup {
+  margin: 0 0 0.9rem 0;
+  font-size: 0.85rem;
+  color: #d8cdbf;
+  line-height: 1.4;
+}
+
+.stat-good {
+  color: #86efac;
+  font-weight: 600;
+}
+
+.stat-bad {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stat-group {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.6rem;
+  border-radius: 6px;
+  border-left: 3px solid #3dbfb8;
+}
+
+.stat-group h4 {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.75rem;
+  color: #3dbfb8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #9a8f82;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #e8dfd3;
+  font-family: 'Courier New', monospace;
+}
+
+.strengths-weaknesses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.strengths, .weaknesses, .medal-strengths, .medal-weaknesses {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.8rem;
+  border-radius: 6px;
+}
+
+.strengths h4 {
+  color: #86efac;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.weaknesses h4 {
+  color: #fca5a5;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.medal-strengths h4 {
+  color: #fbbf24;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.medal-weaknesses h4 {
+  color: #fb923c;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.strengths ul, .weaknesses ul, .medal-strengths ul, .medal-weaknesses ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.strengths li, .weaknesses li, .medal-strengths li, .medal-weaknesses li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e8dfd3;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.strengths li:last-child, .weaknesses li:last-child, .medal-strengths li:last-child, .medal-weaknesses li:last-child {
+  border-bottom: none;
+}
+
+.strength-number, .weakness-number, .medal-strength-number, .medal-weakness-number {
+  font-weight: bold;
+  font-size: 0.7rem;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.strength-number {
+  background: rgba(134, 239, 172, 0.2);
+  color: #86efac;
+  border: 1px solid #86efac;
+}
+
+.weakness-number {
+  background: rgba(252, 165, 165, 0.2);
+  color: #fca5a5;
+  border: 1px solid #fca5a5;
+}
+
+.medal-strength-number {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 1px solid #fbbf24;
+}
+
+.medal-weakness-number {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+  border: 1px solid #fb923c;
+}
+
+.strengths li::before {
+  content: '';
+}
+
+.weaknesses li::before {
+  content: '';
+}
+
+.medal-strengths li::before {
+  content: '';
+}
+
+.medal-weaknesses li::before {
+  content: '';
+}
+
+[data-theme="light"] .player-profile {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.08) 0%, rgba(255, 122, 61, 0.08) 100%);
+  border: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .player-title {
+  color: #b45309;
+}
+
+[data-theme="light"] .player-writeup {
+  color: #4b3f34;
+}
+
+[data-theme="light"] .stat-group {
+  background: #fff9f1;
+  border-left-color: #0f766e;
+  box-shadow: inset 0 0 0 1px #eadfd3;
+}
+
+[data-theme="light"] .stat-group h4 {
+  color: #0f766e;
+}
+
+[data-theme="light"] .stat-row {
+  border-bottom: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .stat-label {
+  color: #6b5e54;
+}
+
+[data-theme="light"] .stat-value {
+  color: #1f1a16;
+}
+
+[data-theme="light"] .strengths,
+[data-theme="light"] .weaknesses,
+[data-theme="light"] .medal-strengths,
+[data-theme="light"] .medal-weaknesses {
+  background: #fff9f1;
+  border: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .strengths li,
+[data-theme="light"] .weaknesses li,
+[data-theme="light"] .medal-strengths li,
+[data-theme="light"] .medal-weaknesses li {
+  color: #3a3128;
+  border-bottom: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .strength-number {
+  background: rgba(22, 163, 74, 0.15);
+  color: #166534;
+  border-color: #16a34a;
+}
+
+[data-theme="light"] .weakness-number {
+  background: rgba(185, 28, 28, 0.12);
+  color: #7f1d1d;
+  border-color: #b91c1c;
+}
+
+[data-theme="light"] .medal-strength-number {
+  background: rgba(234, 179, 8, 0.16);
+  color: #92400e;
+  border-color: #eab308;
+}
+
+[data-theme="light"] .medal-weakness-number {
+  background: rgba(251, 146, 60, 0.16);
+  color: #9a3412;
+  border-color: #fb923c;
+}
+
+[data-theme="light"] .stat-good {
+  color: #15803d;
+}
+
+[data-theme="light"] .stat-bad {
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .profile-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .strengths-weaknesses {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<script>
+(function () {
+  const picker = document.getElementById('cmpPicker');
+  if (!picker) return;
+  const boxes = Array.from(picker.querySelectorAll('input[type=checkbox]'));
+  function go() {
+    const chosen = boxes.filter(b => b.checked).map(b => b.value);
+    // All (or none) selected → whole squad (no param).
+    const params = (chosen.length === 0 || chosen.length === boxes.length)
+      ? '' : '?players=' + encodeURIComponent(chosen.join(','));
+    window.location = '/compare' + params;
+  }
+  boxes.forEach(b => b.addEventListener('change', go));
+})();
+</script>
+
+<script>
+const radarData = {% if radar %}{{ radar|tojson|safe }}{% else %}null{% endif %};
+if (radarData && radarData.players && radarData.players.length && document.getElementById('radarChart')) {
+  const palette = ['#ff7a3d','#3dbfb8','#a78bfa','#f472b6','#facc15','#4ade80'];
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: radarData.labels,
+      datasets: radarData.players.map((p, i) => ({
+        label: p.name,
+        data: p.scores,
+        borderColor: palette[i % palette.length],
+        backgroundColor: palette[i % palette.length] + '22',
+        borderWidth: 2,
+        pointRadius: 3
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { r: {
+        min: 0, max: 100,
+        grid: { color: 'rgba(255,255,255,0.08)' },
+        angleLines: { color: 'rgba(255,255,255,0.08)' },
+        pointLabels: { color: '#e8dfd3', font: { size: 12 } },
+        ticks: { display: false }
+      } },
+      plugins: { legend: { labels: { color: '#9a8f82' } } }
+    }
+  });
+}
+</script>
+{% endblock %}

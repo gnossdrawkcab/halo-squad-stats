@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Match History Settings</h2>
+    
+    {% if message %}
+    <div class="alert">{{ message }}</div>
+    {% endif %}
+    
+    <form method="post" class="settings-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>
+        Match Fetch Limit
+        <p class="help-text">Matches to fetch per API call. System auto-fetches all history until complete. Higher = faster initial sync.</p>
+        <select name="match_limit">
+          <option value="0" {% if match_limit == 0 %}selected{% endif %}>Unlimited (all available)</option>
+          <option value="25" {% if match_limit == 25 %}selected{% endif %}>25 matches</option>
+          <option value="100" {% if match_limit == 100 %}selected{% endif %}>100 matches</option>
+          <option value="250" {% if match_limit == 250 %}selected{% endif %}>250 matches</option>
+          <option value="500" {% if match_limit == 500 %}selected{% endif %}>500 matches (recommended)</option>
+          <option value="1000" {% if match_limit == 1000 %}selected{% endif %}>1000 matches</option>
+          <option value="2500" {% if match_limit == 2500 %}selected{% endif %}>2500 matches</option>
+          <option value="5000" {% if match_limit == 5000 %}selected{% endif %}>5000 matches</option>
+        </select>
+      </label>
+      
+      <label>
+        Update Interval (seconds)
+        <p class="help-text">How often to check for new matches</p>
+        <select name="update_interval">
+          <option value="30" {% if update_interval == 30 %}selected{% endif %}>30 seconds</option>
+          <option value="60" {% if update_interval == 60 %}selected{% endif %}>1 minute</option>
+          <option value="120" {% if update_interval == 120 %}selected{% endif %}>2 minutes</option>
+          <option value="300" {% if update_interval == 300 %}selected{% endif %}>5 minutes</option>
+          <option value="600" {% if update_interval == 600 %}selected{% endif %}>10 minutes</option>
+        </select>
+      </label>
+      
+      <button type="submit" class="btn">Save Settings</button>
+    </form>
+    
+    <div class="info-box">
+      <h3>How it works</h3>
+      <ul>
+        <li>System automatically fetches all historical matches until database is complete</li>
+        <li>Only new matches are fetched - existing matches are never overwritten</li>
+        <li>All historical data is preserved - match_limit only controls fetch batch size</li>
+        <li>Higher fetch limits = faster initial sync when building complete history</li>
+      </ul>
+    </div>
+  </section>
+{% endblock %}

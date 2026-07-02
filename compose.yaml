@@ -1,0 +1,135 @@
+# Portable compose file for new installs.
+# Copy to compose.yaml (or use directly: `docker compose -f compose.example.yaml up -d`)
+# after creating your .env from .env.example.
+#
+# Differences from the author's production compose.yaml: relative ./data bind
+# instead of absolute host paths, a named Docker volume for Postgres, no
+# external networks, and all optional integrations (ntfy, Ollama, Twitch)
+# driven purely by .env — absent vars leave those features off.
+
+services:
+  halostats:
+    build:
+      context: .
+      dockerfile: config/Dockerfile
+    container_name: halostats
+    command: ["python", "/app/src/entrypoint.py"]
+    volumes:
+      - .:/app
+      - ./data:/data
+    environment:
+      - TZ=${TZ:-UTC}
+      - HALO_DATA_DIR=/data
+      - HALO_DB_HOST=halodb
+      - HALO_DB_PORT=5432
+      - HALO_DB_NAME=${HALO_DB_NAME:-halodb}
+      - HALO_DB_USER=postgres
+      - HALO_DB_PASSWORD=${HALO_DB_PASSWORD}
+      # Optional env fallback — the /setup page (api_config.json) is the
+      # recommended way to provide Azure API credentials and takes priority.
+      - HALO_CLIENT_ID=${HALO_CLIENT_ID:-}
+      - HALO_CLIENT_SECRET=${HALO_CLIENT_SECRET:-}
+      - HALO_TRACKED_PLAYERS=${HALO_TRACKED_PLAYERS}
+      - HALO_SECRET_KEY=${HALO_SECRET_KEY}
+      - HALO_ADMIN_USER=${HALO_ADMIN_USER:-admin}
+      - HALO_ADMIN_PASSWORD=${HALO_ADMIN_PASSWORD}
+      - HALO_MATCH_LIMIT=${HALO_MATCH_LIMIT:-100}
+      - HALO_UPDATE_INTERVAL=${HALO_UPDATE_INTERVAL:-60}
+      # Optional: ntfy push alerts (leave unset to disable)
+      - HALO_NTFY_ENABLED=${HALO_NTFY_ENABLED:-0}
+      - HALO_NTFY_URL=${HALO_NTFY_URL:-}
+      - HALO_NTFY_TOPIC=${HALO_NTFY_TOPIC:-halo}
+      # Optional: Twitch go-live detection (leave unset to disable)
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
+      - HALO_TWITCH_CHANNELS=${HALO_TWITCH_CHANNELS:-}
+    depends_on:
+      halodb:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; assert time.time()-os.path.getmtime('/data/update_status.json')<600"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  halo-web:
+    build:
+      context: .
+      dockerfile: config/Dockerfile
+    container_name: halo-web
+    command: ["python", "/app/src/webapp.py"]
+    ports:
+      - "${HALO_WEB_PORT:-8091}:8091"
+    volumes:
+      - .:/app
+      - ./data:/data
+    environment:
+      - TZ=${TZ:-UTC}
+      - HALO_DATA_DIR=/data
+      - HALO_WEB_PORT=8091
+      - HALO_SITE_TITLE=${HALO_SITE_TITLE:-Halo Stats}
+      - HALO_TZ=${HALO_TZ:-UTC}
+      - HALO_DB_HOST=halodb
+      - HALO_DB_PORT=5432
+      - HALO_DB_NAME=${HALO_DB_NAME:-halodb}
+      - HALO_DB_USER=postgres
+      - HALO_DB_PASSWORD=${HALO_DB_PASSWORD}
+      - HALO_TRACKED_PLAYERS=${HALO_TRACKED_PLAYERS}
+      - HALO_SECRET_KEY=${HALO_SECRET_KEY}
+      - HALO_ADMIN_USER=${HALO_ADMIN_USER:-admin}
+      - HALO_ADMIN_PASSWORD=${HALO_ADMIN_PASSWORD}
+      - HALO_CACHE_TTL=${HALO_CACHE_TTL:-120}
+      - HALO_DB_COUNT_TTL=${HALO_DB_COUNT_TTL:-60}
+      # Optional: AI Coach via a reachable Ollama server (leave unset to disable)
+      - HALO_OLLAMA_URL=${HALO_OLLAMA_URL:-}
+      - HALO_OLLAMA_MODEL=${HALO_OLLAMA_MODEL:-llama3.1:8b}
+      # Optional: Twitch live embeds on /live (leave unset to disable)
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
+      - HALO_TWITCH_CHANNELS=${HALO_TWITCH_CHANNELS:-}
+    depends_on:
+      halodb:
+        condition: service_healthy
+      halostats:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8091/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  halodb:
+    image: postgres:15
+    container_name: halodb
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${HALO_DB_PASSWORD}
+      POSTGRES_DB: ${HALO_DB_NAME:-halodb}
+    volumes:
+      - halo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${HALO_DB_NAME:-halodb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  adminer:
+    image: adminer
+    container_name: halo-adminer
+    # Optional DB admin UI, off by default: docker compose --profile admin up -d adminer
+    profiles: ["admin"]
+    restart: always
+    depends_on:
+      halodb:
+        condition: service_healthy
+    ports:
+      - "8088:8080"
+
+volumes:
+  halo_pgdata:

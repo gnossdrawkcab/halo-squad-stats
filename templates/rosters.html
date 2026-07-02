@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Rosters - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>👥 Roster Management</h2>
+    <p class="muted">Create named player groups for reference (e.g. starters, subs).</p>
+  </div>
+
+  {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form method="post" style="max-width:480px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save">
+    <div class="form-row">
+      <label>Roster name *
+        <input type="text" name="name" required class="form-input" placeholder="e.g. Main Squad">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Description
+        <input type="text" name="description" class="form-input" placeholder="Optional notes…">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Players (one gamertag per line) *
+        <textarea name="players" rows="5" class="form-input"
+                  placeholder="{% for p in players %}{{ p }}&#10;{% endfor %}"></textarea>
+      </label>
+      {% if players %}
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">
+        {% for p in players %}
+        <button type="button" class="btn btn-small"
+                onclick="addPlayerToTextarea('{{ p }}')">+ {{ p }}</button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <button type="submit" class="btn">Save Roster</button>
+  </form>
+</section>
+
+{% if rosters %}
+<section class="panel">
+  <div class="panel-header"><h2>Saved Rosters</h2></div>
+  {% for r in rosters %}
+  <div class="panel" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <strong>{{ r.name }}</strong>
+        {% if r.description %}<span class="muted" style="font-size:0.85rem;margin-left:8px">{{ r.description }}</span>{% endif %}
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">
+          {% for p in r.players %}
+          <a href="{{ p|player_href }}" class="btn btn-small player-name {{ p|player_class }}">{{ p }}</a>
+          {% endfor %}
+        </div>
+        <div class="muted" style="font-size:0.78rem;margin-top:4px">Created {{ r.created_at }}</div>
+      </div>
+      <form method="post" onsubmit="return confirm('Delete roster {{ r.name }}?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="roster_id" value="{{ r.id }}">
+        <button type="submit" class="btn btn-small btn-danger">Delete</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addPlayerToTextarea(name) {
+  const ta = document.querySelector('textarea[name="players"]');
+  const lines = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.includes(name)) {
+    ta.value = (ta.value.trimEnd() ? ta.value.trimEnd() + '\n' : '') + name;
+  }
+}
+</script>
+{% endblock %}

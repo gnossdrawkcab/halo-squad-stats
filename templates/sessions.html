@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Sessions - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>🗓️ Sessions</h2>
+    <span class="muted">Every night anyone in the squad played</span>
+  </div>
+  <p class="muted">Newest first. <span class="session-kind kind-solo">SOLO</span> = one player; <span class="session-kind kind-squad">SQUAD</span> = 2+ together.</p>
+</section>
+
+{% if chart and chart.labels %}
+<section class="panel">
+  <h2>Performance Over Time</h2>
+  <p class="muted">Avg KDA and win % per session. Tap a point to open it.</p>
+  <div class="chart-container" style="height: 360px;">
+    <canvas id="sessionTrendChart"></canvas>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Recent Sessions</h2>
+  {% if sessions %}
+  <div class="table-tools">
+    <input type="text" data-table-filter="sessions" placeholder="Filter by date/player..." />
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="sessions">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th title="Solo = one tracked player; Squad = 2+ played together">Type</th>
+          <th>Games</th>
+          <th>Record</th>
+          <th title="Win % over decided games">Win %</th>
+          <th title="Squad average KDA (additive)">Avg KDA</th>
+          <th title="Perfect-kill medals per player-game this session">✨/g</th>
+          <th title="Average CSR change across players this session">CSR Δ</th>
+          <th>Players</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td><a href="/session/{{ s.sid }}"><strong>{{ s.date }}</strong></a></td>
+          <td><span class="session-kind kind-{{ s.kind }}">{{ s.kind|upper }}</span></td>
+          <td>{{ s.games }}</td>
+          <td>{{ s.record }}</td>
+          <td class="{{ 'heat-excellent' if s.win_pct >= 55 else ('heat-poor' if s.win_pct < 45 else '') }}">{{ s.win_pct_str }}</td>
+          <td>{{ s.avg_kda }}</td>
+          <td title="{{ s.perfect_total }} perfect medals this session">{{ s.perfect_pg }}</td>
+          <td class="{{ 'heat-good' if s.csr_delta_num and s.csr_delta_num > 0 else ('heat-poor' if s.csr_delta_num and s.csr_delta_num < 0 else '') }}">{{ s.csr_delta }}</td>
+          <td>{% for p in s.players %}<span class="player-name {{ p|player_class }}">{{ p }}</span>{% if not loop.last %} {% endif %}{% endfor %}</td>
+          <td><a href="/session/{{ s.sid }}" class="btn btn-small">View →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No sessions found yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if chart and chart.labels %}
+<script>
+(function () {
+  if (!window.Chart) return;
+  const chart = {{ chart|tojson|safe }};
+  const el = document.getElementById('sessionTrendChart');
+  if (!el || !chart.labels.length) return;
+  const c = new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: chart.labels,
+      datasets: [
+        { label: 'Avg KDA', data: chart.kda, yAxisID: 'yKda', borderColor: '#3dbfb8', backgroundColor: '#3dbfb822', borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, tension: 0.25 },
+        { label: 'Win %', data: chart.win_pct, yAxisID: 'yWin', borderColor: '#ff7a3d', backgroundColor: '#ff7a3d22', borderWidth: 2, pointRadius: 4, pointHoverRadius: 7, tension: 0.25 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      onClick: (e, els) => { if (els.length) { const i = els[0].index; if (chart.sids[i]) window.location = '/session/' + chart.sids[i]; } },
+      scales: {
+        yKda: { position: 'left', title: { display: true, text: 'Avg KDA', color: '#3dbfb8' }, grid: { color: 'rgba(255,255,255,0.07)' }, ticks: { color: '#9a8f82' } },
+        yWin: { position: 'right', min: 0, max: 100, title: { display: true, text: 'Win %', color: '#ff7a3d' }, grid: { drawOnChartArea: false }, ticks: { color: '#9a8f82' } },
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#cdbfb0', maxRotation: 45, minRotation: 30, autoSkip: true, maxTicksLimit: 14 } },
+      },
+      plugins: { legend: { labels: { color: '#d8cdbf', usePointStyle: true, boxWidth: 8 } } },
+    },
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

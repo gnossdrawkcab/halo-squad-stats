@@ -1,0 +1,283 @@
+{# ══════════════════════════════════════════════════════════════════
+   Shared macros for the Squad Scoreboard + Combat leaderboards.
+   Used by index.html (dashboard) and combat.html (full page).
+   ══════════════════════════════════════════════════════════════════ #}
+
+{% macro scoreboard_grid(report) %}
+<div class="sb-grid">
+  {% for p in report.scoreboard %}
+  <a class="sb-card {{ p.css }}" href="{{ p.player|player_href }}">
+    <div class="sb-card-top">
+      <div class="sb-id">
+        <span class="sb-name">{{ p.player }}</span>
+        <span class="sb-tier {{ p.tier_class }}">{{ p.tier_label }}</span>
+      </div>
+      <span class="sb-grade inline-grade {{ p.grade_class }}" title="{{ p.grade_tip|default('') }}">{{ p.grade }}</span>
+    </div>
+
+    {% if p.sig_label %}
+    <div class="sb-sig {% if p.sig_leader %}sb-sig-leader{% endif %}">
+      <span class="sb-sig-emoji">{{ p.sig_emoji }}</span>
+      <span class="sb-sig-label">{{ p.sig_label }}</span>
+      {% if p.sig_leader %}<span class="sb-sig-crown" title="Squad leader">👑</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="sb-form" title="Last {{ p.wl_form|length }} ranked games">
+      {% for r in p.wl_form %}<span class="sb-pip sb-pip-{{ 'w' if r == 'W' else 'l' }}"></span>{% endfor %}
+      {% if not p.wl_form %}<span class="sb-form-empty">no recent ranked games</span>{% endif %}
+    </div>
+
+    <div class="sb-headline">
+      <div class="sb-hl-item">
+        <span class="sb-hl-num">{{ p.kda }}</span>
+        <span class="sb-hl-lbl">KDA</span>
+      </div>
+      <div class="sb-hl-item">
+        <span class="sb-hl-num sb-win-{{ 'good' if p.win_pct_num >= 50 else 'bad' }}">{{ p.win_pct }}</span>
+        <span class="sb-hl-lbl">Win {{ p.wins }}-{{ p.losses }}</span>
+      </div>
+      <div class="sb-hl-item">
+        <span class="sb-hl-num">{{ p.accuracy }}</span>
+        <span class="sb-hl-lbl">Acc</span>
+      </div>
+    </div>
+
+    <div class="sb-combat">
+      <div class="sb-combat-row"><span class="sb-c-ico">🎯</span><span class="sb-c-val">{{ p.snipes }}</span><span class="sb-c-lbl">snipes</span></div>
+      <div class="sb-combat-row"><span class="sb-c-ico">💥</span><span class="sb-c-val">{{ p.pw_pg }}</span><span class="sb-c-lbl">pwr/gm</span></div>
+      <div class="sb-combat-row"><span class="sb-c-ico">💀</span><span class="sb-c-val">{{ p.hs_pct }}</span><span class="sb-c-lbl">HS</span></div>
+      <div class="sb-combat-row"><span class="sb-c-ico">🧨</span><span class="sb-c-val">{{ p.gren_pg }}</span><span class="sb-c-lbl">nade/gm</span></div>
+      <div class="sb-combat-row"><span class="sb-c-ico">🔥</span><span class="sb-c-val">{{ p.spree }}</span><span class="sb-c-lbl">spree</span></div>
+      <div class="sb-combat-row"><span class="sb-c-ico">📢</span><span class="sb-c-val">{{ p.callout_pg }}</span><span class="sb-c-lbl">call/gm</span></div>
+    </div>
+
+    <div class="sb-foot">
+      <span class="sb-foot-medal">🏅 {{ p.top_medal }} ×{{ p.top_medal_count }}</span>
+      <span class="sb-foot-games">{{ p.games }} games</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+
+{% macro session_highlights(h) %}
+<div class="sh-wrap">
+  {% if h.superlatives %}
+  <div class="sh-block">
+    <div class="sh-block-title">⭐ Session Standouts</div>
+    <div class="sh-feats">
+      {% for f in h.superlatives %}
+      <a class="sh-feat" href="{% if f.match_id %}/match/{{ f.match_id }}{% else %}#{% endif %}">
+        <span class="sh-feat-emoji">{{ f.emoji }}</span>
+        <div class="sh-feat-body">
+          <span class="sh-feat-label">{{ f.label }}</span>
+          <span class="sh-feat-value">{{ f.value }}</span>
+          <span class="sh-feat-who"><span class="cl-player {{ f.css }}">{{ f.player }}</span>{% if f.detail %} · {{ f.detail }}{% endif %}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.objective_standouts %}
+  <div class="sh-block">
+    <div class="sh-block-title">🎯 Objective Standouts</div>
+    <div class="sh-feats">
+      {% for f in h.objective_standouts %}
+      <a class="sh-feat" href="{% if f.match_id %}/match/{{ f.match_id }}{% else %}#{% endif %}">
+        <span class="sh-feat-emoji">{{ f.emoji }}</span>
+        <div class="sh-feat-body">
+          <span class="sh-feat-label">{{ f.label }}</span>
+          <span class="sh-feat-value">{{ f.value }}</span>
+          <span class="sh-feat-who"><span class="cl-player {{ f.css }}">{{ f.player }}</span>{% if f.detail %} · {{ f.detail }}{% endif %}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.session_games %}
+  <div class="sh-block">
+    <div class="sh-block-title">📜 Game-by-Game Rundown</div>
+    <div class="sh-run-grid">
+      {% for game in h.session_games %}
+      <div class="sh-run-card">
+        {% set _w = watch_url(game.match_id) %}{% if _w %}<a class="sh-run-watch watch-ico" href="{{ _w }}" target="_blank" rel="noopener" title="Watch the synced co-stream rewatch (MultiTwitch)">📺</a>{% endif %}
+        <a class="sh-run-head" href="{% if game.match_id %}/match/{{ game.match_id }}{% else %}#{% endif %}">
+          <span class="sh-run-num">G{{ game.num }}</span>
+          <span class="sh-run-result {{ game.result_class }}">{{ game.result }}</span>
+          <span class="sh-run-map">{{ game.map }}{% if game.mode %} · {{ game.mode }}{% endif %}</span>
+          <span class="sh-run-time muted">{{ game.time }}</span>
+        </a>
+        <table class="sh-run-table">
+          <tbody>
+            {% for p in game.players %}
+            <tr>
+              <td class="sh-run-grade">{% if p.grade %}<span class="inline-grade {{ p.grade_class }}">{{ p.grade }}</span>{% endif %}</td>
+              <td class="sh-run-player"><a href="{{ p.player|player_href }}" class="cl-player {{ p.css }}">{{ p.player }}</a>{% if p.mvp %} <span class="sh-run-mvp" title="Best game">★</span>{% endif %}</td>
+              <td class="sh-run-kda">{{ p.kills }}/{{ p.deaths }}/{{ p.assists }}</td>
+              <td class="sh-run-kdanum">{{ p.kda }}</td>
+              <td class="sh-run-objs">{% for o in p.objs %}<span class="sh-run-chip" title="{{ o.lbl }} — outlier game (top 15%+ for this stat)">{{ o.emoji }} {{ o.val }}</span>{% endfor %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.crazy_games %}
+  <div class="sh-block">
+    <div class="sh-block-title">🚀 Crazy Good Games</div>
+    <div class="sh-crazy">
+      {% for g in h.crazy_games %}
+      <a class="sh-crazy-card tag-{{ g.tag_kind }}" href="{% if g.match_id %}/match/{{ g.match_id }}{% else %}#{% endif %}">
+        <div class="sh-cc-head">
+          {% if g.grade %}<span class="inline-grade {{ g.grade_class }}">{{ g.grade }}</span>{% endif %}
+          <span class="cl-player {{ g.css }}">{{ g.player }}</span>
+          {% if g.result and g.result != '—' %}<span class="sh-cc-result {{ g.result_class }}">{{ g.result }}</span>{% endif %}
+          <span class="sh-cc-tag">{{ g.tag }}</span>
+        </div>
+        <div class="sh-cc-stats">
+          <div class="sh-cc-stat"><span class="sh-cc-num">{{ g.kills }}/{{ g.deaths }}/{{ g.assists }}</span><span class="sh-cc-lbl">K / D / A</span></div>
+          <div class="sh-cc-stat"><span class="sh-cc-num sh-cc-kda">{{ g.kda }}</span><span class="sh-cc-lbl">KDA · avg {{ g.avg }}</span></div>
+          <div class="sh-cc-stat"><span class="sh-cc-num">{{ g.accuracy }}</span><span class="sh-cc-lbl">Accuracy</span></div>
+        </div>
+        {% if g.extras %}
+        <div class="sh-cc-extras">
+          {% for e in g.extras %}<span class="sh-cc-chip">{{ e.emoji }} {{ e.val }} {{ e.lbl }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <div class="sh-cc-foot">
+          {% if g.top_medal %}<span class="sh-cc-medal">🏅 {{ g.top_medal }}</span>{% endif %}
+          <span class="sh-cc-map muted">{{ g.map }}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.medal_haul %}
+  <div class="sh-block">
+    <div class="sh-block-title">🏅 Session Medal Haul</div>
+    <div class="sh-medals">
+      {% for m in h.medal_haul %}
+      <span class="sh-medal"><span class="sh-medal-emoji">{{ m.emoji }}</span><span class="sh-medal-count">{{ m.count }}</span><span class="sh-medal-label">{{ m.label }}</span></span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.medal_haul_by_player %}
+  <div class="sh-block">
+    <div class="sh-block-title">🎖️ Medal Haul by Player</div>
+    <div class="sh-php-grid">
+      {% for p in h.medal_haul_by_player %}
+      <a class="sh-php-card" href="{{ p.player|player_href }}">
+        <div class="sh-php-head">
+          <span class="cl-player {{ p.css }}">{{ p.player }}</span>
+          <span class="sh-php-total">{{ p.total }} <span class="muted">medals</span></span>
+        </div>
+        <div class="sh-php-medals">
+          {% for m in p.medals %}
+          <span class="sh-medal" title="{{ m.label }}"><span class="sh-medal-emoji">{{ m.emoji }}</span><span class="sh-medal-count">{{ m.count }}</span><span class="sh-medal-label">{{ m.label }}</span></span>
+          {% endfor %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.opponent_threats %}
+  <div class="sh-block">
+    <div class="sh-block-title">💀 Opponents Who Wrecked Us</div>
+    <div class="sh-opp-grid">
+      {% for o in h.opponent_threats %}
+      <div class="sh-opp-card">
+        <div class="sh-opp-head">
+          <span class="sh-opp-name">{{ o.gamertag }}</span>
+          <span class="sh-opp-beat">beat us {{ o.beat_us }}/{{ o.games }}</span>
+        </div>
+        <div class="sh-opp-stats">
+          <span class="sh-opp-stat"><span class="sh-opp-num">{{ o.avg_kda }}</span><span class="sh-opp-lbl">avg KDA</span></span>
+          <span class="sh-opp-stat"><span class="sh-opp-num">{{ o.kills }}/{{ o.deaths }}/{{ o.assists }}</span><span class="sh-opp-lbl">K / D / A</span></span>
+          <span class="sh-opp-stat"><span class="sh-opp-num">{{ o.squad_record }}</span><span class="sh-opp-lbl">our record</span></span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if h.map_summary or h.mode_summary %}
+  <div class="sh-block">
+    <div class="sh-block-title">🗺️ Maps &amp; Modes This Session</div>
+    <div class="sh-bd-wrap">
+      {% if h.map_summary %}
+      <div class="sh-bd-col">
+        <div class="sh-bd-head">Maps</div>
+        {% for m in h.map_summary %}
+        <div class="sh-bd-row">
+          <span class="sh-bd-name">{{ m.name }}</span>
+          <span class="sh-bd-rec">{{ m.record }}</span>
+          <span class="sh-bd-pct {{ m.heat }}">{{ m.win_pct }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if h.mode_summary %}
+      <div class="sh-bd-col">
+        <div class="sh-bd-head">Game Types</div>
+        {% for m in h.mode_summary %}
+        <div class="sh-bd-row">
+          <span class="sh-bd-name">{{ m.name }}</span>
+          <span class="sh-bd-rec">{{ m.record }}</span>
+          <span class="sh-bd-pct {{ m.heat }}">{{ m.win_pct }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+
+{% macro combat_leaders(report, top_n=0) %}
+<div class="cl-rate-wrap">
+  <div class="rate-toggle" role="group" aria-label="Stat rate">
+    <button type="button" class="rate-btn active" data-rate="pg" onclick="setRate(this,'pg')">Per game</button>
+    <button type="button" class="rate-btn" data-rate="min" onclick="setRate(this,'min')">Per min</button>
+  </div>
+  <div class="cl-grid rate-mode-pg">
+    {% for cat in report.leaders %}
+    <div class="cl-card">
+      <div class="cl-head"><span class="cl-emoji">{{ cat.emoji }}</span><span class="cl-title">{{ cat.label }}</span></div>
+      <div class="cl-rows">
+        {% for r in cat.rows %}
+        {% if top_n == 0 or loop.index <= top_n %}
+        <a class="cl-row {% if r.is_leader %}cl-row-leader{% endif %}" href="{{ r.player|player_href }}">
+          <span class="cl-rank">{{ r.rank }}</span>
+          <span class="cl-player {{ r.css }}">{{ r.player }}</span>
+          <span class="cl-stat">
+            <span class="cl-total"><span class="rate-pg">{{ r.per_game }}<span class="cl-unit">/g</span></span><span class="rate-min">{{ r.per_min }}<span class="cl-unit">/min</span></span></span>
+            <span class="cl-pg">({{ r.total_fmt }})</span>
+          </span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}

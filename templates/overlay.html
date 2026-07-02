@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Overlay · {{ app_title }}</title>
+  <!-- Full reload every 15s: simplest robust update path for an OBS browser source. -->
+  <meta http-equiv="refresh" content="15" />
+  <!-- styles.css FIRST (for the player-name accent colors), then our overrides so
+       the OBS-transparent background wins over its dark html/body background. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=1) }}" />
+  <style>
+    :root { color-scheme: dark; }
+    /* :root needed to beat styles.css's :root background (same element, higher
+       specificity than a bare `html` selector) so the OBS source stays clear. */
+    :root, html, body { margin: 0; padding: 0; background: transparent !important; background-color: transparent !important; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .ov {
+      position: fixed; left: 18px; bottom: 18px;
+      min-width: 260px; max-width: 360px;
+      background: linear-gradient(180deg, rgba(18,20,28,.92), rgba(12,13,18,.92));
+      border: 1px solid rgba(242,169,0,.55);
+      border-radius: 14px; padding: 12px 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.45);
+      color: #eef0f6;
+    }
+    .ov-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff3b3b;
+      box-shadow: 0 0 0 0 rgba(255,59,59,.7); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,59,.7);} 70% { box-shadow: 0 0 0 8px rgba(255,59,59,0);} 100% { box-shadow: 0 0 0 0 rgba(255,59,59,0);} }
+    .ov-title { font-weight: 800; letter-spacing: .04em; font-size: .82rem; text-transform: uppercase; }
+    .ov-kind { margin-left: auto; font-size: .68rem; padding: 2px 8px; border-radius: 999px;
+      background: rgba(242,169,0,.18); color: #f2c25a; border: 1px solid rgba(242,169,0,.4); }
+    .ov-record { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .ov-record .win { color: #4ade80; } .ov-record .sep { color: #6b7280; margin: 0 2px; } .ov-record .loss { color: #f87171; }
+    .ov-meta { font-size: .72rem; color: #aab2c5; margin: 3px 0 9px; }
+    .ov-players { display: flex; flex-direction: column; gap: 5px; }
+    .ov-player { display: flex; align-items: center; gap: 7px; font-size: .82rem; }
+    .ov-player .nm { font-weight: 700; }
+    .ov-player .live { width: 7px; height: 7px; border-radius: 50%; background: #ff3b3b; flex: 0 0 auto; }
+    .ov-player .idle { width: 7px; height: 7px; border-radius: 50%; background: #4b5563; flex: 0 0 auto; }
+    .ov-player .stat { margin-left: auto; color: #cbd3e6; font-variant-numeric: tabular-nums; }
+    .ov-player .rec { color: #8b93a7; font-size: .74rem; }
+    /* Player accent colors come from styles.css player-name classes; fall back gracefully. */
+    .player-name { padding: 0; }
+  </style>
+</head>
+<body>
+{% if show %}
+  <div class="ov">
+    <div class="ov-head">
+      <span class="live-dot"></span>
+      <span class="ov-title">Live{% if live.stream_only %} · streaming{% endif %}</span>
+      <span class="ov-kind">{{ (live.kind or 'squad')|upper }}</span>
+    </div>
+    <div class="ov-record">
+      <span class="win">{{ live.wins|default(0) }}</span><span class="sep">-</span><span class="loss">{{ live.losses|default(0) }}</span>
+    </div>
+    <div class="ov-meta">
+      {{ live.session_games|default(0) }} game{{ 's' if live.session_games != 1 else '' }} this session
+      {%- set tot = (live.wins|default(0)) + (live.losses|default(0)) %}
+      {%- if tot %} · {{ ((live.wins|default(0)) / tot * 100)|round|int }}% win{% endif %}
+    </div>
+    <div class="ov-players">
+      {% for p in live.players %}
+      <div class="ov-player">
+        <span class="{{ 'live' if p.is_live else 'idle' }}"></span>
+        <span class="nm player-name {{ p.css }}">{{ p.player }}</span>
+        <span class="stat">{% if p.stream_only %}streaming{% else %}{{ p.kda }} KDA · <span class="rec">{{ p.record }}</span>{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+</body>
+</html>

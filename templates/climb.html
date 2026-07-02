@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}CSR Climb - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>CSR Climb</h2>
+  <p class="muted">Where each player sits, how close the next tier is, and how many wins it should take at recent form.</p>
+  {% if rows %}
+  <div class="climb-grid">
+    {% for r in rows %}
+    <div class="climb-card">
+      <div class="climb-head">
+        <a href="{{ r.player|player_href }}" class="player-name {{ r.player|player_class }}"><strong>{{ r.player }}</strong></a>
+        <span class="climb-rank">{{ r.rank_label }}</span>
+      </div>
+      <div class="climb-value">{{ r.value }} <span class="muted">CSR</span></div>
+      {% if r.in_placement %}
+      <div class="climb-placement">⏳ {{ r.placement_remaining }} placement match{{ 's' if r.placement_remaining != 1 }} remaining</div>
+      {% else %}
+      <div class="climb-bar-wrap" title="Progress through {{ r.rank_label }}">
+        <div class="climb-bar" style="width: {{ r.within_pct }}%"></div>
+      </div>
+      <div class="climb-next">
+        {% if r.to_next > 0 %}
+          <strong>{{ r.to_next }}</strong> to <strong>{{ r.next_label }}</strong>
+          {% if r.wins_to_next %}<span class="muted">· ≈{{ r.wins_to_next }} win{{ 's' if r.wins_to_next != 1 }}{% if r.games_to_next %} (~{{ r.games_to_next }} games){% endif %} at {{ r.win_rate }}% WR</span>{% endif %}
+        {% else %}
+          <span class="muted">Top of ladder for this rank</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="climb-meta">
+        <span title="Average CSR gained per win recently">+{{ r.per_win }}/win</span>
+        <span>·</span>
+        <span title="Season peak">Season: {{ r.season_max_label }}{% if r.at_peak %} 🔺{% endif %}</span>
+        <span>·</span>
+        <span title="All-time peak">All-time: {{ r.all_time_max_label }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No CSR data yet. CSR detail is captured on each ranked match — check back after the next scrape.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>🎯 Strength of Schedule — Avg Opponent CSR</h2>
+  <p class="muted">How tough was the competition? <strong>Opp CSR</strong> is the average CSR of the enemy team across each player's rated ranked games. A near-zero <strong>Gap</strong> (your CSR − opponents') means you're matched evenly; a player who grinds <strong>solo</strong> against high-CSR opponents can post a lower win% at the same rank. Solo = no tracked squadmate on your team that game.</p>
+  {% if sos_rows %}
+  <div class="table-wrap">
+    <table class="data-table" data-table="sos">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Rated ranked games (with opponent CSR available)">Gms</th>
+          <th title="Win % over decided rated games">Win%</th>
+          <th title="Player's own average CSR over these games">Your CSR</th>
+          <th title="Average CSR of the opposing team">Opp CSR</th>
+          <th title="Your CSR − opponents' CSR (negative = facing tougher players)">Gap</th>
+          <th title="Solo games (no tracked squadmate)">Solo G</th>
+          <th title="Win % in solo games">Solo Win%</th>
+          <th title="Avg opponent CSR in solo games">Solo Opp</th>
+          <th title="With-squad games">Squad G</th>
+          <th title="Win % with squad">Squad Win%</th>
+          <th title="Avg opponent CSR with squad">Squad Opp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in sos_rows %}
+        <tr>
+          <td><a href="{{ r.player|player_href }}" class="player-name {{ r.css }}">{{ r.player }}</a></td>
+          <td data-val="{{ r.games }}">{{ r.games }}</td>
+          <td data-val="{{ r.win_pct }}">{{ r.win_pct_str }}</td>
+          <td data-val="{{ r.own_csr }}" title="{{ r.own_label }}">{{ r.own_csr }}</td>
+          <td data-val="{{ r.opp_csr }}" title="{{ r.opp_label }}">{{ r.opp_csr }}</td>
+          <td data-val="{{ r.gap }}" class="{{ 'heat-good' if r.gap >= 25 else ('heat-poor' if r.gap <= -25 else '') }}">{{ r.gap_str }}</td>
+          <td data-val="{{ r.solo_games }}">{{ r.solo_games }}</td>
+          <td>{{ r.solo_win_pct_str }}</td>
+          <td>{{ r.solo_opp_csr if r.solo_opp_csr is not none else '—' }}</td>
+          <td data-val="{{ r.squad_games }}">{{ r.squad_games }}</td>
+          <td>{{ r.squad_win_pct_str }}</td>
+          <td>{{ r.squad_opp_csr if r.squad_opp_csr is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">Opponent CSR is still backfilling. Each ranked match's opponent CSR is captured on scrape and historical games fill in over the next several scraper cycles — check back shortly.</p>
+  {% endif %}
+</section>
+
+{% if playlist_rows %}
+<section class="panel">
+  <h2>Per-Playlist CSR</h2>
+  <p class="muted">Separate ranks per ranked playlist (Arena vs Slayer vs Doubles, etc.).</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead>
+        <tr><th>Player</th><th title="Composite CSR grade across these playlists">Grade</th><th>Playlist</th><th>Current</th><th>CSR</th><th>Season Max</th></tr>
+      </thead>
+      <tbody>
+        {% for r in playlist_rows %}
+        <tr>
+          <td><a href="{{ r.player|player_href }}" class="player-name {{ r.player|player_class }}">{{ r.player }}</a></td>
+          <td><span class="inline-grade {{ r.grade_class }}" title="{{ r.grade_tip }}">{{ r.grade }}</span></td>
+          <td>{{ r.playlist }}</td>
+          <td>{{ r.rank_label }}</td>
+          <td>{{ r.value }}</td>
+          <td>{{ r.season_max }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

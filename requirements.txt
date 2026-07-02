@@ -1,0 +1,11 @@
+requests
+aiohttp
+spnkr
+pandas
+pytz
+sqlalchemy
+psycopg2-binary
+flask
+waitress
+Pillow
+pywebpush

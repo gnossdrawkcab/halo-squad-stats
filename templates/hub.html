@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ hub_title }} · {{ app_title }}{% endblock %}
+{% block content %}
+{# Tabbed hub: one iframe that swaps between the existing pages (loaded chrome-less
+   via ?embed=1). Consolidates several related routes into a single tabbed page
+   without duplicating any page logic. Deep-link a tab with ?tab=<key>. #}
+<div class="hub" data-hub="{{ hub_key }}">
+  <div class="hub-head">
+    <h1 class="hub-title">{{ hub_title }}</h1>
+    {% if hub_sub %}<p class="hub-sub">{{ hub_sub }}</p>{% endif %}
+  </div>
+  <div class="hub-tabs" role="tablist">
+    {% for t in hub_tabs %}
+    <button class="hub-tab" role="tab" data-url="{{ t.url }}" data-key="{{ t.key }}"
+            {% if loop.first %}aria-selected="true"{% endif %}>{{ t.label }}</button>
+    {% endfor %}
+  </div>
+  <div class="hub-frame-wrap">
+    <iframe class="hub-frame" id="hubFrame" title="{{ hub_title }}"
+            referrerpolicy="same-origin" loading="eager"></iframe>
+  </div>
+</div>
+<style>
+  .hub-head { padding: 0 4px 6px; }
+  .hub-title { margin: 0; font-size: 1.35rem; }
+  .hub-sub { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
+  .hub-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 2px 10px; position: sticky; top: 0; z-index: 2; }
+  .hub-tab {
+    appearance: none; border: 1px solid var(--border, #2a2f3a);
+    background: var(--surface-2, #1b1f28); color: var(--text, #e8eaf0);
+    padding: 7px 14px; border-radius: 999px; font-size: .9rem; cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .hub-tab:hover { border-color: var(--accent, #f2a900); }
+  .hub-tab[aria-selected="true"] {
+    background: var(--accent, #f2a900); border-color: var(--accent, #f2a900);
+    color: #14110a; font-weight: 600;
+  }
+  .hub-frame-wrap { padding: 0; }
+  .hub-frame { width: 100%; border: 0; display: block; background: transparent; min-height: 400px; }
+  @media (max-width: 720px) { .hub-tab { padding: 6px 11px; font-size: .82rem; } }
+</style>
+<script>
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.hub-tab'));
+  var frame = document.getElementById('hubFrame');
+  if (!tabs.length || !frame) return;
+
+  function embedUrl(u) { return u + (u.indexOf('?') === -1 ? '?' : '&') + 'embed=1'; }
+
+  function sizeFrame() {
+    // Fill the viewport below the iframe's top edge.
+    var top = frame.getBoundingClientRect().top;
+    var h = Math.max(400, window.innerHeight - top - 6);
+    frame.style.height = h + 'px';
+  }
+
+  function select(tab, push) {
+    tabs.forEach(function (t) { t.setAttribute('aria-selected', t === tab ? 'true' : 'false'); });
+    frame.src = embedUrl(tab.getAttribute('data-url'));
+    if (push && history.replaceState) {
+      var q = new URLSearchParams(location.search); q.set('tab', tab.getAttribute('data-key'));
+      history.replaceState(null, '', location.pathname + '?' + q.toString());
+    }
+  }
+
+  tabs.forEach(function (t) { t.addEventListener('click', function () { select(t, true); }); });
+
+  // Open the deep-linked tab (?tab=key) or the first one.
+  var want = new URLSearchParams(location.search).get('tab');
+  var start = tabs.filter(function (t) { return t.getAttribute('data-key') === want; })[0] || tabs[0];
+  select(start, false);
+
+  frame.addEventListener('load', sizeFrame);
+  window.addEventListener('resize', sizeFrame);
+  setInterval(sizeFrame, 1500); // catch late-growing content (charts, tables)
+})();
+</script>
+{% endblock %}

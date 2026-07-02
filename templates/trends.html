@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}Trends - {{ app_title }}{% endblock %}
+
+{% block content %}
+{% macro grade_strip(rows) %}
+  {% if rows %}
+  <div class="chart-grade-strip">
+    {% for row in rows %}
+    <span class="chart-grade-pill">
+      <strong>{{ row.player }}</strong>
+      <span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span>
+      {{ row.value }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+<section class="panel">
+  <h2>Performance Trends</h2>
+  <p class="muted">Track how stats change over time</p>
+</section>
+
+{% if trend_ranges %}
+<div class="trend-range trend-range-sticky">
+  <span class="trend-range-title">Timeline</span>
+  {% for option in trend_ranges %}
+  <a class="trend-range-btn{% if option.active %} active{% endif %}" href="{{ url_for('trends', range=option.key) }}">{{ option.label }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="panel">
+  <h2>CSR Trends (All Players)</h2>
+  {{ grade_strip(trend_grade_groups.csr) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="csrTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win Rate Trends (Cumulative Average)</h2>
+  {{ grade_strip(trend_grade_groups.win_rate) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="winRateTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>KDA Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.kda) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="kdaTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Objective Score Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.obj_score) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="objScoreTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Damage/Min Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.damage_min) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="damageMinTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Damage Difference Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.damage_diff) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="damageDiffTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Accuracy Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.accuracy) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="accuracyTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Kills/Game Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.kills_pg) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="killsPgTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Deaths/Game Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.deaths_pg) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="deathsPgTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Max Killing Spree Trends (7-Day Rolling)</h2>
+  {{ grade_strip(trend_grade_groups.max_spree) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="maxSpreeTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Match Duration Trends (7-Day Rolling, Minutes)</h2>
+  {{ grade_strip(trend_grade_groups.duration) }}
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="durationTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win % Correlation (All Players)</h2>
+  <p class="muted">Top 20 stats correlated with winning. Sorted by impact.</p>
+  <div class="chart-container" style="height: 420px;">
+    <canvas id="overallWinCorrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win % Correlation by Player</h2>
+  <p class="muted">Each player's own version of the list above — which stats actually move with winning for <em>them</em> (r runs −1 to +1; correlation ≠ causation, winning pumps stats too).</p>
+  <div class="wcp-grid">
+    {% for p in win_corr_by_player.players %}
+    <div class="wcp-card">
+      <div class="wcp-name"><span class="player-name {{ p.cls }}">{{ p.player }}</span> <span class="muted">· {{ p.games }} games</span></div>
+      {% if p.core or p.extra %}
+      <div class="wcp-rows">
+        {% for d in p.core %}
+        <div class="wcp-row"><span class="wcp-stat">{{ d.stat }}</span>{% if d.pv %}<span class="wcp-vals" title="their per-game average vs squad average">{{ d.pv }} <em>vs {{ d.sv }}</em></span>{% endif %}<span class="wcp-r {{ 'wcp-pos' if d.corr >= 0 else 'wcp-neg' }}">r {{ '%+.2f'|format(d.corr) }}</span><span class="wcp-str">{{ d.strength }}</span></div>
+        {% endfor %}
+        {% if p.extra %}
+        <div class="wcp-sub muted">also notable for them</div>
+        {% for d in p.extra %}
+        <div class="wcp-row"><span class="wcp-stat">{{ d.stat }}</span>{% if d.pv %}<span class="wcp-vals" title="their per-game average vs squad average">{{ d.pv }} <em>vs {{ d.sv }}</em></span>{% endif %}<span class="wcp-r {{ 'wcp-pos' if d.corr >= 0 else 'wcp-neg' }}">r {{ '%+.2f'|format(d.corr) }}</span><span class="wcp-str">{{ d.strength }}</span></div>
+        {% endfor %}
+        {% endif %}
+      </div>
+      {% endif %}
+      <ul class="wcp-analysis">
+        {% for s in p.analysis %}<li>{{ s }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Activity Heatmap</h2>
+  <p class="muted">Games played by day of week and hour</p>
+  <div class="heatmap-container" id="activityHeatmap">
+    <div class="heatmap-grid">
+      {% for day in activity_heatmap %}
+      <div class="heatmap-row">
+        <span class="heatmap-label">{{ day.day }}</span>
+        {% for hour in day.hours %}
+        <div class="heatmap-cell" style="background-color: rgba(61, 191, 184, {{ hour.intensity }});" title="{{ day.day }} {{ hour.hour }}:00 - {{ hour.count }} games"></div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="heatmap-hours">
+      {% for h in range(24) %}
+      <span>{{ h }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
+// Server-assigned palette: lowercase gamertag → hex (matches the .player-cN CSS classes).
+const playerColorMap = {{ player_colors|default({})|tojson|safe }};
+
+const hexToRgb = (hex) => {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length !== 6) {
+    return null;
+  }
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return { r, g, b };
+};
+
+const withAlpha = (hex, alpha) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return hex;
+  }
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+};
+
+const getPlayerColor = (player, fallback) =>
+  playerColorMap[String(player || '').trim().toLowerCase()] || fallback;
+
+const sortTrendData = (data) => data.slice().sort((a, b) => a.date.localeCompare(b.date));
+const buildTrendLabels = (trends) => {
+  const dates = new Set();
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => dates.add(point.date));
+  });
+  return Array.from(dates).sort((a, b) => a.localeCompare(b));
+};
+const getTrendRange = (trends, valueKey, padding = 0.1, bounds = null) => {
+  const values = [];
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => {
+      const value = Number(point[valueKey]);
+      if (Number.isFinite(value)) {
+        values.push(value);
+      }
+    });
+  });
+  if (!values.length) {
+    return {};
+  }
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+  const range = max - min;
+  const pad = range * padding;
+  min -= pad;
+  max += pad;
+  if (bounds) {
+    if (typeof bounds.min === 'number') {
+      min = Math.max(min, bounds.min);
+    }
+    if (typeof bounds.max === 'number') {
+      max = Math.min(max, bounds.max);
+    }
+  }
+  return { min, max };
+};
+const playerMoments = {{ player_moments|default({})|tojson|safe }};
+const momentStyles = {
+  tilt: { pointStyle: 'triangle', radius: 6 },
+  tilt_window: { pointStyle: 'triangle', radius: 4 },
+  clutch: { pointStyle: 'star', radius: 6 },
+  carry: { pointStyle: 'rectRounded', radius: 6 },
+  heroic: { pointStyle: 'cross', radius: 7 },
+  objective: { pointStyle: 'rectRot', radius: 6 },
+  silent: { pointStyle: 'circle', radius: 6 },
+  momentum: { pointStyle: 'rect', radius: 6 },
+  rivalry: { pointStyle: 'rect', radius: 5 }
+};
+
+const buildMomentDatasets = (momentKey) => {
+  const datasets = [];
+  if (!playerMoments || !momentKey) {
+    return datasets;
+  }
+  Object.entries(playerMoments).forEach(([player, events]) => {
+    const filtered = (events || []).filter(event => event.stat === momentKey);
+    if (!filtered.length) {
+      return;
+    }
+    const color = getPlayerColor(player, chartColors[datasets.length % chartColors.length]);
+    datasets.push({
+      label: `${player} moments`,
+      type: 'scatter',
+      data: filtered.map(event => ({
+        x: event.date,
+        y: event.value,
+        label: event.label,
+        type: event.type
+      })),
+      showLine: false,
+      pointBackgroundColor: color,
+      pointBorderColor: color,
+      pointRadius: filtered.map(event => (momentStyles[event.type]?.radius || 6)),
+      pointStyle: filtered.map(event => (momentStyles[event.type]?.pointStyle || 'circle')),
+      pointHoverRadius: 8
+    });
+  });
+  return datasets;
+};
+
+const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}, momentKey = null) => {
+  if (!trends || Object.keys(trends).length === 0) {
+    return;
+  }
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) {
+    return;
+  }
+  const ctx = canvas.getContext('2d');
+  const labels = buildTrendLabels(trends);
+  const datasets = Object.entries(trends).map(([player, data], index) => ({
+    label: player,
+    data: sortTrendData(data).map(d => ({ x: d.date, y: d[valueKey] })),
+    borderColor: getPlayerColor(player, chartColors[index % chartColors.length]),
+    backgroundColor: withAlpha(getPlayerColor(player, chartColors[index % chartColors.length]), 0.2),
+    fill: false,
+    tension: 0.15,
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 3,
+    spanGaps: true
+  }));
+  if (momentKey) {
+    datasets.push(...buildMomentDatasets(momentKey));
+  }
+  const yScale = Object.assign(
+    { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } },
+    yOptions
+  );
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'nearest' },
+      plugins: {
+        legend: { labels: { color: '#e8dfd3' } },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const raw = context.raw || {};
+              if (raw.label) {
+                return raw.label;
+              }
+              const value = context.parsed.y;
+              return `${context.dataset.label}: ${value}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { type: 'category', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82', maxTicksLimit: 12, autoSkip: true } },
+        y: yScale
+      }
+    }
+  });
+};
+
+const csrTrends = {{ csr_trends|tojson|safe }};
+renderTrendChart('csrTrendChart', csrTrends, 'csr');
+
+const winRateTrends = {{ win_rate_trends|tojson|safe }};
+renderTrendChart('winRateTrendChart', winRateTrends, 'win_rate', { min: 0, max: 100 }, 'win_rate');
+
+const kdaTrends = {{ kda_trends|tojson|safe }};
+renderTrendChart('kdaTrendChart', kdaTrends, 'kda', {}, 'kda');
+
+const objScoreTrends = {{ obj_score_trends|tojson|safe }};
+renderTrendChart('objScoreTrendChart', objScoreTrends, 'obj_score', {}, 'obj_score');
+
+const damageMinTrends = {{ damage_min_trends|tojson|safe }};
+renderTrendChart('damageMinTrendChart', damageMinTrends, 'dmg_min', {}, 'dmg_min');
+
+const damageDiffTrends = {{ damage_diff_trends|tojson|safe }};
+renderTrendChart('damageDiffTrendChart', damageDiffTrends, 'dmg_diff');
+
+const accuracyTrends = {{ accuracy_trends|tojson|safe }};
+const accuracyRange = getTrendRange(accuracyTrends, 'accuracy', 0.12, { min: 0, max: 100 });
+renderTrendChart('accuracyTrendChart', accuracyTrends, 'accuracy', accuracyRange);
+
+const killsPgTrends = {{ kills_pg_trends|tojson|safe }};
+renderTrendChart('killsPgTrendChart', killsPgTrends, 'kills_pg');
+
+const deathsPgTrends = {{ deaths_pg_trends|tojson|safe }};
+renderTrendChart('deathsPgTrendChart', deathsPgTrends, 'deaths_pg');
+
+const maxSpreeTrends = {{ max_spree_trends|tojson|safe }};
+renderTrendChart('maxSpreeTrendChart', maxSpreeTrends, 'max_spree');
+
+const durationTrends = {{ duration_trends|tojson|safe }};
+renderTrendChart('durationTrendChart', durationTrends, 'duration_min');
+
+const overallWinCorr = {{ win_corr_overall|default([])|tojson|safe }};
+if (overallWinCorr && overallWinCorr.length > 0) {
+  const ctx = document.getElementById('overallWinCorrChart').getContext('2d');
+  const labels = overallWinCorr.map(row => row.stat);
+  const values = overallWinCorr.map(row => row.corr);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Correlation',
+        data: values,
+        backgroundColor: values.map(value => value >= 0 ? 'rgba(61, 191, 184, 0.6)' : 'rgba(255, 122, 61, 0.6)'),
+        borderColor: values.map(value => value >= 0 ? '#3dbfb8' : '#ff7a3d'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Corr: ${context.parsed.x.toFixed(3)}`
+          }
+        }
+      },
+      scales: {
+        x: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#9a8f82' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+
+</script>
+{% endblock %}

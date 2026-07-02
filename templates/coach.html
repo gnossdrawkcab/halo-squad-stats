@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}AI Coach - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>🧠 AI Coach</h2>
+    <p class="muted">
+      Local AI ({{ model }})
+      {% if ollama_ok %}<span class="heat-excellent" style="padding:1px 6px;border-radius:6px">online</span>{% else %}<span class="heat-poor" style="padding:1px 6px;border-radius:6px">offline</span>{% endif %}
+      — reads your recent squad form and answers questions about it.
+    </p>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+  {% if not ollama_ok %}
+  <p class="muted">Model not reachable. Set <code>HALO_OLLAMA_URL</code> / <code>HALO_OLLAMA_MODEL</code> in the stack env if your host/model differ.</p>
+  {% endif %}
+
+  <form method="post" class="coach-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="text" name="question" class="form-input" placeholder="Ask anything — e.g. How do I climb out of Diamond? Who should drop to support?" value="{{ question }}">
+    <button type="submit" class="btn" {% if not ollama_ok %}disabled{% endif %}>Ask</button>
+  </form>
+  <p class="muted" style="font-size:0.8rem">Responses can take 10–60s while the model thinks.</p>
+
+  {% if answer %}
+  <div class="coach-answer">
+    <div class="coach-q"><strong>Q:</strong> {{ question }}</div>
+    <div class="coach-a">{{ answer|replace('\n', '<br>')|safe }}</div>
+  </div>
+  {% endif %}
+</section>
+
+{% if plan %}
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Plan Tonight</div>
+    <span class="muted">from your ranked history — no AI needed</span>
+  </div>
+  <div class="mvp-grid">
+    {% if plan.best_lineup %}
+    <div class="mvp-card tone-good">
+      <span class="mvp-card-label">🧩 Strongest {{ plan.best_lineup.size }}-stack</span>
+      <div class="mvp-card-info">
+        <strong>{{ plan.best_lineup.lineup }}</strong>
+        <span class="muted">{{ plan.best_lineup.win_pct }}% wins · {{ plan.best_lineup.games }} games together</span>
+      </div>
+    </div>
+    {% endif %}
+    <div class="mvp-card tone-good">
+      <span class="mvp-card-label">🗺️ Pick these maps</span>
+      <div class="mvp-card-info">
+        {% for m in plan.top_maps %}<div>{{ m.name }} <span class="muted">· {{ m.win_rate }}</span></div>{% else %}<span class="muted">not enough data</span>{% endfor %}
+      </div>
+    </div>
+    <div class="mvp-card tone-bad">
+      <span class="mvp-card-label">🚫 Consider banning</span>
+      <div class="mvp-card-info">
+        {% for m in plan.avoid_maps %}<div>{{ m.name }} <span class="muted">· {{ m.win_rate }}</span></div>{% else %}<span class="muted">not enough data</span>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-header">
+    <h2>Squad Briefing</h2>
+    <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="brief">
+      <button type="submit" class="btn btn-small" {% if not ollama_ok %}disabled{% endif %}>{{ 'Regenerate' if has_brief else 'Generate' }}</button>
+    </form>
+  </div>
+  {% if auto %}
+  <div class="coach-a">{{ auto|replace('\n', '<br>')|safe }}</div>
+  {% else %}
+  <p class="muted">No briefing yet — click Generate for a coaching summary of the squad's recent form.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <details>
+    <summary class="muted" style="cursor:pointer">What the coach sees</summary>
+    <pre class="coach-context">{{ context }}</pre>
+  </details>
+</section>
+{% endblock %}

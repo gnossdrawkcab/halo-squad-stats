@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Lifetime - {{ app_title }}{% endblock %}
+
+{% block content %}
+{% from "_grade_help.html" import grade_legend %}
+<section class="panel">
+  <h2>All Games Summary</h2>
+  <p class="muted">Aggregated stats across all matches. Filters apply to the totals.</p>
+  {{ grade_legend() }}
+
+  <form class="filters" method="get">
+    <label>
+      Player
+      <select name="player">
+        <option value="all" {% if selected_player == 'all' %}selected{% endif %}>All</option>
+        {% for player in players %}
+        <option value="{{ player }}" {% if selected_player == player %}selected{% endif %}>{{ player }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Playlist
+      <select name="playlist">
+        <option value="all" {% if selected_playlist == 'all' %}selected{% endif %}>All</option>
+        {% for playlist in playlists %}
+        <option value="{{ playlist }}" {% if selected_playlist == playlist %}selected{% endif %}>{{ playlist }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Mode
+      <select name="mode">
+        <option value="all" {% if selected_mode == 'all' %}selected{% endif %}>All</option>
+        {% for mode in modes %}
+        <option value="{{ mode }}" {% if selected_mode == mode %}selected{% endif %}>{{ mode }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Limit
+      <select name="limit">
+        <option value="all" {% if selected_limit == 'all' %}selected{% endif %}>All (capped)</option>
+        {% for value in [25, 50, 100, 200, 500, 1000, 2000] %}
+        <option value="{{ value }}" {% if selected_limit == value|string %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn">Filter</button>
+  </form>
+  {% if limit_note %}
+  <p class="muted">{{ limit_note }}</p>
+  {% endif %}
+
+  <div class="table-wrap">
+    <table class="data-table" data-table="lifetime-summary">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Overall skill grade (absolute scale, same as the player card)">Grade</th>
+          <th>Matches</th>
+          <th>Wins</th>
+          <th>Losses</th>
+          <th>Win Rate</th>
+          <th>Kills</th>
+          <th>Deaths</th>
+          <th>Assists</th>
+          <th>KDA</th>
+          <th title="KDA per minute — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+          <th>Accuracy</th>
+          <th>Avg Score</th>
+          <th>Avg Obj Score</th>
+          <th title="Perfect-kill medals per game (lifetime total in parentheses)">✨ Perfect/g</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lifetime_rows %}
+        {% for row in lifetime_rows %}
+        <tr>
+          <td><span class="player-name {{ row.player|player_class }}">{{ row.player }}</span></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td class="{{ row.matches_heat }}">{{ row.matches }}</td>
+          <td class="{{ row.wins_heat }}">{{ row.wins }}</td>
+          <td class="{{ row.losses_heat }}">{{ row.losses }}</td>
+          <td class="{{ row.win_rate_heat }}">{{ row.win_rate }}</td>
+          <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+          <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+          <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td>{{ row.kda_min }}</td>
+          <td>{{ row.obj_min }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.avg_score_heat }}">{{ row.avg_score }}</td>
+          <td class="{{ row.avg_obj_score_heat }}">{{ row.avg_obj_score }}</td>
+          <td class="{{ row.perfect_pg_heat }}" data-val="{{ row.perfect_pg }}">{{ row.perfect_pg }}<span class="tile-tot"> ({{ row.perfect_total }})</span></td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="14" class="empty">No data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>All Games</h2>
+  <p class="muted">Most recent matches for the selected filters.</p>
+
+  <div class="table-wrap">
+    <table class="data-table" data-table="session" style="min-width: 2200px;">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Player</th>
+          <th title="Absolute single-game grade">Grade</th>
+          <th>Mode</th>
+          <th>Map</th>
+          <th>Playlist</th>
+          <th>Outcome</th>
+          <th>K</th>
+          <th>D</th>
+          <th>A</th>
+          <th>KDA</th>
+          <th title="KDA per minute of play — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+          <th title="Kill/Death ratio">KD</th>
+          <th title="Damage dealt">DMG+</th>
+          <th title="Damage taken">DMG-</th>
+          <th title="Damage difference">DMG Δ</th>
+          <th title="Shots fired">Fired</th>
+          <th title="Shots landed">Landed</th>
+          <th>Accuracy</th>
+          <th>Score</th>
+          <th title="Objective score (personal score minus combat bonuses)">Obj Score</th>
+          <th title="Medal count">Medals</th>
+          <th title="Perfect-kill medals earned in this game">✨ Perfect</th>
+          <th title="Average life duration">Life</th>
+          <th title="Headshots">HS</th>
+          <th title="Melee kills">Melee</th>
+          <th title="Grenade kills">Grenade</th>
+          <th title="Power weapon kills">Power</th>
+          <th title="Callout assists">Callouts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if session_rows %}
+        {% for row in session_rows %}
+        <tr>
+          <td style="white-space:nowrap">{{ row.date }}{% set _w = watch_url(row.match_id) %}{% if _w %} <a href="{{ _w }}" target="_blank" rel="noopener" class="watch-ico" title="Watch the synced co-stream rewatch (MultiTwitch)">📺</a>{% endif %}</td>
+          <td><span class="player-name {{ row.player|player_class }}">{{ row.player }}</span></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.game_type }}</td>
+          <td>{{ row.map }}</td>
+          <td>{{ row.playlist }}</td>
+          <td><span class="pill {{ row.outcome_class }}">{{ row.outcome }}</span></td>
+          <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+          <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+          <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td>{{ row.kda_min }}</td>
+          <td>{{ row.obj_min }}</td>
+          <td class="{{ row.kd_heat }}">{{ row.kd }}</td>
+          <td class="{{ row.damage_dealt_heat }}">{{ row.damage_dealt }}</td>
+          <td class="{{ row.damage_taken_heat }}">{{ row.damage_taken }}</td>
+          <td class="{{ row.damage_diff_heat }}">{{ row.damage_diff }}</td>
+          <td>{{ row.shots_fired }}</td>
+          <td>{{ row.shots_landed }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.score_heat }}">{{ row.score }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+          <td class="{{ row.perfect_heat }}">{{ row.perfect }}</td>
+          <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+          <td class="{{ row.headshots_heat }}">{{ row.headshots }}</td>
+          <td class="{{ row.melee_heat }}">{{ row.melee }}</td>
+          <td class="{{ row.grenade_heat }}">{{ row.grenade }}</td>
+          <td class="{{ row.power_heat }}">{{ row.power }}</td>
+          <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="28" class="empty">No data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+
+{% block title %}Insights - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Insights</h2>
+  <p class="muted">Deep dives across sessions, clutch moments, roles, and consistency.</p>
+</section>
+
+<section class="panel">
+  <h2>Session Compare</h2>
+  <form class="filters" method="get">
+    <label>
+      Player
+      <select name="player">
+        <option value="all" {% if selected_player == 'all' %}selected{% endif %}>All</option>
+        {% for p in players %}
+        <option value="{{ p }}" {% if selected_player == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Range A Start
+      <input type="date" name="start_a" value="{{ start_a }}" />
+    </label>
+    <label>
+      Range A End
+      <input type="date" name="end_a" value="{{ end_a }}" />
+    </label>
+    <label>
+      Range B Start
+      <input type="date" name="start_b" value="{{ start_b }}" />
+    </label>
+    <label>
+      Range B End
+      <input type="date" name="end_b" value="{{ end_b }}" />
+    </label>
+    <button class="btn" type="submit">Compare</button>
+  </form>
+
+  <div class="table-wrap">
+    <table class="data-table" data-table="session-compare">
+      <thead>
+        <tr>
+          <th>Stat</th>
+          <th>{{ range_a_label }}</th>
+          <th>{{ range_b_label }}</th>
+          <th>Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if session_compare_rows %}
+        {% for row in session_compare_rows %}
+        <tr>
+          <td><strong>{{ row.stat }}</strong></td>
+          <td>{{ row.a }}</td>
+          <td>{{ row.b }}</td>
+          <td>{{ row.delta }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="4" class="empty">No data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>What Changed (Last 7 Days vs Prior 7)</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="change-summary">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Composite recent-change grade">Grade</th>
+          <th>Recent Games</th>
+          <th>Prev Games</th>
+          <th>Win % Change</th>
+          <th>KDA Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if change_rows %}
+        {% for row in change_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.recent_games }}</td>
+          <td>{{ row.prev_games }}</td>
+          <td class="{{ row.win_delta_heat }}">{{ row.win_delta }}</td>
+          <td class="{{ row.kda_delta_heat }}">{{ row.kda_delta }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No change data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel-grid">
+  <div class="panel">
+    <h2>Clutch Index (Close Games)</h2>
+    <p class="muted">Close games = score diff 5 or less</p>
+    <div class="table-wrap">
+      <table class="data-table" data-table="clutch-index">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th title="Composite clutch grade">Grade</th>
+            <th title="Close games played">Close Gms</th>
+            <th title="Win percentage in close games">Close Win%</th>
+            <th title="KDA in close games">Close KDA</th>
+            <th title="Close win% minus overall win%">Clutch</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if clutch_rows %}
+          {% for row in clutch_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td class="{{ row.close_games_heat }}">{{ row.close_games }}</td>
+            <td class="{{ row.close_win_pct_heat }}">{{ row.close_win_pct }}%</td>
+            <td class="{{ row.close_kda_heat }}">{{ row.close_kda }}</td>
+            <td class="{{ row.clutch_index_heat }}">{{ row.clutch_index }}</td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="6" class="empty">Close-game data not available</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Role Heatmap</h2>
+    <p class="muted">Slayer = kills + damage, Objective = obj score, Support = assists + callouts</p>
+    <div class="table-wrap">
+      <table class="data-table" data-table="role-heatmap">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th title="Composite role grade">Grade</th>
+            <th>Slayer</th>
+            <th>Objective</th>
+            <th>Support</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if role_rows %}
+          {% for row in role_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td class="{{ row.slayer_score_heat }}">{{ row.slayer_score }}</td>
+            <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+            <td class="{{ row.support_score_heat }}">{{ row.support_score }}</td>
+            <td><span class="role-pill role-{{ row.role|lower }}">{{ row.role }}</span></td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="6" class="empty">No role data yet</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="panel-grid">
+  <div class="panel">
+    <h2>Momentum Tracker</h2>
+    <p class="muted">Last 10 ranked games</p>
+    <div class="table-wrap">
+      <table class="data-table" data-table="momentum">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th title="Composite momentum grade">Grade</th>
+            <th>Recent</th>
+            <th title="CSR change over the window">CSR Δ</th>
+            <th>Last Played</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if momentum_rows %}
+          {% for row in momentum_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td>
+              <div class="streak-strip">
+                {% for result in row.recent_results %}
+                <span class="streak-chip {{ result.class }}">{{ result.label }}</span>
+                {% endfor %}
+              </div>
+            </td>
+            <td>{{ row.csr_delta }}</td>
+            <td>{{ row.last_played }}</td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="5" class="empty">No momentum data yet</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Map Veto Hints</h2>
+  <p class="muted">Best and worst maps per player (min {{ 50 }} games)</p>
+    <div class="table-wrap">
+      <table class="data-table" data-table="map-veto">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th title="Composite map-veto grade">Grade</th>
+            <th>Best Map</th>
+            <th>Win%</th>
+            <th>Games</th>
+            <th>Worst Map</th>
+            <th>Win%</th>
+            <th>Games</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if veto_rows %}
+          {% for row in veto_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td>{{ row.best_map }}</td>
+            <td class="{{ row.best_win_pct_heat }}">{{ row.best_win_pct }}%</td>
+            <td>{{ row.best_games }}</td>
+            <td>{{ row.worst_map }}</td>
+            <td class="{{ row.worst_win_pct_heat }}">{{ row.worst_win_pct }}%</td>
+            <td>{{ row.worst_games }}</td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="8" class="empty">No map data yet</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Consistency Score</h2>
+  <p class="muted">Lower volatility = higher score</p>
+  <div class="table-wrap">
+    <table class="data-table" data-table="consistency">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Composite consistency grade">Grade</th>
+          <th>CSR Std (30d)</th>
+          <th>KDA Std (30d)</th>
+          <th>CSR Std (90d)</th>
+          <th>KDA Std (90d)</th>
+          <th>Consistency</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if consistency_rows %}
+        {% for row in consistency_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.csr_std_30d }}</td>
+          <td>{{ row.kda_std_30d }}</td>
+          <td>{{ row.csr_std_90d }}</td>
+          <td>{{ row.kda_std_90d }}</td>
+          <td class="{{ row.consistency_heat }}">{{ row.consistency }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty">No consistency data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Lineup Chemistry</h2>
+  <p class="muted">Best 2/3/4 stacks by win % and efficiency (min 5 games)</p>
+</section>
+
+<section class="panel">
+  <h2>Best 2-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-2">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th title="Composite lineup grade">Grade</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup2_rows %}
+        {% for row in lineup2_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="{{ p|player_href }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="9" class="empty">No lineup data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Best 3-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-3">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th title="Composite lineup grade">Grade</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup3_rows %}
+        {% for row in lineup3_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="{{ p|player_href }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="9" class="empty">No lineup data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Best 4-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-4">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th title="Composite lineup grade">Grade</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup4_rows %}
+        {% for row in lineup4_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="{{ p|player_href }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="9" class="empty">No lineup data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Notable Games</h2>
+  <p class="muted">Top highlight games by KDA, medals, and damage swing</p>
+  <div class="table-wrap">
+    <table class="data-table" data-table="notable-games">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th title="Absolute single-game grade">Grade</th>
+          <th>Player</th>
+          <th>Map</th>
+          <th>Mode</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if notable_rows %}
+        {% for row in notable_rows %}
+        <tr>
+          <td>{{ row.date }}</td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td>{{ row.map }}</td>
+          <td>{{ row.mode }}</td>
+          <td>{{ row.reason }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No notable games yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

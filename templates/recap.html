@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Weekly Recap - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>📅 Weekly Recap</h2>
+    <p class="muted">Auto-generated summary for the week of {{ recap.week_label }}.</p>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    {% for w in week_options %}
+    <a href="/recap?week={{ w.offset }}"
+       class="btn btn-small {% if w.active %}btn-active{% endif %}">{{ w.label }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if recap.total_games == 0 %}
+<section class="panel">
+  <p class="muted">No ranked games found for this week.</p>
+</section>
+{% else %}
+
+<div class="panel-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:0">
+  <div class="panel" style="text-align:center">
+    <div class="stat-label muted">Games Played</div>
+    <div class="stat-value" style="font-size:2rem;font-weight:700">{{ recap.total_games }}</div>
+  </div>
+  {% if recap.best_player %}
+  <div class="panel" style="text-align:center">
+    <div class="stat-label muted">Best Player</div>
+    <div class="stat-value" style="font-size:1.4rem;font-weight:700">
+      <a href="{{ recap.best_player.player|player_href }}" class="player-name {{ recap.best_player.player|player_class }}">{{ recap.best_player.player }}</a>
+    </div>
+    <div class="muted" style="font-size:0.85rem">{{ recap.best_player.games }} games · {{ recap.best_player.win_pct }}% wins · CSR {{ recap.best_player.csr_delta }}</div>
+  </div>
+  {% endif %}
+  {% if recap.best_duo %}
+  <div class="panel" style="text-align:center">
+    <div class="stat-label muted">Best Duo</div>
+    <div class="stat-value" style="font-size:1.1rem;font-weight:700">
+      {% for p in recap.best_duo.players %}
+      <a href="{{ p|player_href }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+      {% endfor %}
+    </div>
+    <div class="muted" style="font-size:0.85rem">{{ recap.best_duo.wins }}W / {{ recap.best_duo.games }}G · {{ recap.best_duo.win_pct }}% wins</div>
+  </div>
+  {% endif %}
+  {% if recap.best_map %}
+  <div class="panel" style="text-align:center">
+    <div class="stat-label muted">Best Map</div>
+    <div class="stat-value" style="font-size:1.2rem;font-weight:700">{{ recap.best_map.name }}</div>
+    <div class="muted" style="font-size:0.85rem">{{ recap.best_map.win_pct }}% win rate · {{ recap.best_map.games }} games</div>
+  </div>
+  {% endif %}
+  {% if recap.worst_map %}
+  <div class="panel" style="text-align:center">
+    <div class="stat-label muted">Worst Map</div>
+    <div class="stat-value heat-poor" style="font-size:1.2rem;font-weight:700">{{ recap.worst_map.name }}</div>
+    <div class="muted" style="font-size:0.85rem">{{ recap.worst_map.win_pct }}% win rate · {{ recap.worst_map.games }} games</div>
+  </div>
+  {% endif %}
+</div>
+
+{% if recap.game_of_week or recap.week_mvp %}
+<section class="panel">
+  <div class="panel-header"><div class="section-label" style="margin-bottom:0">Week MVP</div></div>
+  <div class="mvp-grid">
+    {% if recap.game_of_week %}
+    <div class="mvp-card">
+      <span class="mvp-card-label">🏆 Game of the Week</span>
+      <div class="mvp-card-body">
+        <span class="grade-badge {{ recap.game_of_week.grade_class }}">{{ recap.game_of_week.grade }}</span>
+        <div class="mvp-card-info">
+          <a href="{{ recap.game_of_week.player|player_href }}" class="player-name {{ recap.game_of_week.player|player_class }}"><strong>{{ recap.game_of_week.player }}</strong></a>
+          <span class="muted">{{ recap.game_of_week.kills }}/{{ recap.game_of_week.deaths }}/{{ recap.game_of_week.assists }} · {{ recap.game_of_week.kda }} KDA · {{ recap.game_of_week.map }}</span>
+          {% if recap.game_of_week.match_id %}<a class="mvp-link" href="/match/{{ recap.game_of_week.match_id }}">View match →</a>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if recap.week_mvp %}
+    <div class="mvp-card">
+      <span class="mvp-card-label">⭐ Highest Average Grade</span>
+      <div class="mvp-card-body">
+        <span class="grade-badge {{ recap.week_mvp.grade_class }}">{{ recap.week_mvp.grade }}</span>
+        <div class="mvp-card-info">
+          <a href="{{ recap.week_mvp.player|player_href }}" class="player-name {{ recap.week_mvp.player|player_class }}"><strong>{{ recap.week_mvp.player }}</strong></a>
+          <span class="muted">{{ recap.week_mvp.avg }}/100 avg grade · {{ recap.week_mvp.games }} games</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-header"><h2>Player Stats This Week</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="recap-players">
+      <thead><tr>
+        <th>Player</th>
+        <th title="Composite weekly grade vs the squad">Grade</th>
+        <th>Games</th>
+        <th>Win %</th>
+        <th>KDA</th>
+        <th title="KDA per minute">KDA/min</th>
+        <th title="Objective score per minute">OBJ/min</th>
+        <th>DMG/min</th>
+        <th>CSR Δ</th>
+      </tr></thead>
+      <tbody>
+      {% for row in recap.players %}
+      <tr>
+        <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+        <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+        <td>{{ row.games }}</td>
+        <td class="{{ row.win_pct_raw_heat }}">{{ row.win_pct }}%</td>
+        <td>{{ row.kda }}</td>
+        <td>{{ row.kda_min }}</td>
+        <td>{{ row.obj_min }}</td>
+        <td>{{ row.dpm }}</td>
+        <td class="{{ row.csr_delta_raw_heat }}">{{ row.csr_delta }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No data</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if recap.notable_games %}
+<section class="panel">
+  <div class="panel-header"><h2>Notable Games</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="recap-notable">
+      <thead><tr>
+        <th>Player</th><th title="Absolute single-game grade">Grade</th><th>Date</th><th>Map</th><th>Mode</th>
+        <th>Outcome</th><th>K</th><th>D</th><th>A</th><th>KDA</th>
+      </tr></thead>
+      <tbody>
+      {% for g in recap.notable_games %}
+      <tr>
+        <td><a href="{{ g.player|player_href }}" class="player-name {{ g.player|player_class }}">{{ g.player }}</a></td>
+        <td><span class="inline-grade {{ g.grade_class }}" title="{{ g.grade_tip }}">{{ g.grade }}</span></td>
+        <td>{% if g.match_id %}<a href="/match/{{ g.match_id }}">{{ g.date }}</a>{% set _w = watch_url(g.match_id) %}{% if _w %} <a href="{{ _w }}" target="_blank" rel="noopener" class="watch-ico" title="Watch the synced co-stream rewatch (MultiTwitch)">📺</a>{% endif %}{% else %}{{ g.date }}{% endif %}</td>
+        <td>{{ g.map }}</td>
+        <td>{{ g.game_type }}</td>
+        <td class="{{ g.outcome_class }}">{{ g.outcome }}</td>
+        <td>{{ g.kills }}</td><td>{{ g.deaths }}</td><td>{{ g.assists }}</td>
+        <td>{{ g.kda }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-header"><h2>Save This Week as a Snapshot</h2></div>
+  <form method="post" action="/snapshots" style="max-width:480px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="date_from" value="{{ recap.week_start }}">
+    <input type="hidden" name="date_to" value="{{ recap.week_end }}">
+    <div class="form-row">
+      <label>Snapshot name
+        <input type="text" name="name" value="Week of {{ recap.week_label }}" required class="form-input">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Notes
+        <textarea name="notes" rows="2" class="form-input" placeholder="Optional notes…"></textarea>
+      </label>
+    </div>
+    <button type="submit" class="btn">Save Snapshot</button>
+  </form>
+</section>
+
+{% endif %}
+{% endblock %}

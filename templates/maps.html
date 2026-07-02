@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Maps & Modes - {{ app_title }}{% endblock %}
+
+{% block content %}
+{% from "_grade_help.html" import grade_legend %}
+<section class="panel">
+  <h2>Map Performance</h2>
+  <p class="muted">Win rates and stats per map (all players combined)</p>
+  {{ grade_legend() }}
+  <div class="table-tools">
+    <input type="text" data-table-filter="maps" placeholder="Filter maps..." />
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="maps">
+      <thead>
+        <tr>
+          <th>Map</th>
+          <th title="Composite map grade">Grade</th>
+          <th title="Total games on this map">Games</th>
+          <th title="Win percentage">Win %</th>
+          <th title="Average kills per game">Avg K</th>
+          <th title="Average deaths per game">Avg D</th>
+          <th title="Average KDA">Avg KDA</th>
+          <th title="KDA per minute — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if map_rows %}
+        {% for row in map_rows %}
+        <tr>
+          <td><strong>{{ row.map }}</strong></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}%</td>
+          <td class="{{ row.avg_kills_heat }}">{{ row.avg_kills }}</td>
+          <td class="{{ row.avg_deaths_heat }}">{{ row.avg_deaths }}</td>
+          <td class="{{ row.avg_kda_heat }}">{{ row.avg_kda }}</td>
+          <td class="{{ row.kda_min_heat }}">{{ row.kda_min }}</td>
+          <td>{{ row.obj_min }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty">No map data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Mode Performance</h2>
+  <p class="muted">Stats by game mode</p>
+  <div class="table-tools">
+    <input type="text" data-table-filter="modes" placeholder="Filter modes..." />
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="modes">
+      <thead>
+        <tr>
+          <th>Mode</th>
+          <th title="Composite mode grade">Grade</th>
+          <th title="Total games in this mode">Games</th>
+          <th title="Win percentage">Win %</th>
+          <th title="Average KDA in this mode">Avg KDA</th>
+          <th title="KDA per minute — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+          <th title="Average score per game">Avg Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if mode_rows %}
+        {% for row in mode_rows %}
+        <tr>
+          <td><strong>{{ row.mode }}</strong></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}%</td>
+          <td class="{{ row.avg_kda_heat }}">{{ row.avg_kda }}</td>
+          <td class="{{ row.kda_min_heat }}">{{ row.kda_min }}</td>
+          <td>{{ row.obj_min }}</td>
+          <td class="{{ row.avg_score_heat }}">{{ row.avg_score }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No mode data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Player Map Breakdown</h2>
+  <p class="muted">Individual player performance per map</p>
+  <div class="table-tools">
+    <input type="text" data-table-filter="player-maps" placeholder="Filter player/map..." />
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="player-maps">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Map</th>
+          <th title="Composite player-map grade">Grade</th>
+          <th>Games</th>
+          <th title="Win percentage on this map">Win %</th>
+          <th title="Average KDA on this map">Avg KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if player_map_rows %}
+        {% for row in player_map_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td>{{ row.map }}</td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}%</td>
+          <td class="{{ row.avg_kda_heat }}">{{ row.avg_kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Player Mode Breakdown</h2>
+  <p class="muted">Individual player performance per game mode</p>
+  <div class="table-tools">
+    <input type="text" data-table-filter="player-modes" placeholder="Filter player/mode..." />
+  </div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="player-modes">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Mode</th>
+          <th title="Composite player-mode grade">Grade</th>
+          <th>Games</th>
+          <th title="Win percentage in this mode">Win %</th>
+          <th title="Average KDA in this mode">Avg KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if player_mode_rows %}
+        {% for row in player_mode_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td>{{ row.mode }}</td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}%</td>
+          <td class="{{ row.avg_kda_heat }}">{{ row.avg_kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

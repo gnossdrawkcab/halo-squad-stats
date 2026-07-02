@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>🛠️ Setup</h2>
+
+    {% if not current %}
+    <div class="info-box">
+      <h3>Welcome! Three steps to get running — all in this page</h3>
+      <ul>
+        <li><strong>1. API credentials</strong> — create a (free) Azure app registration and paste
+            its client ID + secret below.</li>
+        <li><strong>2. Authorize with Xbox Live</strong> — one browser sign-in mints
+            <code>tokens.json</code>, the key the scraper uses to call the Halo API.</li>
+        <li><strong>3. Players</strong> — list the gamertags to track. The scraper picks the roster
+            up on its next cycle — no restart needed.</li>
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert">{{ error }}</div>
+    {% endif %}
+    {% if message %}
+    <div class="alert">{{ message }}</div>
+    {% endif %}
+
+    {# ── Step 1: Azure API credentials ─────────────────────────────────── #}
+    <h3>Step 1 — Halo API credentials {% if creds_configured %}<span title="configured">✅</span>{% endif %}</h3>
+
+    {% if creds_configured %}
+    <p class="help-text">Configured ✓ — client ID <code>{{ creds_client_id }}</code>
+      {% if creds_source == 'env' %}(from <code>HALO_CLIENT_ID</code>/<code>HALO_CLIENT_SECRET</code>
+      env vars; saving below writes <code>api_config.json</code>, which takes priority){% else
+      %}(saved in <code>api_config.json</code> in the data dir){% endif %}.
+      The secret is stored server-side and never shown here.</p>
+    {% else %}
+    <div class="info-box">
+      <h4>Create your (free) Azure app registration — ~3 minutes, one time</h4>
+      <ol>
+        <li>Go to <a href="https://portal.azure.com/" target="_blank" rel="noopener">portal.azure.com</a>
+            and sign in with any Microsoft account.</li>
+        <li>Search for <strong>App registrations</strong> → <strong>New registration</strong>.</li>
+        <li>Name it anything (e.g. <code>Halo Stats</code>); under <em>Supported account types</em> choose
+            <strong>Personal Microsoft accounts</strong> (or "any org + personal").</li>
+        <li>Under <em>Redirect URI</em> pick platform <strong>Mobile and desktop applications</strong>
+            (add it later via <em>Authentication → Add a platform</em> if you missed it) and enter
+            <code>{{ redirect_uri }}</code>.</li>
+        <li>Click <strong>Register</strong>, then copy the <strong>Application (client) ID</strong>
+            from the Overview tab into the field below.</li>
+        <li>Go to <strong>Certificates &amp; secrets → New client secret</strong>, create one, and copy
+            its <strong>Value</strong> (not the Secret ID!) into the field below.</li>
+      </ol>
+    </div>
+    {% endif %}
+
+    <form method="post" class="settings-form" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="form" value="credentials">
+      <label>
+        Application (client) ID
+        <input type="text" name="client_id" class="form-input"
+               value="{{ creds_client_id or '' }}"
+               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </label>
+      <label>
+        Client secret (Value)
+        <input type="password" name="client_secret" class="form-input" autocomplete="new-password"
+               placeholder="{% if creds_configured %}configured ✓ — leave blank to keep the saved secret{% else %}paste the secret VALUE from Certificates &amp; secrets{% endif %}">
+      </label>
+      <button type="submit" class="btn">Save API Credentials</button>
+    </form>
+
+    {# ── Step 2: Xbox Live authorization ───────────────────────────────── #}
+    <h3>Step 2 — Authorize with Xbox Live
+      {% if token_state.get('complete') %}<span title="tokens.json present">✅</span>{% endif %}</h3>
+
+    {% if token_state.get('complete') %}
+    <p class="help-text">Authorized ✓ — <code>tokens.json</code> is present in the data dir
+      {% if token_state.get('expired') %}(access token expired; the scraper refreshes it
+      automatically on its next cycle){% endif %}.
+      Re-run the flow below only if you switch Xbox accounts or the refresh token stops working.</p>
+    {% elif token_state.get('present') %}
+    <div class="alert">A <code>tokens.json</code> exists but looks incomplete — run the
+      authorization below to replace it.</div>
+    {% endif %}
+
+    {% if not creds_configured %}
+    <p class="help-text">Complete step 1 first — the authorize link needs your client ID.</p>
+    {% else %}
+    <div class="info-box">
+      <ol>
+        <li><a href="{{ authorize_url }}" target="_blank" rel="noopener"><strong>Authorize with
+            Xbox Live ↗</strong></a> — sign in with the Microsoft account that owns the Xbox
+            gamertag (any Microsoft account with Xbox Live works).</li>
+        <li>After approving, your browser lands on a <strong>dead page</strong> at
+            <code>{{ redirect_uri }}/?code=…</code> — that's expected (nothing runs there).</li>
+        <li>Copy the <strong>full URL</strong> from the address bar and paste it below
+            (just the <code>code=</code> value works too). Codes are single-use and expire in
+            a few minutes, so paste it promptly.</li>
+      </ol>
+    </div>
+    <form method="post" class="settings-form" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="form" value="oauth">
+      <label>
+        Redirect URL (or code)
+        <input type="text" name="auth_code" class="form-input"
+               placeholder="{{ redirect_uri }}/?code=M.C1_BAY...">
+      </label>
+      <button type="submit" class="btn">Complete Authorization</button>
+    </form>
+    {% endif %}
+
+    {# ── Step 3: Players ───────────────────────────────────────────────── #}
+    <h3>Step 3 — Tracked players {% if current %}<span title="roster saved">✅</span>{% endif %}</h3>
+
+    {% if rows %}
+    {# Partial-resolve fixup: one input row per player, XUID blanks to fill in. #}
+    <form method="post" class="settings-form">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="form" value="players">
+      <table class="data-table">
+        <thead><tr><th>Gamertag</th><th>XUID</th></tr></thead>
+        <tbody>
+          {% for e in rows %}
+          <tr>
+            <td><input type="text" name="gamertag" class="form-input" value="{{ e.gamertag }}"></td>
+            <td><input type="text" name="xuid" class="form-input" value="{{ e.xuid }}"
+                       placeholder="e.g. 2533274800000001" {% if not e.xuid %}autofocus{% endif %}></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="help-text">Where to find an XUID: any free gamertag→XUID lookup site
+        (search "xuid lookup"), or the profile URL on most Halo stat trackers. XUIDs are
+        long numbers starting with 25…</p>
+      <button type="submit" class="btn">Save Players</button>
+    </form>
+    {% else %}
+    <form method="post" class="settings-form">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="form" value="players">
+      <label>
+        Players to track
+        <p class="help-text">One player per line. Just the gamertag
+          (<code>SomeGamertag</code>) — the XUID is looked up automatically via the Halo
+          profile API (needs steps 1–2 done) — or provide it yourself as
+          <code>SomeGamertag, 2533274800000001</code>.</p>
+        <textarea name="roster" class="form-input" rows="8"
+                  placeholder="SomeGamertag&#10;AnotherGamertag, 2533274800000001">{% for p in current %}{{ p.gamertag }}, {{ p.xuid }}
+{% endfor %}</textarea>
+      </label>
+      <button type="submit" class="btn">Save Players</button>
+    </form>
+    {% endif %}
+
+    {% if current %}
+    <div class="info-box">
+      <h3>Currently tracked</h3>
+      <ul>
+        {% for p in current %}
+        <li><span class="player-name {{ p.gamertag|player_class }}">{{ p.gamertag }}</span>
+            <code>{{ p.xuid }}</code></li>
+        {% endfor %}
+      </ul>
+      <p class="help-text">Saved to <code>players.json</code> in the data dir. Changes apply on
+        the scraper's next cycle — no restart needed. (A <code>HALO_TRACKED_PLAYERS</code> env
+        var is only used when <code>players.json</code> doesn't exist.)</p>
+    </div>
+    {% endif %}
+  </section>
+{% endblock %}

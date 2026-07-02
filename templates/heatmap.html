@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}When You Win - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>When Do You Win?</h2>
+  <p class="muted">Squad win rate by day &amp; time of day (cells show win% / games).</p>
+  {% if grid %}
+  <div class="table-wrap">
+    <table class="data-table heatmap-table">
+      <thead>
+        <tr><th>Day</th>{% for h in hours %}<th>{{ h }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for row in grid %}
+        <tr>
+          <td><strong>{{ row.day }}</strong></td>
+          {% for c in row.cells %}
+          <td class="{{ c.heat }}">{% if c.games %}{{ c.win_pct }}<br><span class="muted">{{ c.games }}g · {{ c.kda }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">Not enough timestamped matches yet.</p>
+  {% endif %}
+</section>
+
+{% if compare and compare.has_data %}
+<section class="panel">
+  <h2>Who Plays Best, By Time of Day</h2>
+  <p class="muted">Avg KDA per player by time window. 👑 = each player's best (≥4 games).</p>
+  {% if compare.time_chart and compare.time_chart.series %}
+  <div class="chart-container" style="height:320px;margin-bottom:14px">
+    <canvas id="timeChart"></canvas>
+  </div>
+  {% endif %}
+  <div class="table-wrap whc-wrap">
+    <table class="whc-table">
+      <thead>
+        <tr>
+          <th class="whc-name-col">Player</th>
+          {% for c in compare.time_cols %}<th>{{ c }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in compare.time_players %}
+        <tr>
+          <th class="whc-name-col"><a href="{{ row.player|player_href }}" class="player-name {{ row.css }}">{{ row.player }}</a></th>
+          {% for c in row.cells %}
+          <td class="whc-cell{% if c.best %} whc-best{% endif %}{% if not c.has %} whc-empty{% endif %}">
+            {% if c.has %}
+            <span class="whc-top">{% if c.best %}<span class="whc-crown">👑</span>{% endif %}<span class="inline-grade {{ c.grade_class }}">{{ c.grade }}</span></span>
+            <span class="whc-val">{{ c.val }} <span class="whc-unit">KDA</span></span>
+            <span class="whc-bar"><span class="whc-bar-fill" style="width: {{ (c.norm*100)|round(1) }}%; background: {{ row.color }};"></span></span>
+            <span class="whc-games">{{ c.win_pct }} win · {{ c.games }}g</span>
+            {% else %}<span class="muted">–</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Who Holds Up Late (per player)</h2>
+  <p class="muted">Avg KDA by how deep into a session you are. 👑 = strongest stretch.</p>
+  {% if compare.pos_chart and compare.pos_chart.series %}
+  <div class="chart-container" style="height:340px;margin-bottom:14px">
+    <canvas id="holdUpChart"></canvas>
+  </div>
+  {% endif %}
+  <div class="table-wrap whc-wrap">
+    <table class="whc-table">
+      <thead>
+        <tr>
+          <th class="whc-name-col">Player</th>
+          {% for c in compare.pos_cols %}<th>{{ c }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in compare.pos_players %}
+        <tr>
+          <th class="whc-name-col"><a href="{{ row.player|player_href }}" class="player-name {{ row.css }}">{{ row.player }}</a></th>
+          {% for c in row.cells %}
+          <td class="whc-cell{% if c.best %} whc-best{% endif %}{% if not c.has %} whc-empty{% endif %}">
+            {% if c.has %}
+            <span class="whc-top">{% if c.best %}<span class="whc-crown">👑</span>{% endif %}<span class="inline-grade {{ c.grade_class }}">{{ c.grade }}</span></span>
+            <span class="whc-val">{{ c.val }} <span class="whc-unit">KDA</span></span>
+            <span class="whc-bar"><span class="whc-bar-fill" style="width: {{ (c.norm*100)|round(1) }}%; background: {{ row.color }};"></span></span>
+            <span class="whc-games">{{ c.win_pct }} win · {{ c.games }}g</span>
+            {% else %}<span class="muted">–</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+.whc-wrap { overflow-x: auto; }
+.whc-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.whc-table th, .whc-table td { padding: 0.5rem 0.7rem; text-align: center; }
+.whc-table thead th { color: var(--accent-2, #3dbfb8); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid rgba(255,255,255,0.1); }
+.whc-name-col { position: sticky; left: 0; z-index: 2; background: var(--panel, #1f1b18); text-align: left; min-width: 120px; }
+.whc-cell { border-bottom: 1px solid rgba(255,255,255,0.05); min-width: 92px; vertical-align: middle; }
+.whc-top { display: block; margin-bottom: 2px; }
+.whc-top .inline-grade { font-size: 0.78rem; }
+.whc-val { display: block; font-weight: 700; font-variant-numeric: tabular-nums; color: #d8cdbf; }
+.whc-unit { font-size: 0.62rem; color: var(--muted,#9a8f82); font-weight: 600; letter-spacing: 0.5px; }
+.whc-crown { margin-right: 3px; }
+.whc-best { background: rgba(251, 191, 36, 0.10); }
+.whc-best .whc-val { color: #fff; }
+.whc-bar { display: block; height: 5px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; margin: 4px 0 2px; }
+.whc-bar-fill { display: block; height: 100%; border-radius: 4px; min-width: 2px; }
+.whc-games { display: block; font-size: 0.66rem; color: var(--muted, #9a8f82); }
+.whc-empty { opacity: 0.5; }
+[data-theme="light"] .whc-name-col { background: #fffaf3; }
+[data-theme="light"] .whc-val { color: #3a3128; }
+[data-theme="light"] .whc-best { background: rgba(234,179,8,0.14); }
+[data-theme="light"] .whc-best .whc-val { color: #1f1a16; }
+[data-theme="light"] .whc-bar { background: rgba(0,0,0,0.08); }
+@media (max-width: 560px) {
+  .whc-table { font-size: 0.8rem; }
+  .whc-name-col { min-width: 92px; }
+  .whc-cell { min-width: 70px; }
+}
+</style>
+{% endif %}
+
+{% if by_position %}
+<section class="panel">
+  <h2>Do You Fall Off Late? <span class="muted" style="font-size:0.7em;font-weight:400;">(squad)</span></h2>
+  <p class="muted">Performance by how deep you are into a session.</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Session Stretch</th><th title="Grade for this session stretch (win% + KDA)">Grade</th><th>Games</th><th>Win %</th><th>Avg KDA</th></tr></thead>
+      <tbody>
+        {% for r in by_position %}
+        <tr>
+          <td><strong>{{ r.label }}</strong></td>
+          <td><span class="inline-grade {{ r.grade_class }}" title="{{ r.grade_tip }}">{{ r.grade }}</span></td>
+          <td>{{ r.games }}</td>
+          <td class="{{ 'heat-excellent' if r.win_val >= 55 else ('heat-poor' if r.win_val < 45 else '') }}">{{ r.win_pct }}</td>
+          <td>{{ r.kda }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if compare and compare.has_data %}
+<script>
+(function () {
+  if (!window.Chart) return;
+  function kdaLine(canvasId, chart) {
+    const el = document.getElementById(canvasId);
+    if (!el || !chart || !chart.series || !chart.series.length) return;
+    new Chart(el.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: chart.labels,
+        datasets: chart.series.map(s => ({
+          label: s.name, data: s.data,
+          borderColor: s.color, backgroundColor: s.color + '22',
+          borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, tension: 0.25, spanGaps: true,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: { title: { display: true, text: 'Avg KDA', color: '#9a8f82' }, grid: { color: 'rgba(255,255,255,0.07)' }, ticks: { color: '#9a8f82' } },
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#cdbfb0' } },
+        },
+        plugins: {
+          legend: { labels: { color: '#d8cdbf', usePointStyle: true, boxWidth: 8 } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y == null ? '–' : c.parsed.y.toFixed(2)} KDA` } },
+        },
+      },
+    });
+  }
+  kdaLine('timeChart', {{ compare.time_chart|tojson|safe }});
+  kdaLine('holdUpChart', {{ compare.pos_chart|tojson|safe }});
+})();
+</script>
+{% endif %}
+{% endblock %}

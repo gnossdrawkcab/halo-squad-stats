@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>🏆 Leaderboard</h2>
+  <div class="leaderboard-filters">
+    <form method="get" class="filters">
+      <label>
+        Time Period
+        <select name="period" onchange="this.form.submit()">
+          <option value="week" {% if period == 'week' %}selected{% endif %}>This Week</option>
+          <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+          <option value="all" {% if period == 'all' %}selected{% endif %}>All Time</option>
+        </select>
+      </label>
+    </form>
+  </div>
+</section>
+
+<section class="panel-grid">
+  <div class="panel leaderboard-card">
+    <h3>🎯 Highest CSR</h3>
+    <div class="leaderboard-list">
+      {% for row in csr_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.csr }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>📈 Most CSR Gained</h3>
+    <div class="leaderboard-list">
+      {% for row in csr_gained_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value heat-excellent">+{{ row.csr_gained }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>🏅 Best Win Rate</h3>
+    <div class="leaderboard-list">
+      {% for row in win_rate_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.win_rate }}%</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>⚔️ Best KDA</h3>
+    <div class="leaderboard-list">
+      {% for row in kda_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.kda }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>🎯 Best Accuracy</h3>
+    <div class="leaderboard-list">
+      {% for row in accuracy_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.accuracy }}%</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>🔥 Longest Win Streak</h3>
+    <div class="leaderboard-list">
+      {% for row in streak_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.streak }}W</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>💀 Most Kills</h3>
+    <div class="leaderboard-list">
+      {% for row in kills_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.kills }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>🎮 Most Games</h3>
+    <div class="leaderboard-list">
+      {% for row in games_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.games }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Combat boards (surfacing the rich medal/weapon data) ── #}
+  <div class="panel leaderboard-card">
+    <h3>🎯 Snipe Kings</h3>
+    <div class="leaderboard-list">
+      {% for row in snipes_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.snipes }}<span class="lb-sub">{{ row.context }}</span></span>
+      </div>
+      {% else %}<div class="leaderboard-item"><span class="muted">No data</span></div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>💀 Most Headshots</h3>
+    <div class="leaderboard-list">
+      {% for row in headshots_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.headshots }}<span class="lb-sub">{{ row.context }}</span></span>
+      </div>
+      {% else %}<div class="leaderboard-item"><span class="muted">No data</span></div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>💥 Power Weapon Kills</h3>
+    <div class="leaderboard-list">
+      {% for row in power_weapons_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.power_weapons }}<span class="lb-sub">{{ row.context }}</span></span>
+      </div>
+      {% else %}<div class="leaderboard-item"><span class="muted">No data</span></div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="panel leaderboard-card">
+    <h3>🏅 Most Medals</h3>
+    <div class="leaderboard-list">
+      {% for row in medals_leaders %}
+      <div class="leaderboard-item {% if loop.index <= 3 %}top-three{% endif %}">
+        <span class="rank">{{ loop.index }}</span>
+        <span class="player"><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></span>
+        <span class="value">{{ row.medals }}<span class="lb-sub">{{ row.context }}</span></span>
+      </div>
+      {% else %}<div class="leaderboard-item"><span class="muted">No data</span></div>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

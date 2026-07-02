@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Columns - {{ app_title }}{% endblock %}
+
+{% block head %}
+<style>
+  .cols-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 900px) {
+    .cols-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Available Fields</h2>
+    <p class="muted">
+      This page shows what the app is currently storing from the Halo API.
+      It does not show any match rows or values.
+    </p>
+    <p class="muted">{{ wide_count }} columns · {{ kv_count }} keys</p>
+
+    <div class="cols-grid">
+      <div>
+        <h3>Stable Table Columns (halo_match_stats)</h3>
+        <div class="table-tools">
+          <input type="text" data-table-filter="columns-wide" placeholder="Filter columns..." />
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" data-table="columns-wide" style="font-size: 0.9rem;">
+            <thead>
+              <tr>
+                <th>Column</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if wide_columns %}
+              {% for c in wide_columns %}
+              <tr>
+                <td>{{ c }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td>No columns found (table not created yet).</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h3>Auto-Discovered Keys (halo_stat_keys)</h3>
+        <div class="table-tools">
+          <input type="text" data-table-filter="columns-kv" placeholder="Filter keys..." />
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" data-table="columns-kv" style="font-size: 0.9rem;">
+            <thead>
+              <tr>
+                <th>Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if kv_keys %}
+              {% for k in kv_keys %}
+              <tr>
+                <td>{{ k }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td>No keys discovered yet (run the scraper).</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

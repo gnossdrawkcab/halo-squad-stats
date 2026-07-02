@@ -1,0 +1,2250 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ app_title }}{% endblock %}
+
+{% block head %}
+<style>
+  /* ── CSR Hero Cards ─────────────────────────────────────────── */
+  .csr-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+
+  .csr-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s;
+  }
+
+  .csr-card:hover { border-color: var(--accent); }
+
+  .csr-card-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .csr-card-csr {
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .csr-card-session {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .csr-card-deltas {
+    display: flex;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+
+  .csr-card-deltas span { white-space: nowrap; }
+  .csr-card-deltas .val { font-weight: 600; }
+
+  .csr-card-max {
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .delta-up   { color: #4ade80; }
+  .delta-down { color: #f87171; }
+  .delta-zero { color: var(--muted); }
+
+  /* ── Section labels ─────────────────────────────────────────── */
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ── Two-column intel grid ──────────────────────────────────── */
+  .intel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .intel-grid { grid-template-columns: 1fr; }
+    .csr-cards  { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
+
+  /* ── Zone 1: cards full-width row, chart full-width below ── */
+  .csr-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .csr-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  }
+
+  /* ── Grade badges ────────────────────────────────────────── */
+  .grade-badge {
+    display: inline-block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    min-width: 2.4rem;
+    text-align: center;
+    border-radius: 6px;
+    padding: 1px 4px;
+  }
+  .grade-s { background: #6d28d9; color: #ede9fe; }
+  .grade-a { background: #166534; color: #bbf7d0; }
+  .grade-b { background: #1e40af; color: #bfdbfe; }
+  .grade-c { background: #b45309; color: #fde68a; }
+  .grade-d { background: #991b1b; color: #fecaca; }
+  .grade-f { background: #1f2937; color: #f87171; border: 1px solid #f87171; }
+
+  .sub-grade {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    min-width: 2.2rem;
+    text-align: center;
+    border-radius: 5px;
+    padding: 1px 4px;
+  }
+
+  .report-card-meta {
+    font-size: 0.84rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  /* ── Report card player cards ──────────────────────────────── */
+  .rc-cards {
+    display: grid;
+    /* auto-fit (not auto-fill) so a squad of 2 doesn't leave the right half
+       empty — cards widen into the available room instead of clipping the
+       game-by-game rows. Capped so they don't sprawl on ultrawide. */
+    grid-template-columns: repeat(auto-fit, minmax(380px, 560px));
+    justify-content: start;
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+
+  .rc-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 12px;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .rc-card.grade-s { border-left-color: #7c3aed; background: rgba(109, 40, 217, 0.05); }
+  .rc-card.grade-a { border-left-color: #16a34a; background: rgba(22, 101, 52, 0.06); }
+  .rc-card.grade-b { border-left-color: #2563eb; background: rgba(30, 64, 175, 0.06); }
+  .rc-card.grade-c { border-left-color: #d97706; background: rgba(180, 83, 9, 0.06); }
+  .rc-card.grade-d { border-left-color: #dc2626; background: rgba(153, 27, 27, 0.06); }
+  .rc-card.grade-f { border-left-color: #374151; }
+
+  .rc-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .rc-card-top .grade-badge {
+    font-size: 1.4rem;
+    min-width: 3rem;
+    padding: 3px 6px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    line-height: 1.1;
+  }
+
+  .rc-card-header-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .rc-card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rc-card-record {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .rc-card-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .rc-stat {
+    display: grid;
+    grid-template-columns: 52px 2.5rem 1fr;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    min-height: 28px; /* comfortable tap target */
+  }
+
+  .rc-stat-label {
+    color: var(--muted);
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .rc-stat-val {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .rc-stat-val .sub-grade {
+    display: none; /* grade chip is in its own column now */
+  }
+
+  .rc-stat-grade {
+    /* the grade chip column */
+  }
+
+  .rc-card-footer {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.73rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 7px;
+  }
+
+  .mobile-only,
+  .mobile-session-summary,
+  .mobile-dashboard-links {
+    display: none;
+  }
+
+  .mobile-session-summary {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 12px;
+    margin: 0 0 12px;
+  }
+
+  .mss-top {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mss-title {
+    min-width: 0;
+  }
+
+  .mss-title strong,
+  .mss-title span {
+    display: block;
+  }
+
+  .mss-title span,
+  .mss-stat span {
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
+  .mss-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .mss-stat {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 0;
+  }
+
+  .mss-stat strong {
+    display: block;
+    font-size: 1.05rem;
+    line-height: 1.1;
+  }
+
+  .mobile-dashboard-links {
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 0 2px;
+  }
+
+  .mobile-dashboard-links::-webkit-scrollbar {
+    height: 0;
+  }
+
+  .mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-row-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.025);
+    padding: 10px;
+    min-width: 0;
+  }
+
+  .mobile-row-main {
+    min-width: 0;
+  }
+
+  .mobile-row-main strong,
+  .mobile-row-main span {
+    display: block;
+  }
+
+  .mobile-row-main span,
+  .mobile-row-side span {
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+
+  .mobile-row-side {
+    text-align: right;
+    min-width: 4.3rem;
+  }
+
+  .mobile-row-side strong {
+    display: block;
+    line-height: 1.1;
+  }
+
+  .mobile-obj-chips {
+    grid-column: 2 / -1;
+    display: none; /* desktop shows the .rc-card-footer chips; mobile media query turns these on */
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: -2px;
+  }
+
+  .mobile-obj-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(61, 191, 184, 0.08);
+    color: var(--ink);
+    padding: 2px 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── Baselines legend ───────────────────────────────────────── */
+  .rc-baselines {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .rc-baselines-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 2px;
+  }
+
+  .rc-baseline-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    cursor: default;
+  }
+
+  .rc-baseline-stat {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .rc-baseline-val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .rc-baseline-sep {
+    color: var(--border);
+    font-size: 0.7rem;
+  }
+
+  .rc-baseline-s {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.2px;
+  }
+
+  /* ── Mobile overrides ──────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .mobile-only {
+      display: block;
+    }
+
+    .mobile-session-summary {
+      display: block;
+    }
+
+    .mobile-dashboard-links {
+      display: flex;
+      margin: 8px 0 2px;
+    }
+
+    .mss-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mobile-defer {
+      display: none !important;
+    }
+
+    .rc-baselines,
+    .grade-help,
+    .report-card-meta,
+    .rc-card-footer,
+    .rc-stat.mobile-extra:not(.mobile-obj-keep) {
+      display: none !important;
+    }
+
+    /* Full per-stat session table stays available on mobile too (Pat: "main
+       session table back on mobile with every stat for every player"). It's a
+       wide fixed matrix, so it horizontal-scrolls inside its .table-wrap. */
+    .rc-detail-table-wrap {
+      display: block !important;
+    }
+
+    .mobile-obj-chips {
+      display: flex;
+    }
+
+    #rc-copy-btn,
+    #rcsq-copy-btn,
+    .rc-grade-toggle {
+      font-size: 0.74rem;
+      padding: 4px 8px;
+    }
+
+    .panel-header {
+      align-items: flex-start;
+    }
+
+    .panel-header > div[style*="display:flex"] {
+      flex-wrap: wrap;
+    }
+
+    /* Single column cards on phone */
+    .rc-cards {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    /* Larger stat rows for thumb-friendliness */
+    .rc-stat {
+      grid-template-columns: 58px 2.6rem 1fr;
+      min-height: 32px;
+      font-size: 0.92rem;
+    }
+
+    .rc-stat-label {
+      font-size: 0.72rem;
+    }
+
+    .rc-stat-val {
+      font-size: 0.95rem;
+    }
+
+    .rc-card-top .grade-badge {
+      font-size: 1.5rem;
+      min-width: 3.2rem;
+    }
+
+    .rc-card-name {
+      font-size: 1.1rem;
+    }
+
+    .rc-card-record {
+      font-size: 0.8rem;
+    }
+
+    .rc-card-footer {
+      font-size: 0.78rem;
+      gap: 8px;
+    }
+
+    .rc-baseline-pill {
+      padding: 4px 10px;
+    }
+
+    /* Detail table: horizontal scroll with clear affordance */
+    #rc-detail-table, #rcsq-detail-table {
+      font-size: 0.78rem;
+    }
+    /* Pin the Player column so names stay put while scrolling the wide table. */
+    #rc-detail-table th:first-child, #rc-detail-table td:first-child,
+    #rcsq-detail-table th:first-child, #rcsq-detail-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--bg-2, #1b2230);
+      box-shadow: 1px 0 0 var(--border, #38415a);
+    }
+    .rc-detail-table-wrap > summary {
+      font-size: 0.8rem;
+    }
+    .rc-detail-table-wrap .table-wrap::after {
+      content: "⇄ scroll for all stats";
+      display: block;
+      font-size: 0.68rem;
+      color: var(--text-3, #8b95a7);
+      text-align: right;
+      padding: 4px 2px 0;
+    }
+
+    /* Tappable stat/chip affordance on touch — subtle dotted underline */
+    .mobile-obj-chip { cursor: pointer; }
+  }
+
+  /* Tap-to-reveal tooltip (touch devices have no hover for title=) */
+  .tap-tooltip {
+    position: absolute;
+    z-index: 9999;
+    max-width: min(260px, 80vw);
+    background: var(--bg-2, #1b2230);
+    color: var(--text-1, #e8edf6);
+    border: 1px solid var(--border, #38415a);
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    pointer-events: none;
+    animation: tapTipIn .12s ease-out;
+  }
+  @keyframes tapTipIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+</style>
+{% endblock %}
+
+{% block content %}
+{% import "_combat_macros.html" as cm %}
+{% from "_grade_help.html" import grade_legend %}
+
+{% if session_list and not single_session %}
+{% set cur = cur_session %}
+<div class="dash-session-nav">
+  <span class="dsn-label">📅 Session</span>
+  {% if prev_sid %}<a href="/?sid={{ prev_sid }}" class="dsn-arrow" title="Previous (older) session" aria-label="Previous session">←</a>{% else %}<span class="dsn-arrow dsn-off">←</span>{% endif %}
+  <div class="dsn-dd" id="dsnDD">
+    <button type="button" class="dsn-dd-btn" onclick="dsnToggle(event)" aria-haspopup="listbox">
+      {% if cur %}<span class="dsn-dd-win" style="background:hsl({{ (cur.win_pct * 1.2)|int if cur.win_pct is not none else 0 }},62%,42%)"></span>
+      <span class="dsn-dd-cur"><span class="dsn-dd-date">{{ cur.date }} · {{ cur.games }}g · {{ cur.record }}{% if cur.win_pct is not none %} ({{ cur.win_pct }}%){% endif %}</span><span class="dsn-dd-sub">{% if cur.mvp %}MVP <b class="player-name {{ cur.mvp|player_class }}">{{ cur.mvp }}</b>{% endif %}{% if cur.players_str %} · {{ cur.players_str }}{% endif %}</span></span>{% else %}<span class="dsn-dd-cur">Pick a session</span>{% endif %}
+      <span class="dsn-dd-caret">▾</span>
+    </button>
+    <div class="dsn-dd-menu" id="dsnMenu" role="listbox">
+      {% for s in session_list %}
+      <a href="/?sid={{ s.sid }}" class="dsn-dd-item{{ ' dsn-dd-sel' if (s.sid == selected_sid or (not selected_sid and loop.first)) }}" role="option">
+        <span class="dsn-dd-win" style="background:hsl({{ (s.win_pct * 1.2)|int if s.win_pct is not none else 0 }},62%,42%)" title="{% if s.win_pct is not none %}{{ s.win_pct }}% win{% endif %}"></span>
+        <span class="dsn-dd-main">
+          <span class="dsn-dd-date">{{ s.date }} · {{ s.games }}g · {{ s.record }}{% if s.win_pct is not none %} ({{ s.win_pct }}%){% endif %}</span>
+          <span class="dsn-dd-sub">{% if s.mvp %}MVP <b class="player-name {{ s.mvp|player_class }}">{{ s.mvp }}</b>{% if s.players_str %} · {% endif %}{% endif %}{{ s.players_str }}</span>
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if next_sid %}<a href="/?sid={{ next_sid }}" class="dsn-arrow" title="Next (newer) session" aria-label="Next session">→</a>{% else %}<span class="dsn-arrow dsn-off">→</span>{% endif %}
+  {% if selected_sid %}<a href="/" class="dsn-latest" title="Back to the latest session">⟲ latest</a>{% endif %}
+</div>
+<script>
+function dsnToggle(e){e.stopPropagation();document.getElementById('dsnDD').classList.toggle('open');}
+document.addEventListener('click',function(e){var d=document.getElementById('dsnDD');if(d&&!d.contains(e.target))d.classList.remove('open');});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=document.getElementById('dsnDD');if(d)d.classList.remove('open');}});
+</script>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   LIVE NOW — someone's currently in a session (last 45 min)
+   ══════════════════════════════════════════════════════════ #}
+{% if live_now and live_now.live %}
+<section class="panel live-now-panel">
+  <div class="live-now-head">
+    <span class="live-dot"></span>
+    <span class="live-now-title">Live Now</span>
+    <span class="session-kind kind-{{ live_now.kind }}">{{ live_now.kind|upper }}</span>
+    <span class="live-now-meta">{% if live_now.stream_only %}streaming now · waiting on first game{% else %}{{ live_now.session_games }} game{{ 's' if live_now.session_games != 1 else '' }} this session · {{ live_now.wins }}-{{ live_now.losses }} · last game {{ live_now.ago }}{% endif %}</span>
+    <a href="/live" class="btn btn-small live-now-link">Live session →</a>
+  </div>
+  <div class="live-now-players">
+    {% for p in live_now.players %}
+    <a href="{{ p.player|player_href }}" class="live-chip{{ ' is-live' if p.is_live else ' is-idle' }}" title="{{ p.games }} games · {{ p.record }} · KDA {{ p.kda }} · last seen {{ p.ago }}">
+      {% if p.is_live %}<span class="live-dot live-dot-sm"></span>{% endif %}
+      <span class="player-name {{ p.css }}">{{ p.player }}</span>
+      <span class="live-chip-stat">{% if p.stream_only %}streaming{% else %}{{ p.record }} · {{ p.kda }} KDA{% if not p.is_live %} · {{ p.ago }}{% endif %}{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   HEADLINES — auto-generated squad insights (answers first)
+   ══════════════════════════════════════════════════════════ #}
+{% if headlines %}
+<section class="panel mobile-defer">
+  <details class="headlines-details" open>
+    <summary class="panel-header headlines-summary">
+      <div class="section-label" style="margin-bottom:0">Headlines</div>
+      <span class="muted">What matters right now</span>
+    </summary>
+    <div class="headline-grid">
+      {% for h in headlines %}
+      <div class="headline-card tone-{{ h.tone }}">
+        <span class="headline-icon">{{ h.icon }}</span>
+        <div class="headline-body">
+          <span class="headline-title">{{ h.title }}</span>
+          <span class="headline-detail">{{ h.detail }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+</section>
+<script>(function(){var d=document.querySelector('.headlines-details');if(d&&window.matchMedia('(max-width:720px)').matches)d.removeAttribute('open');})();</script>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 0 — SESSION REPORT CARDS (latest session up top; the latest squad
+   session is also shown when the very latest session happened to be solo)
+   ══════════════════════════════════════════════════════════ #}
+{% macro render_report_card(rc, pfx, nav_href, nav_label, show_legend, title) %}
+{% from "_grade_help.html" import grade_legend %}
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0;display:flex;align-items:center;gap:8px">
+      {{ title }}
+      <span class="session-kind kind-{{ rc.kind|default('squad') }}">{{ (rc.kind|default('squad'))|upper }}</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a href="{{ nav_href }}" class="btn btn-small">{{ nav_label }}</a>
+      <button class="btn btn-small rc-grade-toggle" type="button" onclick="toggleGradeMode()" title="Switch between grading each player against the whole squad's history vs against their own history">⚖️ Squad grading</button>
+      <button class="btn btn-small" id="{{ pfx }}-copy-btn" type="button" onclick="copyReportCard('{{ pfx }}')">📋 Copy for text</button>
+    </div>
+  </div>
+  {% if show_legend %}{{ grade_legend() }}{% endif %}
+  {% if rc.session_rank %}
+  {% set sr = rc.session_rank %}
+  {% set sr_kind = 'squad ' if sr.kind != 'solo' else '' %}
+  <div class="rc-rank-strip">
+    <span class="rc-rank-chip{% if sr.rank == 1 %} rc-rank-best{% endif %}"
+          data-copy="#{{ sr.rank }} of {{ sr.total }} {{ sr_kind }}night{{ 's' if sr.total != 1 else '' }} in the last {{ sr.window_days }} days ({{ sr.record }}, {{ sr.win_pct }})"
+          title="This night's win rate ranks #{{ sr.rank }} out of the {{ sr.total }} {{ sr_kind }}night{{ 's' if sr.total != 1 else '' }} played in the last {{ sr.window_days }} days (volume-adjusted win rate). Record {{ sr.record }} · {{ sr.win_pct }}.">
+      {% if sr.rank == 1 %}🏆 Best {{ sr_kind }}night in {{ sr.window_days }}d{% else %}🏆 #{{ sr.rank }} of {{ sr.total }} {{ sr_kind }}nights (last {{ sr.window_days }}d){% endif %}
+      <span class="rc-rank-rec">{{ sr.record }} · {{ sr.win_pct }}</span>
+    </span>
+  </div>
+  {% endif %}
+  {% if rc.enemy_summary and rc.enemy_summary.line %}
+  <div class="rc-enemy-strip muted" data-copy="{{ rc.enemy_summary.line }}"
+       style="font-size:.85em;margin:2px 0 8px"
+       title="The other team, averaged across this session's games">⚔️ Opposition: {{ rc.enemy_summary.line }}</div>
+  {% endif %}
+  {% if rc.weight_info %}
+  <span class="rc-weights-copy" hidden data-copy="{% for w in rc.weight_info %}{{ w.label }} {{ w.w }}%{% if not loop.last %} · {% endif %}{% endfor %}"></span>
+  {% endif %}
+  {% if rc.stack_records or rc.solo_records %}
+  <div class="rc-records">
+    <span class="rc-records-label">Records</span>
+    {% for s in rc.stack_records %}
+    <span class="rc-record-chip" title="{{ s.label }} session record — {{ s.games }} game{{ 's' if s.games != 1 else '' }} with {{ s.players_str }} queued together">
+      <span class="rc-record-head">
+        <span class="rc-record-kind">{{ s.label }}</span>
+        <span class="rc-record-val {{ s.tone }}">{{ s.record }}</span>
+      </span>
+      <span class="rc-record-roster">{{ s.players_str }}</span>
+    </span>
+    {% endfor %}
+    {% for so in rc.solo_records %}
+    <span class="rc-record-chip rc-record-solo" title="{{ so.player }}'s solo record this session — {{ so.games }} game{{ 's' if so.games != 1 else '' }} played alone">
+      <span class="rc-record-kind">{{ so.player }} solo</span>
+      <span class="rc-record-val {{ so.tone }}">{{ so.record }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if rc.rows %}
+  {% set leader = rc.rows[0] %}
+  <div class="mobile-session-summary">
+    <div class="mss-top">
+      <span class="grade-badge {{ leader.grade_class }}" title="{{ leader.grade_tip }}" data-grade-squad="{{ leader.grade }}" data-grade-self="{{ leader.grade_self }}" data-gclass-squad="{{ leader.grade_class }}" data-gclass-self="{{ leader.grade_class_self }}" data-gtip-squad="{{ leader.grade_tip }}" data-gtip-self="{{ leader.grade_tip_self }}">{{ leader.grade }}</span>
+      <div class="mss-title">
+        <strong><a href="{{ leader.player|player_href }}" class="player-name {{ leader.player|player_class }}">{{ leader.player }}</a> led the session</strong>
+        <span class="mss-date">{{ rc.session_date }}</span>
+        <span class="mss-sub">{{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }} · <span class="rc-grade-mode-label" data-label-squad="vs squad" data-label-self="vs self">vs squad</span></span>
+      </div>
+      {% if rc.sid %}<a href="/session/{{ rc.sid }}" class="btn btn-small">Full →</a>{% endif %}
+    </div>
+    <div class="mss-stats">
+      <div class="mss-stat"><span>Record</span><strong>{{ leader.wins }}W · {{ leader.win_pct }}</strong></div>
+      <div class="mss-stat {{ leader.kda_heat }}" data-heat-squad="{{ leader.kda_heat }}" data-heat-self="{{ leader.kda_heat_self }}"><span>KDA</span><strong>{{ leader.kda }}</strong></div>
+      <div class="mss-stat {{ leader.obj_score_heat }}" data-heat-squad="{{ leader.obj_score_heat }}" data-heat-self="{{ leader.obj_score_heat_self }}"><span>ObjSc</span><strong>{{ leader.obj_score }}</strong></div>
+      <div class="mss-stat"><span>CSR</span><strong>{{ leader.csr_delta }}</strong></div>
+    </div>
+    {% if leader.hill_pg_secs or rc.obj_columns %}
+    <div class="mobile-obj-chips" style="grid-column:1/-1;margin-top:10px">
+      {% if leader.hill_pg_secs %}<span class="mobile-obj-chip {{ leader.hill_heat }}" title="Hill time per hill game — {{ leader.hill_total }} over {{ leader.hill_games }} hill game{{ 's' if leader.hill_games != 1 else '' }} (KOTH / Strongholds zone occupation)">⛰️ {{ leader.hill_pg }}/g</span>{% endif %}
+      {% for oc in rc.obj_columns %}{% if leader.objs[oc.key].display %}<span class="mobile-obj-chip {{ leader.objs[oc.key].heat }}" title="{{ oc.label }} per game of that mode — {{ leader.objs[oc.key].total }} total over {{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session">{{ oc.emoji }} {{ leader.objs[oc.key].display }}/g</span>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="report-card-meta">
+    {{ rc.session_date }} &nbsp;·&nbsp; {{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }}{{ ' together' if rc.kind != 'solo' else ' solo' }}
+  </div>
+
+  {# ── Historical baselines legend ── #}
+  {% if rc.baselines %}
+  <div class="rc-baselines">
+    <span class="rc-baselines-label">365d avg</span>
+    {% for stat, b in rc.baselines.items() %}
+    <span class="rc-baseline-pill" title="{{ b.note }}{% if b.p5 %} · bottom 5% of squad games ≤{{ b.p5 }}, top 5% ≥{{ b.p95 }}{% endif %}">
+      <span class="rc-baseline-stat">{{ stat }}</span>
+      <span class="rc-baseline-val">{{ b.avg }}</span>
+      <span class="rc-baseline-sep">·</span>
+      <span class="rc-baseline-s">S≥{{ b.S }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Player grade cards (top-level visual) ── #}
+  <div class="rc-cards" id="{{ pfx }}-cards">
+    {% for row in rc.rows %}
+    <div class="rc-card {{ row.grade_class }}" data-form="{{ row.form_delta if row.form_delta is not none else '' }}" data-usual="{{ row.usual_score if row.usual_score is not none else '' }}" data-gclass-squad="{{ row.grade_class }}" data-gclass-self="{{ row.grade_class_self }}">
+      <div class="rc-card-top">
+        <span class="grade-badge {{ row.grade_class }}" title="{{ row.grade_tip }}" data-pct-squad="{{ row.composite_pct }}" data-grade-squad="{{ row.grade }}" data-grade-self="{{ row.grade_self }}" data-gclass-squad="{{ row.grade_class }}" data-gclass-self="{{ row.grade_class_self }}" data-gtip-squad="{{ row.grade_tip }}" data-gtip-self="{{ row.grade_tip_self }}">{{ row.grade }}</span>
+        <div class="rc-card-header-right">
+          <span class="rc-card-name player-name {{ row.player|player_class }}">{{ row.player }}</span>
+          <span class="rc-card-record">{{ row.wins }}W / {{ row.games }}G &nbsp;·&nbsp; {{ row.win_pct }} &nbsp;·&nbsp; CSR {{ row.csr_delta }} ({{ row.current_csr }})</span>
+        </div>
+      </div>
+      <div class="rc-card-stats">
+        <div class="rc-stat" data-stat="kda" data-avg="{{ rc.baselines['KDA'].avg }}">
+          <span class="rc-stat-label">KDA</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.kda_grade_class }}" title="{{ row.kda_tip }}" data-pct="{{ row.kda_pctile }}" data-grade-squad="{{ row.kda_grade }}" data-grade-self="{{ row.kda_grade_self }}" data-gclass-squad="{{ row.kda_grade_class }}" data-gclass-self="{{ row.kda_grade_class_self }}" data-gtip-squad="{{ row.kda_tip }}" data-gtip-self="{{ row.kda_tip_self }}">{{ row.kda_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.kda_heat }}" data-heat-squad="{{ row.kda_heat }}" data-heat-self="{{ row.kda_heat_self }}">{{ row.kda }}</span>
+        </div>
+        <div class="rc-stat mobile-extra" data-stat="obj_min" data-avg="{{ rc.baselines['Obj/min'].avg }}">
+          <span class="rc-stat-label" title="Objective score per minute">Obj/min</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.obj_min_grade_class }}" title="{{ row.obj_min_tip }}" data-pct="{{ row.obj_min_pctile if row.obj_min_pctile is not none else '' }}" data-grade-squad="{{ row.obj_min_grade }}" data-grade-self="{{ row.obj_min_grade_self }}" data-gclass-squad="{{ row.obj_min_grade_class }}" data-gclass-self="{{ row.obj_min_grade_class_self }}" data-gtip-squad="{{ row.obj_min_tip }}" data-gtip-self="{{ row.obj_min_tip_self }}">{{ row.obj_min_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.obj_min_heat }}" data-heat-squad="{{ row.obj_min_heat }}" data-heat-self="{{ row.obj_min_heat_self }}">{{ row.obj_min }}</span>
+        </div>
+        <div class="rc-stat" data-stat="ddiff" data-avg="{{ rc.baselines['Dmg±/g'].avg }}">
+          <span class="rc-stat-label">Dmg±/g</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.ddiff_grade_class }}" title="{{ row.ddiff_tip }}" data-pct="{{ row.ddiff_pctile }}" data-grade-squad="{{ row.ddiff_grade }}" data-grade-self="{{ row.ddiff_grade_self }}" data-gclass-squad="{{ row.ddiff_grade_class }}" data-gclass-self="{{ row.ddiff_grade_class_self }}" data-gtip-squad="{{ row.ddiff_tip }}" data-gtip-self="{{ row.ddiff_tip_self }}">{{ row.ddiff_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.ddiff_heat }}" data-heat-squad="{{ row.ddiff_heat }}" data-heat-self="{{ row.ddiff_heat_self }}">{{ row.dmg_diff_pg }}</span>
+        </div>
+        <div class="rc-stat mobile-extra" data-stat="life" data-avg="{{ rc.baselines['Life'].avg }}">
+          <span class="rc-stat-label">Life</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.life_grade_class }}" title="{{ row.life_tip }}" data-pct="{{ row.life_pctile }}" data-grade-squad="{{ row.life_grade }}" data-grade-self="{{ row.life_grade_self }}" data-gclass-squad="{{ row.life_grade_class }}" data-gclass-self="{{ row.life_grade_class_self }}" data-gtip-squad="{{ row.life_tip }}" data-gtip-self="{{ row.life_tip_self }}">{{ row.life_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.life_heat }}" data-heat-squad="{{ row.life_heat }}" data-heat-self="{{ row.life_heat_self }}">{{ row.avg_life }}</span>
+        </div>
+        <div class="rc-stat mobile-extra mobile-obj-keep" data-stat="obj" data-avg="{{ rc.baselines['ObjSc'].avg }}">
+          <span class="rc-stat-label">ObjSc</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.obj_grade_class }}" title="{{ row.obj_tip }}" data-pct="{{ row.obj_pctile if row.obj_pctile is not none else '' }}" data-grade-squad="{{ row.obj_grade }}" data-grade-self="{{ row.obj_grade_self }}" data-gclass-squad="{{ row.obj_grade_class }}" data-gclass-self="{{ row.obj_grade_class_self }}" data-gtip-squad="{{ row.obj_tip }}" data-gtip-self="{{ row.obj_tip_self }}">{{ row.obj_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.obj_score_heat }}" data-heat-squad="{{ row.obj_score_heat }}" data-heat-self="{{ row.obj_score_heat_self }}">{{ row.obj_score }}</span>
+        </div>
+        <div class="rc-stat mobile-extra mobile-obj-keep" data-stat="score" data-avg="{{ rc.baselines['Sc%'].avg }}">
+          <span class="rc-stat-label">Sc%</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.score_grade_class }}" title="{{ row.score_tip }}" data-pct="{{ row.scorepct_pctile }}" data-grade-squad="{{ row.score_grade }}" data-grade-self="{{ row.score_grade_self }}" data-gclass-squad="{{ row.score_grade_class }}" data-gclass-self="{{ row.score_grade_class_self }}" data-gtip-squad="{{ row.score_tip }}" data-gtip-self="{{ row.score_tip_self }}">{{ row.score_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.score_heat }}" data-heat-squad="{{ row.score_heat }}" data-heat-self="{{ row.score_heat_self }}">{{ row.score_pct }}</span>
+        </div>
+        <div class="rc-stat" data-stat="dmgm" data-avg="{{ rc.baselines['Dmg/m'].avg }}">
+          <span class="rc-stat-label">Dmg/m</span>
+          <span class="rc-stat-grade"><span class="sub-grade {{ row.dmgm_grade_class }}" title="{{ row.dmgm_tip }}" data-pct="{{ row.dmgm_pctile }}" data-grade-squad="{{ row.dmgm_grade }}" data-grade-self="{{ row.dmgm_grade_self }}" data-gclass-squad="{{ row.dmgm_grade_class }}" data-gclass-self="{{ row.dmgm_grade_class_self }}" data-gtip-squad="{{ row.dmgm_tip }}" data-gtip-self="{{ row.dmgm_tip_self }}">{{ row.dmgm_grade }}</span></span>
+          <span class="rc-stat-val rc-heat {{ row.dmgm_heat }}" data-heat-squad="{{ row.dmgm_heat }}" data-heat-self="{{ row.dmgm_heat_self }}">{{ row.dmg_per_min }}</span>
+        </div>
+      </div>
+      <div class="rc-card-footer">
+        <span>Acc {{ row.accuracy }}</span>
+        <span>K {{ row.kills }} · D {{ row.deaths }} · A {{ row.assists }}</span>
+        <span title="Perfect-kill medals per game ({{ row.perfect_total }} this session)">✨ {{ row.perfect_pg }}/g</span>
+        {% if row.hill_pg_secs %}<span class="rc-hill {{ row.hill_heat }}" title="Hill time per hill game — {{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }} (KOTH / Strongholds zone occupation)">⛰️ {{ row.hill_pg }}/g</span>{% endif %}
+        {% for oc in rc.obj_columns %}{% if row.objs[oc.key].display %}<span class="rc-obj {{ row.objs[oc.key].heat }}" title="{{ oc.label }} per game of that mode — {{ row.objs[oc.key].total }} total over {{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session">{{ oc.emoji }} {{ row.objs[oc.key].display }}/g</span>{% endif %}{% endfor %}
+      </div>
+      {% if row.hill_pg_secs or rc.obj_columns %}
+      <div class="mobile-obj-chips">
+        {% if row.hill_pg_secs %}<span class="mobile-obj-chip {{ row.hill_heat }}" title="Hill time per hill game — {{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }} (KOTH / Strongholds zone occupation)">⛰️ {{ row.hill_pg }}/g</span>{% endif %}
+        {% for oc in rc.obj_columns %}{% if row.objs[oc.key].display %}<span class="mobile-obj-chip {{ row.objs[oc.key].heat }}" title="{{ oc.label }} per game of that mode — {{ row.objs[oc.key].total }} total over {{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session">{{ oc.emoji }} {{ row.objs[oc.key].display }}/g</span>{% endif %}{% endfor %}
+      </div>
+      {% endif %}
+      {% if row.game_grades %}
+      <div class="rc-game-grades" data-player="{{ row.player }}" data-avg-score="{{ row.avg_game_score if row.avg_game_score is not none else '' }}" data-orig-grade="{{ row.grade }}" data-orig-class="{{ row.grade_class }}">
+        <div class="rcg-head">
+          <span class="rcg-label">Games{% if row.avg_game_grade %} · avg <strong class="inline-grade {{ row.avg_game_grade_class }}">{{ row.avg_game_grade }}</strong>{% endif %}</span>
+          <span class="rcg-hint">tap to include / drop</span>
+          <span class="rcg-result">Session grade <strong class="rcg-adjusted inline-grade {{ row.grade_class }}">{{ row.grade }}</strong> <span class="rcg-count"></span><button class="rcg-reset" type="button">reset</button></span>
+        </div>
+        <span class="rcg-chips">
+          {% for g in row.game_grades %}<button type="button" class="rcg-chip {{ g.grade_class }}{{ ' rcg-win' if g.won else ' rcg-loss' }}" data-mid="{{ g.mid }}" title="G{{ g.num }} · {{ g.map }} · {{ g.mode }} · {{ g.result }} · KDA {{ g.kda }} · grade {{ g.grade }} — tap to include / drop">{{ g.grade }}</button>{% endfor %}
+        </span>
+        <details class="rcg-games" open>
+          <summary><span class="rcg-games-label">Game-by-game</span><span class="rcg-games-hint">every game · tap ✓ to include / drop</span></summary>
+          <ul class="rcg-list">
+            {% for g in row.game_grades %}
+            <li class="rcg-gitem{{ ' rcg-notable' if g.watch }}" data-mid="{{ g.mid }}">
+              <label class="rcg-check" title="Include this game in the grade"><input type="checkbox" checked></label>
+              <span class="rcg-gnum">G{{ g.num }}</span>
+              <span class="rcg-gres {{ g.result_class }}">{{ g.result }}</span>
+              <span class="rcg-gmap">{{ g.map }}<span class="rcg-gmode">{{ g.mode }}</span>{% if g.watch %}<span class="rcg-note" title="Worth a rewatch — outlier performance">👀 {{ g.watch_reason }}</span>{% endif %}</span>
+              <span class="rcg-gkda" title="{{ g.kills }} kills · {{ g.deaths }} deaths · {{ g.assists }} assists">{{ g.kda }} <span class="rcg-gkd">{{ g.kills }}/{{ g.deaths }}/{{ g.assists }}</span></span>
+              <span class="rcg-ggrade inline-grade {{ g.grade_class }}" title="Game grade">{{ g.grade }}</span>
+              {% set _w = watch_url(g.mid) %}{% if _w %}<a class="rcg-watch" href="{{ _w }}" target="_blank" rel="noopener" title="Rewatch this game (synced co-stream)" onclick="event.stopPropagation()">📺</a>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Full detail table (expanded by default per Pat's request) ── #}
+  <details class="ranked-details rc-detail-table-wrap" style="margin-top:8px" open>
+    <summary class="ranked-summary-toggle"><span class="muted">Full per-stat breakdown table</span></summary>
+  <div class="table-wrap" style="margin-top:12px">
+      <table class="data-table compact" id="{{ pfx }}-detail-table" data-table="report-card">
+        <thead><tr>
+          <th>Player</th>
+          <th title="Overall grade vs historical baseline">Grade</th>
+          <th title="Games in this session">Gms</th>
+          <th title="Wins">W</th>
+          <th title="Win %">Win%</th>
+          <th title="KDA grade vs history">KDA ▸</th>
+          <th title="KDA value">KDA</th>
+          <th title="KD ratio">KD</th>
+          <th title="Kills/game">K</th>
+          <th title="Deaths/game">D</th>
+          <th title="Assists/game">A</th>
+          <th title="Perfect-kill medals per game">✨/g</th>
+          <th title="Damage diff grade vs history">Dmg± ▸</th>
+          <th title="Damage difference per game (dealt − taken)">Dmg±/g</th>
+          <th title="Avg damage dealt">Dmg+</th>
+          <th title="Avg damage taken">Dmg-</th>
+          <th title="Damage per minute grade vs history">Dmg/m ▸</th>
+          <th title="Damage per minute">Dmg/m</th>
+          <th title="Avg life duration grade vs history">Life ▸</th>
+          <th title="Avg life duration (seconds)">Life</th>
+          <th title="Objective score grade vs history">ObjSc ▸</th>
+          <th title="Objective score per game">ObjSc</th>
+          <th title="Personal score grade vs history">Sc% ▸</th>
+          <th title="Score % of team">Sc%</th>
+          <th title="Accuracy">Acc</th>
+          {% if rc.has_hill %}<th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>{% endif %}
+          {% for oc in rc.obj_columns %}<th title="{{ oc.label }} per game of that mode ({{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session)">{{ oc.emoji }} {{ oc.label }}/g</th>{% endfor %}
+          <th title="CSR change this session">CSR Δ</th>
+          <th title="Current CSR">CSR</th>
+        </tr></thead>
+        <tbody>
+          {% for row in rc.rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+            <td><span class="grade-badge {{ row.grade_class }}">{{ row.grade }}</span></td>
+            <td>{{ row.games }}</td>
+            <td>{{ row.wins }}</td>
+            <td>{{ row.win_pct }}</td>
+            <td><span class="sub-grade {{ row.kda_grade_class }}">{{ row.kda_grade }}</span></td>
+            <td><strong data-val="{{ row.kda }}">{{ row.kda }}</strong></td>
+            <td data-val="{{ row.kd1 }}">{{ row.kd1 }}</td>
+            <td data-val="{{ row.kills }}">{{ row.kills }}</td>
+            <td data-val="{{ row.deaths }}" data-heat-invert>{{ row.deaths }}</td>
+            <td data-val="{{ row.assists }}">{{ row.assists }}</td>
+            <td data-val="{{ row.perfect_pg }}" title="{{ row.perfect_total }} perfect medals this session">{{ row.perfect_pg }}</td>
+            <td><span class="sub-grade {{ row.ddiff_grade_class }}">{{ row.ddiff_grade }}</span></td>
+            <td data-val="{{ row.dmg_diff_pg|replace('+','') }}">{{ row.dmg_diff_pg }}</td>
+            <td data-val="{{ row.dmg_plus }}">{{ row.dmg_plus }}</td>
+            <td data-val="{{ row.dmg_minus }}" data-heat-invert>{{ row.dmg_minus }}</td>
+            <td><span class="sub-grade {{ row.dmgm_grade_class }}">{{ row.dmgm_grade }}</span></td>
+            <td data-val="{{ row.dmg_per_min }}">{{ row.dmg_per_min }}</td>
+            <td><span class="sub-grade {{ row.life_grade_class }}">{{ row.life_grade }}</span></td>
+            <td data-val="{{ row.avg_life|replace('s','') }}">{{ row.avg_life }}</td>
+            <td><span class="sub-grade {{ row.obj_grade_class }}">{{ row.obj_grade }}</span></td>
+            <td data-val="{{ row.obj_score }}">{{ row.obj_score }}</td>
+            <td><span class="sub-grade {{ row.score_grade_class }}">{{ row.score_grade }}</span></td>
+            <td data-val="{{ row.score_pct|replace('%','') }}">{{ row.score_pct }}</td>
+            <td data-val="{{ row.accuracy|replace('%','') }}">{{ row.accuracy }}</td>
+            {% if rc.has_hill %}<td data-val="{{ row.hill_pg_secs }}" title="{{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }}">{{ row.hill_pg or '—' }}</td>{% endif %}
+            {% for oc in rc.obj_columns %}<td data-val="{{ row.objs[oc.key].val }}" title="{{ row.objs[oc.key].total }} total this session">{{ row.objs[oc.key].display or '—' }}</td>{% endfor %}
+            <td data-val="{{ row.csr_delta|replace('+','') }}">{{ row.csr_delta }}</td>
+            <td>{{ row.current_csr }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+  </div>
+  </details>
+</section>
+{% endmacro %}
+
+{% if single_session %}
+<section class="panel session-browser-bar">
+  <div class="sbb-row">
+    <a href="/" class="btn btn-small">← Home</a>
+    <label class="sbb-label" for="session-picker">Session</label>
+    <select id="session-picker" onchange="if(this.value)location.href='/report?sid='+this.value">
+      {% for s in session_list %}
+      <option value="{{ s.sid }}" style="{% if s.win_pct is not none %}background:hsl({{ (s.win_pct * 1.2)|int }},60%,16%);{% endif %}color:{{ s.mvp|player_hex if s.mvp else '#fff' }}" {% if s.sid == selected_sid %}selected{% endif %}>{{ s.date }} · {{ s.games }}g · {{ s.record }}{% if s.win_pct is not none %} ({{ s.win_pct }}%){% endif %}{% if s.mvp %} · MVP {{ s.mvp }}{% endif %}{% if s.players_str %} · {{ s.players_str }}{% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+</section>
+{% endif %}
+
+{% if squad_report_card and squad_report_card.rows %}
+{{ render_report_card(squad_report_card, 'rc', '/report', '🗓️ Browse sessions →', true, ('Session Report Card' if single_session else 'Squad Session Report Card')) }}
+{% if not single_session %}
+<div class="mobile-dashboard-links">
+  <a class="btn btn-small" href="/report">Sessions</a>
+  <a class="btn btn-small" href="/live">Live</a>
+  <a class="btn btn-small" href="/combat">Combat</a>
+  <a class="btn btn-small" href="/compare">Compare</a>
+  <a class="btn btn-small" href="/coach">Coach</a>
+</div>
+{% endif %}
+{% endif %}
+
+{% if grade_timeline and grade_timeline.players %}
+<section class="panel grade-timeline-panel" data-count="{{ grade_timeline.count }}">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">📈 Grade Over Time</div>
+    <button class="btn btn-small" type="button" onclick="copyGradeTimeline()" id="gt-copy-btn">📋 Copy trend</button>
+  </div>
+  <div class="gt-chart-wrap"><canvas id="gradeTimelineChart"></canvas></div>
+  <div class="gt-legend">
+    {% for p in grade_timeline.players %}
+    <span class="gt-legend-item" data-player="{{ p.player }}" data-emoji="{{ p.emoji }}" data-trend="{{ p.trend }}" data-trend-pct="{{ p.trend_pct }}" data-cls="{{ p.cls }}">
+      <span class="player-name {{ p.cls }}">{{ p.player }}</span>
+      <span class="gt-spark">{{ p.emoji }}</span>
+      <span class="gt-trend muted">{{ p.trend }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  <script type="application/json" id="grade-timeline-data">{{ grade_timeline|tojson|safe }}</script>
+</section>
+{% endif %}
+
+{% if not single_session %}
+{% if session_highlights and session_highlights.session_games %}
+<section class="panel rewatch-panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">📺 Game Rewatches</div>
+    <span class="muted">Latest session</span>
+  </div>
+  <div class="rewatch-chips">
+    {% for game in session_highlights.session_games %}{% set _w = watch_url(game.match_id) %}{% if _w %}<a class="rewatch-chip {{ game.result_class }}" href="{{ _w }}" target="_blank" rel="noopener" title="Rewatch G{{ game.num }} — {{ game.map }}{% if game.mode %} · {{ game.mode }}{% endif %} · {{ game.result }}{% if game.time %} ({{ game.time }}){% endif %}">📺 G{{ game.num }} · {{ game.result }}</a>{% endif %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if solo_player_cards %}
+<section class="panel mobile-only">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Latest Solo Sessions</div>
+    <a href="/sessions" class="btn btn-small">All →</a>
+  </div>
+  <p class="muted section-intro">Graded vs solo games only.</p>
+  <div class="mobile-list">
+    {% for c in solo_player_cards %}
+    <a class="mobile-row-card" href="{% if c.sid %}/session/{{ c.sid }}{% else %}{{ c.player|player_href }}{% endif %}" style="text-decoration:none;color:inherit">
+      <span class="grade-badge {{ c.grade_class }}" title="{{ c.grade_tip }}">{{ c.grade }}</span>
+      <span class="mobile-row-main">
+        <strong class="player-name {{ c.css }}">{{ c.player }}</strong>
+        <span>{{ c.session_date }} · {{ c.games }}g · {{ c.record }} · ObjSc {{ c.obj_score }} · CSR {{ c.csr_delta }}</span>
+      </span>
+      <span class="mobile-row-side">
+        <span>KDA</span>
+        <strong class="{{ c.kda_heat }}">{{ c.kda }}</strong>
+        <span>ObjSc</span>
+        <strong class="{{ c.obj_score_heat }}">{{ c.obj_score }}</strong>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if ranked_arena_30day_rows %}
+<section class="panel mobile-only">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Recent Comparison</div>
+    <a href="/compare" class="btn btn-small">Compare →</a>
+  </div>
+  <p class="muted section-intro">Last 30 days.</p>
+  <div class="mobile-list">
+    {% for row in ranked_arena_30day_rows %}
+    <a class="mobile-row-card" href="{{ row.player|player_href }}" style="text-decoration:none;color:inherit">
+      <span class="grade-badge {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span>
+      <span class="mobile-row-main">
+        <strong class="player-name {{ row.player|player_class }}">{{ row.player }}</strong>
+        <span>{{ row.games }}g · {{ row.win_pct }}% win · ObjSc {{ row.obj_score }} · CSR {{ row.csr_delta }}</span>
+      </span>
+      <span class="mobile-row-side">
+        <span>KDA</span>
+        <strong class="{{ row.kda_baseline_heat|default(row.kda_heat, true) }}">{{ row.kda }}</strong>
+        <span>ObjSc</span>
+        <strong class="{{ row.obj_score_baseline_heat|default(row.obj_score_heat, true) }}">{{ row.obj_score }}</strong>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   LATEST SOLO SESSIONS — each player's most recent solo grind
+   (matches where they ran alone), one row per player.
+   ══════════════════════════════════════════════════════════ #}
+{% if solo_player_cards %}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🎯 Latest Solo Sessions</div>
+  </div>
+  <p class="muted section-intro" style="margin-bottom:10px">Graded vs solo games only.</p>
+  <div class="table-wrap">
+    <table class="data-table cards" id="solo-sessions-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Solo-session grade vs 1-year SOLO-only ranked baseline (squad games excluded)">Grade</th>
+          <th>Session</th>
+          <th>Games</th>
+          <th>Record</th>
+          <th title="kills + assists/3 − deaths">KDA</th>
+          <th>K</th>
+          <th>D</th>
+          <th>A</th>
+          <th title="Perfect-kill medals per game">✨/g</th>
+          <th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>
+          <th title="CSR change across the session">CSR Δ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in solo_player_cards %}
+        <tr>
+          <td><a href="{{ c.player|player_href }}" class="player-name {{ c.css }}">{{ c.player }}</a></td>
+          <td><span class="inline-grade {{ c.grade_class }}" title="{{ c.grade_tip }}">{{ c.grade }}</span></td>
+          <td class="muted">{{ c.session_date }}</td>
+          <td>{{ c.games }}</td>
+          <td>{{ c.record }}</td>
+          <td>{{ c.kda }}</td>
+          <td>{{ c.kills }}</td>
+          <td>{{ c.deaths }}</td>
+          <td>{{ c.assists }}</td>
+          <td title="{{ c.perfect_total }} perfect medals this session">{{ c.perfect_pg }}</td>
+          <td title="{{ c.hill_total }} over {{ c.hill_games }} hill game{{ 's' if c.hill_games != 1 else '' }}">{{ c.hill_pg or '—' }}</td>
+          <td>{{ c.csr_delta }}</td>
+          <td>{% if c.sid %}<a href="/session/{{ c.sid }}" class="btn btn-small">Full →</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   SESSION HIGHLIGHTS — outliers / crazy games / medal haul from
+   the latest squad session (sits with the session report card)
+   ══════════════════════════════════════════════════════════ #}
+{% if session_highlights and session_highlights.has_data %}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0;display:flex;align-items:center;gap:8px">🔥 Session Highlights
+      <span class="session-kind kind-{{ session_highlights.kind|default('squad') }}">{{ (session_highlights.kind|default('squad'))|upper }}</span>
+    </div>
+    <span class="muted">Latest {{ 'solo' if session_highlights.kind == 'solo' else 'squad' }} session{% if session_highlights.game_count %} · {{ session_highlights.game_count }} games · {{ session_highlights.session_date }}{% endif %}</span>
+  </div>
+  {{ cm.session_highlights(session_highlights) }}
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   SQUAD SCOREBOARD — how everyone is doing, at a glance
+   ══════════════════════════════════════════════════════════ #}
+{% if combat_report and combat_report.has_data %}
+<section class="panel sb-panel mobile-defer" id="sb-anchor">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🏆 Squad Scoreboard</div>
+    <span class="muted">Ranked · sorted by CSR · tap a player for more</span>
+  </div>
+  <div class="sb-range">
+    {% for sk in sb_stack_order %}
+    <a href="/?sbs={{ sk }}&sb={{ sb_range }}{% if selected_sid %}&sid={{ selected_sid }}{% endif %}#sb-anchor" class="btn btn-small {{ 'btn-active' if sk == sb_stack else '' }}">{{ sb_stack_labels[sk] }}</a>
+    {% endfor %}
+  </div>
+  <div class="sb-range">
+    <span class="sb-range-lbl">Range</span>
+    {% for rk in sb_range_order %}
+    <a href="/?sb={{ rk }}&sbs={{ sb_stack }}{% if selected_sid %}&sid={{ selected_sid }}{% endif %}#sb-anchor" class="btn btn-small {{ 'btn-active' if rk == sb_range else '' }}">{{ sb_labels[rk] }}</a>
+    {% endfor %}
+  </div>
+  {{ cm.scoreboard_grid(combat_report) }}
+</section>
+
+{# ── Combat Report (medal & weapon leaders, top 3 here) ── #}
+{% if combat_report.leaders %}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">⚔️ Combat Report</div>
+    <a class="btn btn-small" href="/combat">Full breakdown →</a>
+  </div>
+  <p class="muted section-intro">Top 3 per category, per game (lifetime totals in parentheses).</p>
+  {{ cm.combat_leaders(combat_report, top_n=3) }}
+</section>
+{% endif %}
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   PERFORMANCE VS SKILL BRACKET (expected-vs-actual, squad-ranked)
+   ══════════════════════════════════════════════════════════ #}
+{% if squad_skill_perf %}
+<section class="panel mobile-defer">
+  <div class="panel-header"><h2>📈 Performance vs Skill Bracket</h2></div>
+  <p class="section-intro">Net kills + deaths above what the matchmaker expects, per game.</p>
+  <div class="ssp-grid">
+    {% for r in squad_skill_perf %}
+    <div class="ssp-row">
+      <div class="ssp-who">
+        {% if loop.index == 1 and r.perf_index > 0 %}<span class="ssp-crown" title="Most above their skill bracket">👑</span>{% endif %}
+        <a href="{{ r.player|player_href }}" class="player-name {{ r.css }}">{{ r.player }}</a>
+      </div>
+      <span class="ssp-index {{ 'skp-good' if r.perf_index > 0 else ('skp-bad' if r.perf_index < 0 else '') }}" title="Net kills+deaths vs expected, per game">{{ '%+.1f'|format(r.perf_index) }}</span>
+      <span class="ssp-detail">
+        <span class="{{ 'pos' if r.kills_delta > 0 else ('neg' if r.kills_delta < 0 else '') }}" title="kills vs expected">K {{ '%+.1f'|format(r.kills_delta) }}</span> ·
+        <span class="{{ 'pos' if r.deaths_delta < 0 else ('neg' if r.deaths_delta > 0 else '') }}" title="deaths vs expected (fewer is better)">D {{ '%+.1f'|format(r.deaths_delta) }}</span> ·
+        {{ r.beat_kills_pct }}% beat · {{ r.games }}g{% if r.mmr_gap is not none %} · lobby {{ r.team_mmr }}{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   SESSION MVP (best Game Grade of the latest session)
+   ══════════════════════════════════════════════════════════ #}
+{% if session_mvp and session_mvp.best_game %}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Session MVP</div>
+    <span class="muted">Last session · {{ session_mvp.games }} games</span>
+  </div>
+  <div class="mvp-grid">
+    <div class="mvp-card">
+      <span class="mvp-card-label">🏆 Game of the Session</span>
+      <div class="mvp-card-body">
+        <span class="grade-badge {{ session_mvp.best_game.grade_class }}">{{ session_mvp.best_game.grade }}</span>
+        <div class="mvp-card-info">
+          <a href="{{ session_mvp.best_game.player|player_href }}" class="player-name {{ session_mvp.best_game.player|player_class }}"><strong>{{ session_mvp.best_game.player }}</strong></a>
+          <span class="muted">{{ session_mvp.best_game.kills }}/{{ session_mvp.best_game.deaths }}/{{ session_mvp.best_game.assists }} · {{ session_mvp.best_game.kda }} KDA · {{ session_mvp.best_game.map }}</span>
+          <a class="mvp-link" href="/match/{{ session_mvp.best_game.match_id }}">View match →</a>
+        </div>
+      </div>
+    </div>
+    {% if session_mvp.top_player %}
+    <div class="mvp-card">
+      <span class="mvp-card-label">⭐ Top Average</span>
+      <div class="mvp-card-body">
+        <span class="grade-badge {{ session_mvp.top_player.grade_class }}">{{ session_mvp.top_player.grade }}</span>
+        <div class="mvp-card-info">
+          <a href="{{ session_mvp.top_player.player|player_href }}" class="player-name {{ session_mvp.top_player.player|player_class }}"><strong>{{ session_mvp.top_player.player }}</strong></a>
+          <span class="muted">{{ session_mvp.top_player.avg }}/100 avg grade · {{ session_mvp.top_player.games }} games</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 1 — CSR STATUS + TREND
+   ══════════════════════════════════════════════════════════ #}
+<section class="panel mobile-defer">
+  <div class="section-label">CSR Status</div>
+  <div class="csr-cards">
+    {% if csr_overview_rows %}
+      {% for row in csr_overview_rows %}
+      {% set sd = row.session_csr_change|string %}
+      <a href="{{ row.player|player_href }}" class="csr-card" style="text-decoration:none;color:inherit">
+        <div class="csr-card-player">
+          <span class="status-dot" data-last-match="{{ row.last_match_iso }}"></span>
+          <span class="player-name {{ row.player|player_class }}">{{ row.player }}</span>
+          <span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span>
+        </div>
+        <div class="csr-card-csr {{ row.current_csr_heat }}">{{ row.current_csr }}</div>
+        <div class="csr-card-session {% if sd.startswith('+') and sd != '+0' %}delta-up{% elif sd.startswith('-') %}delta-down{% else %}delta-zero{% endif %}">
+          Session: {{ sd if sd and sd != 'None' else '–' }}
+        </div>
+        <div class="csr-card-deltas">
+          <span>7d <span class="val {{ row.delta_7_heat }}">{{ row.delta_7 }}</span></span>
+          <span>30d <span class="val {{ row.delta_30_heat }}">{{ row.delta_30 }}</span></span>
+          <span>90d <span class="val {{ row.delta_90_heat }}">{{ row.delta_90 }}</span></span>
+          <span>→1700 <span class="val {{ row.target_delta_heat }}">{{ row.target_delta }}</span></span>
+        </div>
+        <div class="csr-card-max">Peak: {{ row.max_csr }}{% if row.max_csr_date %} <span style="font-size:0.7rem">({{ row.max_csr_date }})</span>{% endif %}</div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No CSR data yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel mobile-defer">
+  <div class="section-label">CSR Trend — Last 90 Days</div>
+  {% if csr_overview_trends %}
+  <div class="chart-container csr-trend-panel" style="height:200px">
+    <canvas id="csrOverviewTrend"></canvas>
+  </div>
+  {% else %}
+  <p class="muted">No CSR trend data yet.</p>
+  {% endif %}
+</section>
+
+{# ══════════════════════════════════════════════════════════
+   STREAKS & RECORDS STRIP
+   ══════════════════════════════════════════════════════════ #}
+{% if streak_strip and streak_strip.players %}
+<section class="panel ls-panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Live Streaks</div>
+    <a class="btn btn-small" href="/live">Live Session →</a>
+  </div>
+  <div class="ls-chips">
+    {% for p in streak_strip.players %}
+    <div class="ls-chip">
+      <a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>
+      <span class="ls-detail">
+        {% if p.current_win > 0 %}<span class="heat-excellent">W{{ p.current_win }}</span>{% elif p.current_loss > 0 %}<span class="heat-poor">L{{ p.current_loss }}</span>{% else %}–{% endif %}
+        {% if p.hot_kda > 0 %} · 🔥{{ p.hot_kda }}{% endif %}
+        <span class="muted" title="Best win streak in window">· best W{{ p.best_win }}</span>
+      </span>
+      <span class="ls-last10">{{ p.last10 }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 2 — LAST SESSION
+   ══════════════════════════════════════════════════════════ #}
+<section class="panel mobile-defer">
+  <details class="ranked-details" open>
+    <summary class="ranked-summary-toggle"><span class="section-label" style="display:inline;margin:0">Last Ranked Session</span> <span class="muted">— per-player breakdown</span></summary>
+  <div class="table-wrap" style="margin-top:12px">
+    <table class="data-table compact" data-table="session-slim">
+      <thead><tr>
+        <th>Player</th>
+        <th title="Composite session grade vs the squad">Grade</th>
+        <th title="Session date">Date</th>
+        <th title="Games">Gms</th>
+        <th title="Win %">Win%</th>
+        <th title="Avg kills">K</th>
+        <th title="Avg deaths">D</th>
+        <th title="Avg assists">A</th>
+        <th title="Kill/Death ratio">KD1</th>
+        <th title="(Kills+Assists)÷Deaths">KD2</th>
+        <th title="KDA">KDA</th>
+        <th title="Avg damage dealt">Dmg+</th>
+        <th title="Avg damage taken">Dmg-</th>
+        <th title="Damage difference">Dmg±</th>
+        <th title="Damage per Kill+Assist">Dmg/KA</th>
+        <th title="Damage per Death">Dmg/D</th>
+        <th title="Damage per minute">Dmg/m</th>
+        <th title="Dmg % of team">Dmg%T</th>
+        <th title="Dmg % of enemy team">Dmg%E</th>
+        <th title="Shots fired">Fired</th>
+        <th title="Shots landed">Land</th>
+        <th title="Accuracy">Acc</th>
+        <th title="Avg score">Score</th>
+        <th title="Objective score">ObjSc</th>
+        <th title="Score % of team">Sc%</th>
+        <th title="Medals per game">Mdls</th>
+        <th title="Avg life duration">Life</th>
+        <th title="Callout assists">Call</th>
+        <th title="CSR before session">Pre</th>
+        <th title="CSR after session">Post</th>
+        <th title="CSR change this session">CSR Δ</th>
+      </tr></thead>
+      <tbody>
+        {% if ranked_arena_rows %}
+          {% for row in ranked_arena_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td>{{ row.session_date }}</td>
+            <td class="{{ row.games_heat }}">{{ row.games }}</td>
+            <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+            <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+            <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+            <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+            <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+            <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+            <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+            <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+            <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+            <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+            <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+            <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+            <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+            <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+            <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+            <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+            <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+            <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+            <td class="{{ row.score_heat }}">{{ row.score }}</td>
+            <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+            <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+            <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+            <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+            <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+            <td>{{ row.pre_csr }}</td>
+            <td>{{ row.post_csr }}</td>
+            <td class="{{ row.csr_delta_heat }}"><strong>{{ row.csr_delta }}</strong></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="32" class="empty">No session data yet</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  </details>
+</section>
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 3 — RANKED STATS (full detail table + timeline)
+   ══════════════════════════════════════════════════════════ #}
+<section class="panel mobile-defer">
+  <details class="ranked-details" open>
+    <summary class="ranked-summary-toggle"><span class="section-label" style="display:inline;margin:0">Ranked Arena Stats</span> <span class="muted">— full per-stat breakdown</span></summary>
+    <div class="timeline-selector" role="group" aria-label="Timeline" style="margin:14px 0 6px">
+      <button class="btn btn-small timeline-btn active" type="button" data-timeline="30day">30d</button>
+      <button class="btn btn-small timeline-btn" type="button" data-timeline="90day">90d</button>
+      <button class="btn btn-small timeline-btn" type="button" data-timeline="180day">180d</button>
+      <button class="btn btn-small timeline-btn" type="button" data-timeline="1y">1yr</button>
+      <button class="btn btn-small timeline-btn" type="button" data-timeline="2y">2yr</button>
+      <button class="btn btn-small timeline-btn" type="button" data-timeline="lifetime">All</button>
+    </div>
+  </div>
+  <div class="table-wrap" style="overflow-x:auto">
+    <table class="data-table compact" data-table="ranked-summary" style="min-width:1600px">
+      <thead><tr>
+        <th>Player</th>
+        <th title="Composite ranked period grade">Grade</th>
+        <th title="CSR">CSR</th>
+        <th title="Games">Gms</th>
+        <th title="Win %">Win%</th>
+        <th title="Avg kills">K</th>
+        <th title="Avg deaths">D</th>
+        <th title="Avg assists">A</th>
+        <th title="KD">KD</th>
+        <th title="KDA">KDA</th>
+        <th title="Dmg dealt">Dmg+</th>
+        <th title="Dmg taken">Dmg-</th>
+        <th title="Dmg diff">Dmg±</th>
+        <th title="Dmg/KA">D/KA</th>
+        <th title="Dmg/Death">D/D</th>
+        <th title="Dmg/min">D/m</th>
+        <th title="Dmg % team">D%T</th>
+        <th title="Dmg % enemy">D%E</th>
+        <th title="Shots fired">Fired</th>
+        <th title="Shots landed">Land</th>
+        <th title="Accuracy">Acc</th>
+        <th title="Score">Score</th>
+        <th title="Obj score">ObjSc</th>
+        <th title="Score % team">Sc%</th>
+        <th title="Medals">Mdls</th>
+        <th title="Avg life">Life</th>
+        <th title="Callouts">Call</th>
+        <th title="Period start CSR">Pre</th>
+        <th title="Period end CSR">Post</th>
+        <th title="CSR change">CSR Δ</th>
+      </tr></thead>
+
+      {% macro ranked_rows(rows, empty_msg) %}
+        {% if rows %}
+          {% for row in rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+            <td class="{{ row.games_heat }}">{{ row.games }}</td>
+            <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+            <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+            <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+            <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+            <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+            <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+            <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+            <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+            <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+            <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+            <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+            <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+            <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+            <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+            <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+            <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+            <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+            <td class="{{ row.score_heat }}">{{ row.score }}</td>
+            <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+            <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+            <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+            <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+            <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+            <td>{{ row.pre_csr }}</td>
+            <td>{{ row.post_csr }}</td>
+            <td class="{{ row.csr_delta_heat }}"><strong>{{ row.csr_delta }}</strong></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="30" class="empty">{{ empty_msg }}</td></tr>
+        {% endif %}
+      {% endmacro %}
+
+      <tbody id="timeline-30day"  class="timeline-tbody">{{ ranked_rows(ranked_arena_30day_rows,  "No matches in last 30 days") }}</tbody>
+      <tbody id="timeline-90day"  class="timeline-tbody" style="display:none">{{ ranked_rows(ranked_arena_90day_rows,  "No matches in last 90 days") }}</tbody>
+      <tbody id="timeline-180day" class="timeline-tbody" style="display:none">{{ ranked_rows(ranked_arena_180day_rows, "No matches in last 180 days") }}</tbody>
+      <tbody id="timeline-1y"     class="timeline-tbody" style="display:none">{{ ranked_rows(ranked_arena_1y_rows,    "No matches in last year") }}</tbody>
+      <tbody id="timeline-2y"     class="timeline-tbody" style="display:none">{{ ranked_rows(ranked_arena_2y_rows,    "No matches in last 2 years") }}</tbody>
+      <tbody id="timeline-lifetime" class="timeline-tbody" style="display:none">
+        {% if ranked_arena_lifetime_rows %}
+          {% for row in ranked_arena_lifetime_rows %}
+          <tr>
+            <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+            <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+            <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+            <td class="{{ row.games_heat }}">{{ row.games }}</td>
+            <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+            <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+            <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+            <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+            <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+            <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+            <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+            <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+            <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+            <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+            <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+            <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+            <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+            <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+            <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+            <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+            <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+            <td class="{{ row.score_heat }}">{{ row.score }}</td>
+            <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+            <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+            <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+            <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+            <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+            <td>—</td><td>—</td><td>—</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="30" class="empty">No lifetime ranked matches</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  </details>
+</section>
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 3b — OUTLIER SPOTLIGHT
+   ══════════════════════════════════════════════════════════ #}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">Outlier Spotlight <span class="muted" style="font-weight:400;font-size:0.7rem">each player's 3 biggest strengths &amp; weaknesses vs the squad average — where they stand out, for better or worse</span></div>
+    <span>
+      {% for option in outlier_ranges %}
+      <a class="trend-range-btn{% if option.active %} active{% endif %}"
+         href="{{ url_for('index', player=selected_player, playlist=selected_playlist, mode=selected_mode, outliers=option.key) }}">{{ option.label }}</a>
+      {% endfor %}
+    </span>
+  </div>
+  {% if outlier_rows %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:4px">
+    {% for row in outlier_rows %}
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+      <div style="font-weight:700;margin-bottom:8px">
+        <a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a>
+      </div>
+      {% set good_items = row.highlights | selectattr('good') | list %}
+      {% set bad_items  = row.highlights | rejectattr('good') | list %}
+      {% if good_items %}
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:1px;color:#4ade80;margin-bottom:4px">STRENGTHS</div>
+      {% for item in good_items %}
+      <div class="outlier-item" style="color:#d1fae5;font-size:0.82rem;margin-bottom:3px">{{ item.text }}</div>
+      {% endfor %}
+      {% endif %}
+      {% if bad_items %}
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:1px;color:#f87171;margin-top:8px;margin-bottom:4px">WEAKNESSES</div>
+      {% for item in bad_items %}
+      <div class="outlier-item" style="color:#fee2e2;font-size:0.82rem;margin-bottom:3px">{{ item.text }}</div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No outlier data yet.</p>
+  {% endif %}
+</section>
+
+{# ══════════════════════════════════════════════════════════
+   ZONE 4 — MAP INTEL  +  STAT TRENDS
+   ══════════════════════════════════════════════════════════ #}
+<div class="intel-grid mobile-defer">
+
+  <section class="panel">
+    <div class="section-label">Map Performance</div>
+    <div class="table-wrap">
+      <table class="data-table compact" data-table="maps">
+        <thead><tr>
+          <th>Map</th><th>Matches</th><th>Win Rate</th>
+        </tr></thead>
+        <tbody>
+          {% if map_rows %}
+            {% for row in map_rows %}
+            <tr>
+              <td>{{ row.name }}</td>
+              <td class="{{ row.matches_heat }}">{{ row.matches }}</td>
+              <td class="{{ row.win_rate_heat }}">{{ row.win_rate }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="3" class="empty">No data yet</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-label">Stat Trends — 30d vs Lifetime</div>
+    <div class="table-wrap">
+      <table class="data-table compact" data-table="trends">
+        <thead><tr>
+          <th>Player</th><th>Stat</th><th>30d</th><th>Lifetime</th><th>Trend</th>
+        </tr></thead>
+        <tbody>
+          {% if summary_rows %}
+            {% for row in summary_rows %}
+            <tr>
+              <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+              <td>{{ row.stat }}</td>
+              <td>{{ row.recent }}</td>
+              <td>{{ row.lifetime }}</td>
+              <td class="{{ row.trend_class }}">{{ row.trend }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="5" class="empty">No summary data yet</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const csrOverviewTrends = {{ (csr_overview_trends if csr_overview_trends is defined else {})|tojson|safe }};
+const csrTrendCanvas = document.getElementById('csrOverviewTrend');
+if (csrTrendCanvas && csrOverviewTrends && Object.keys(csrOverviewTrends).length > 0 && typeof Chart !== 'undefined') {
+  const chartColors = ['#3dbfb8','#ff7a3d','#ffd700','#86efac','#fca5a5','#c4b5fd'];
+  // Server-assigned palette: lowercase gamertag → hex (matches the .player-cN CSS classes).
+  const playerColorMap = {{ player_colors|default({})|tojson|safe }};
+
+  const hexToRgb = hex => {
+    const c = hex.replace('#','');
+    return { r: parseInt(c.slice(0,2),16), g: parseInt(c.slice(2,4),16), b: parseInt(c.slice(4,6),16) };
+  };
+  const withAlpha = (hex, a) => { const {r,g,b} = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+  const getPlayerColor = (player, fallback) =>
+    playerColorMap[String(player || '').trim().toLowerCase()] || fallback;
+
+  const labels = Array.from(new Set(
+    Object.values(csrOverviewTrends).flatMap(s => s.map(p => p.date))
+  )).sort((a,b) => a.localeCompare(b));
+
+  const targetLine = {
+    label: 'Onyx 1700',
+    data: labels.map(d => ({ x: d, y: 1700 })),
+    borderColor: 'rgba(255,215,0,0.5)',
+    borderWidth: 1.5,
+    borderDash: [6,4],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    fill: false
+  };
+
+  const datasets = Object.entries(csrOverviewTrends).map(([player, series], i) => {
+    const color = getPlayerColor(player, chartColors[i % chartColors.length]);
+    return {
+      label: player,
+      data: series.map(p => ({ x: p.date, y: p.csr })),
+      borderColor: color,
+      backgroundColor: withAlpha(color, 0.15),
+      fill: false,
+      tension: 0.2,
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      spanGaps: true
+    };
+  });
+
+  new Chart(csrTrendCanvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [targetLine, ...datasets] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'nearest' },
+      plugins: { legend: { labels: { color: '#e8dfd3', boxWidth: 12, usePointStyle: true } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82', maxTicksLimit: 10 } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+</script>
+
+<script>
+// ── Report card copy-to-clipboard ────────────────────────────
+// Verbal performance tiers from the squad-relative composite percentile
+// (0-100, 50 = squad's historical median). No letter grades in copy text.
+// MID is centered on 50 (average play IS mid); below ~42 reads as bad.
+const PERF_TIERS = [
+  [90, '🔥 GODLIKE'], [75, '😤 COOKING'], [60, '💪 STRONG'],
+  [42, '😐 MID'], [28, '🥴 ROUGH'], [14, '🗑️ TRASH'], [0, '💩 DOGSHIT'],
+];
+function perfTier(p) {
+  for (const [min, label] of PERF_TIERS) if (p >= min) return label;
+  return PERF_TIERS[PERF_TIERS.length - 1][1];
+}
+// Colored-square sparkline for grades (session trend + per-game).
+const GRADE_SQ = { S: '🟩', A: '🟩', B: '🟨', C: '🟧', D: '🟥', F: '🟥' };
+const sqOf = (g) => GRADE_SQ[(g || '').replace(/[+\-]$/, '')] || '⬜';
+
+// Build the grade-over-time sparkline block (shared by both copy buttons).
+function gradeTrendLines() {
+  const panel = document.querySelector('.grade-timeline-panel');
+  if (!panel) return [];
+  const items = Array.from(panel.querySelectorAll('.gt-legend-item'));
+  if (!items.length) return [];
+  const count = panel.getAttribute('data-count') || '';
+  const lines = [`📈 Grade trend${count ? ' (last ' + count + ' sessions)' : ''}`];
+  const wide = Math.max(...items.map(i => (i.getAttribute('data-player') || '').length));
+  items.forEach(i => {
+    const name = (i.getAttribute('data-player') || '').padEnd(wide);
+    const emoji = i.getAttribute('data-emoji') || '';
+    const trend = i.getAttribute('data-trend-pct') || i.getAttribute('data-trend') || '';
+    lines.push(`${name}  ${emoji}  ${trend}`);
+  });
+  lines.push('🟩 hot · 🟨 fine · 🟧 meh · 🟥 cold  (numbers = /100 vs squad)');
+  return lines;
+}
+
+function copyGradeTimeline() {
+  const lines = gradeTrendLines();
+  if (!lines.length) return;
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('gt-copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy trend'; }, 2500); }
+  }).catch(() => prompt('Copy this:', text));
+}
+
+function copyReportCard(pfx) {
+  pfx = pfx || 'rc';
+  const cardsWrap = document.getElementById(pfx + '-cards');
+  if (!cardsWrap) return;
+  const section = cardsWrap.closest('section');
+  const cards = cardsWrap.querySelectorAll('.rc-card');
+  if (!cards.length) return;
+
+  const meta = section.querySelector('.report-card-meta');
+  const metaText = meta ? meta.innerText.replace(/\s+/g, ' ').trim() : '';
+  const titleEl = section.querySelector('.section-label');
+  const cardTitle = (titleEl ? titleEl.innerText.replace(/\s+/g, ' ').trim() : 'Session Report Card')
+    .replace(/\s*(SOLO|SQUAD)\s*$/i, '');
+
+  // Session ranking vs the last 30 days
+  const rankEl = section.querySelector('.rc-rank-chip');
+  const rankLine = rankEl ? ('🏆 Ranked ' + (rankEl.getAttribute('data-copy') || rankEl.innerText.replace(/\s+/g, ' ').trim())) : '';
+
+  // Opposition summary (enemy team, averaged over the session)
+  const enemyEl = section.querySelector('.rc-enemy-strip');
+  const enemyLine = enemyEl ? ('⚔️ Opposition: ' + (enemyEl.getAttribute('data-copy') || '')) : '';
+
+  // Stack-size + solo session records, condensed to one line
+  let recordLine = '';
+  const recWrap = section.querySelector('.rc-records');
+  if (recWrap) {
+    const chips = Array.from(recWrap.querySelectorAll('.rc-record-chip'));
+    const parts = chips.map(c => {
+      const kind = c.querySelector('.rc-record-kind')?.innerText.trim() ?? '';
+      const val = c.querySelector('.rc-record-val')?.innerText.trim() ?? '';
+      return `${kind} ${val}`;
+    }).filter(Boolean);
+    if (parts.length) recordLine = '🏅 ' + parts.join(' · ');
+  }
+
+  // Session score → letter grade (same ladder as the site's grades)
+  const gradeOf = (p) => p >= 90 ? 'S' : p >= 83 ? 'A+' : p >= 75 ? 'A' : p >= 67 ? 'A-'
+    : p >= 58 ? 'B+' : p >= 50 ? 'B' : p >= 42 ? 'B-' : p >= 33 ? 'C+' : p >= 25 ? 'C'
+    : p >= 17 ? 'C-' : p >= 10 ? 'D+' : p >= 6 ? 'D' : p >= 3 ? 'D-' : 'F';
+  // Personal form: tonight's composite minus the player's own 365d norm
+  // (both on the squad game scale) — positive = better than they normally do.
+  const formOf = (d) => d >= 15 ? '🔥 way above their usual' : d >= 6 ? '▲ above their usual'
+    : d > -6 ? '⚖️ typical for them' : d > -15 ? '🔻 below their usual' : '🧊 way off their usual';
+
+  const blocks = Array.from(cards).map(card => {
+    const name  = card.querySelector('.rc-card-name')?.innerText.trim() ?? '';
+    const badge = card.querySelector('.grade-badge');
+    const compPct = parseFloat(badge?.getAttribute('data-pct-squad') ?? '');
+    const formPct = parseFloat(card.getAttribute('data-form') ?? '');
+    const usual = parseFloat(card.getAttribute('data-usual') ?? '');
+
+    // All graded stats: squad letter grade + value + squad 365d average
+    const statInfo = {};
+    card.querySelectorAll('.rc-stat').forEach(s => {
+      const label = (s.querySelector('.rc-stat-label')?.innerText.trim() ?? '').toUpperCase();
+      const sg = s.querySelector('.sub-grade');
+      const pct = parseFloat(sg?.getAttribute('data-pct') ?? '');
+      const grade = sg?.getAttribute('data-grade-squad') ?? '';
+      const avg = String(s.getAttribute('data-avg') ?? '').replace(/\.0$/, '');
+      const valNode = s.querySelector('.rc-stat-val');
+      let val = '';
+      if (valNode) {
+        valNode.childNodes.forEach(n => {
+          if (n.nodeType === 3) val += n.textContent;
+          else if (!n.classList?.contains('sub-grade')) val += n.textContent;
+        });
+        val = val.replace(/\s+/g, ' ').trim();
+      }
+      statInfo[label] = { pct, val, grade, avg };
+    });
+    const st = (label, show, suffix = '') => {
+      const s = statInfo[label];
+      if (!s || !s.val || s.val === '—') return '';
+      const grade = s.grade ? ` ${s.grade}` : '';
+      const avg = s.avg ? ` (${s.avg} avg)` : '';
+      return `${show}${grade} ${s.val}${suffix}${avg}`;
+    };
+
+    // Acc + K/D/A from the card footer
+    const footerSpans = Array.from(card.querySelectorAll('.rc-card-footer span'));
+    const acc = footerSpans.find(s => s.innerText.startsWith('Acc'))?.innerText.trim() ?? '';
+    const kdaSplit = (footerSpans.find(s => /^K\s/.test(s.innerText))?.innerText ?? '')
+      .replace(/[KDA]\s*/g, '').split('·').map(x => x.trim()).filter(Boolean).join('/');
+
+    const statLine1 = [st('KDA', 'KDA'), st('DMG±/G', 'Dmg±', '/g'), st('DMG/M', 'Dmg/m'),
+                       acc, kdaSplit ? `K/D/A ${kdaSplit}` : ''].filter(Boolean).join(' · ');
+    const statLine2 = [st('LIFE', 'Life'), st('OBJSC', 'ObjSc'), st('OBJ/MIN', 'Obj/m'),
+                       st('SC%', 'Sc%')].filter(Boolean).join(' · ');
+
+    const record = (card.querySelector('.rc-card-record')?.innerText ?? '')
+      .replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim();
+    const recLine = `  ${record}`;
+
+    // every-game sparkline (colored squares)
+    const gg = card.querySelector('.rc-game-grades');
+    let gamesLine = '';
+    if (gg) {
+      const chips = Array.from(gg.querySelectorAll('.rcg-chip')).map(c => sqOf(c.innerText.trim()));
+      if (chips.length) gamesLine = `  ${chips.join('')}`;
+    }
+
+    // Good/bad OUTLIER stats — anything elite (≥85) or awful (≤15) tonight
+    const NICE = { 'KDA': 'slaying', 'OBJ/MIN': 'objective pace',
+                   'DMG±/G': 'damage trades', 'LIFE': 'survival', 'OBJSC': 'objective play',
+                   'SC%': 'score share', 'DMG/M': 'damage output' };
+    const entries = Object.entries(statInfo).filter(([, s]) => Number.isFinite(s.pct));
+    const hot = entries.filter(([, s]) => s.pct >= 70).sort((a, b) => b[1].pct - a[1].pct)
+      .map(([l, s]) => `${NICE[l] || l} (${Math.round(s.pct)})`);
+    const cold = entries.filter(([, s]) => s.pct <= 20).sort((a, b) => a[1].pct - b[1].pct)
+      .map(([l, s]) => `${NICE[l] || l} (${Math.round(s.pct)})`);
+    const outlierLine = (hot.length || cold.length)
+      ? '  ' + [hot.length ? `🔥 ${hot.join(', ')}` : '', cold.length ? `🚨 ${cold.join(', ')}` : '']
+          .filter(Boolean).join(' · ')
+      : '';
+
+    // Header: emoji + letter grade + comment + personal form. No overall
+    // number — the letter (from the win-correlated composite) carries it.
+    const p = Math.round(compPct);
+    const letter = Number.isFinite(compPct) ? gradeOf(p) : '';
+    const tierEmoji = Number.isFinite(compPct) ? perfTier(p).split(' ')[0] : '🎮';
+    const COMMENT = { S: 'unconscious', A: 'cooked', B: 'a solid shift',
+                      C: 'below par', D: 'a rough one', F: 'one to forget' };
+    const comment = letter ? ` — ${COMMENT[letter.replace(/[+\-]/, '')] || ''}` : '';
+    const form = Number.isFinite(formPct)
+      ? ` · ${formOf(formPct)}${Number.isFinite(usual) ? ` (norm ${gradeOf(Math.round(usual))})` : ''}`
+      : '';
+    return [
+      `${tierEmoji} ${letter}  ${name}${comment}${form}`,
+      recLine,
+      ...(statLine1 ? [`  ${statLine1}`] : []),
+      ...(statLine2 ? [`  ${statLine2}`] : []),
+      ...(outlierLine ? [outlierLine] : []),
+      ...(gamesLine ? [gamesLine] : []),
+    ].join('\n');
+  });
+
+  // Grading weights = the stats most correlated with our wins (data-driven)
+  const weightsEl = section.querySelector('.rc-weights-copy');
+  const weightsLine = weightsEl ? ('⚖️ graded on what wins our games: ' + (weightsEl.getAttribute('data-copy') || '')) : '';
+
+  const text = [
+    '🎮 ' + cardTitle + (metaText ? ' — ' + metaText : ''),
+    ...(rankLine ? [rankLine] : []),
+    ...(enemyLine ? [enemyLine] : []),
+    ...(recordLine ? [recordLine] : []),
+    '',
+    blocks.join('\n\n'),
+    '',
+    ...(weightsLine ? [weightsLine] : []),
+    'ℹ️ grade = the 5 stats most tied to our wins, vs every squad game in the past 365 days · form = vs your own year of games',
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(pfx + '-copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy for text'; }, 2500); }
+  }).catch(() => {
+    prompt('Copy this:', text);
+  });
+}
+
+// ── Report-card grading mode toggle (squad-wide vs self-relative) ──
+// Both grade sets are baked into data-*-squad / data-*-self attributes;
+// this just swaps which one is shown. Default = squad. Persisted per browser.
+const RC_GRADE_CLASSES = ['grade-s','grade-a','grade-b','grade-c','grade-d','grade-f'];
+const RC_HEAT_CLASSES = ['heat-excellent','heat-good','heat-average','heat-below','heat-poor'];
+
+function applyGradeMode(mode) {
+  mode = (mode === 'self') ? 'self' : 'squad';
+  // grade letter + colour + tip (sub-grades and composite badges)
+  document.querySelectorAll('[data-grade-squad]').forEach(el => {
+    const g = el.getAttribute('data-grade-' + mode);
+    const c = el.getAttribute('data-gclass-' + mode);
+    const t = el.getAttribute('data-gtip-' + mode);
+    if (g !== null) el.textContent = g;
+    if (t !== null) el.title = t;
+    if (c !== null) { RC_GRADE_CLASSES.forEach(x => el.classList.remove(x)); if (c) el.classList.add(c); }
+  });
+  // class-only grade tint (e.g. the rc-card wrapper border)
+  document.querySelectorAll('[data-gclass-squad]:not([data-grade-squad])').forEach(el => {
+    const c = el.getAttribute('data-gclass-' + mode);
+    RC_GRADE_CLASSES.forEach(x => el.classList.remove(x)); if (c) el.classList.add(c);
+  });
+  // heat tint on stat values
+  document.querySelectorAll('[data-heat-squad]').forEach(el => {
+    const h = el.getAttribute('data-heat-' + mode);
+    RC_HEAT_CLASSES.forEach(x => el.classList.remove(x)); if (h) el.classList.add(h);
+  });
+  // descriptive labels
+  document.querySelectorAll('[data-label-squad]').forEach(el => {
+    const v = el.getAttribute('data-label-' + mode);
+    if (v !== null) el.textContent = v;
+  });
+  // toggle button label
+  document.querySelectorAll('.rc-grade-toggle').forEach(b => {
+    b.textContent = (mode === 'self') ? '👤 Self grading' : '⚖️ Squad grading';
+  });
+  window.__haloGradeMode = mode;
+  try { localStorage.setItem('haloGradeMode', mode); } catch (e) {}
+}
+
+function toggleGradeMode() {
+  applyGradeMode((window.__haloGradeMode === 'squad' || !window.__haloGradeMode) ? 'self' : 'squad');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  let m = 'squad';
+  try { m = localStorage.getItem('haloGradeMode') || 'squad'; } catch (e) {}
+  applyGradeMode(m);
+});
+
+// ── Tap-to-reveal tooltips (touch has no hover, so title= never shows) ──
+(function () {
+  let tipEl = null;
+  function hideTip() { if (tipEl) { tipEl.remove(); tipEl = null; } }
+  function showTip(target) {
+    const text = target.getAttribute('title') || target.getAttribute('data-tip');
+    if (!text) return;
+    hideTip();
+    tipEl = document.createElement('div');
+    tipEl.className = 'tap-tooltip';
+    tipEl.textContent = text;
+    tipEl.__host = target;
+    document.body.appendChild(tipEl);
+    const r = target.getBoundingClientRect();
+    const tr = tipEl.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    let left = r.left + r.width / 2 - tr.width / 2 + window.scrollX;
+    left = Math.max(window.scrollX + 8, Math.min(left, window.scrollX + vw - tr.width - 8));
+    let top = r.top + window.scrollY - tr.height - 8;
+    if (top < window.scrollY + 4) top = r.bottom + window.scrollY + 8; // flip below if no room above
+    tipEl.style.left = left + 'px';
+    tipEl.style.top = top + 'px';
+  }
+  document.addEventListener('click', function (e) {
+    const touchish = window.matchMedia('(hover: none)').matches || window.innerWidth <= 720;
+    if (!touchish) { hideTip(); return; }
+    const tappable = e.target.closest('.mobile-obj-chip, .rc-obj, .rc-hill, .rc-stat, .rc-baseline-pill');
+    let host = null;
+    if (tappable) {
+      if (tappable.getAttribute('title')) host = tappable;
+      else { const c = tappable.querySelector('[title]'); if (c) host = c; }
+    }
+    if (host && host.getAttribute('title')) {
+      e.preventDefault();
+      const same = tipEl && tipEl.__host === host;
+      hideTip();
+      if (!same) showTip(host);  // tap same chip again to dismiss
+    } else {
+      hideTip();
+    }
+  }, true);
+  window.addEventListener('scroll', hideTip, { passive: true });
+  window.addEventListener('resize', hideTip);
+})();
+
+// ── Report-card table heatmap ────────────────────────────────
+function applyRcHeatmap(pfx) {
+  const table = document.getElementById((pfx || 'rc') + '-detail-table');
+  if (!table) return;
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  if (rows.length < 2) return; // nothing to compare with 1 player
+
+  // Gather all cells that have data-val per column index
+  const colCells = {}; // colIdx -> [{td, val, invert}]
+  rows.forEach(tr => {
+    Array.from(tr.cells).forEach((td, ci) => {
+      if (!td.hasAttribute('data-val')) return;
+      const raw = parseFloat(td.getAttribute('data-val'));
+      if (isNaN(raw)) return;
+      if (!colCells[ci]) colCells[ci] = [];
+      colCells[ci].push({ td, val: raw, invert: td.hasAttribute('data-heat-invert') });
+    });
+  });
+
+  Object.values(colCells).forEach(cells => {
+    if (cells.length < 2) return;
+    const vals = cells.map(c => c.val);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi === lo) return; // all same — skip
+    cells.forEach(({ td, val, invert }) => {
+      let t = (val - lo) / (hi - lo); // 0=worst 1=best
+      if (invert) t = 1 - t;
+      td.style.background = heatColor(t);
+    });
+  });
+}
+
+function heatColor(t) {
+  // red → neutral → green
+  if (t >= 0.5) {
+    const s = (t - 0.5) * 2;
+    const r = Math.round(65 + (22 - 65) * s);
+    const g = Math.round(82 + (163 - 82) * s);
+    const b = Math.round(52 + (74 - 52) * s);
+    return `rgba(${r},${g},${b},${0.18 + s * 0.28})`;
+  } else {
+    const s = (0.5 - t) * 2;
+    const r = Math.round(65 + (127 - 65) * s);
+    const g = Math.round(82 + (29 - 82) * s);
+    const b = Math.round(52 + (29 - 52) * s);
+    return `rgba(${r},${g},${b},${0.18 + s * 0.30})`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () { applyRcHeatmap('rc'); });
+
+// ── Live add/remove games → recompute the WHOLE card (grade + all stats) ──
+const RC_ACTIVE_STRIPS = new Set();
+const RC_GRADE_CLS = ['grade-s', 'grade-a', 'grade-b', 'grade-c', 'grade-d', 'grade-f'];
+const RC_HEAT_CLS = ['heat-excellent', 'heat-good', 'heat-average', 'heat-below', 'heat-poor'];
+function swapClass(el, family, newCls) {
+  if (!el) return;
+  // Only strip the specific grade-letter / heat classes — NOT base classes like
+  // "grade-badge" or "rc-heat" which also start with those prefixes.
+  (family === 'grade' ? RC_GRADE_CLS : RC_HEAT_CLS).forEach(c => el.classList.remove(c));
+  if (newCls) newCls.split(/\s+/).forEach(c => c && el.classList.add(c));
+}
+function snapshotCard(card) {
+  if (card.__snap) return;
+  const snap = { grade: null, cardCls: '', stats: {}, record: '', footer: '' };
+  const gb = card.querySelector('.rc-card-top .grade-badge');
+  if (gb) snap.grade = { t: gb.textContent, c: gb.className };
+  snap.cardCls = card.className;
+  card.querySelectorAll('.rc-stat[data-stat]').forEach(st => {
+    const v = st.querySelector('.rc-stat-val'); const sg = st.querySelector('.sub-grade');
+    snap.stats[st.dataset.stat] = { vt: v ? v.textContent : '', vc: v ? v.className : '', gt: sg ? sg.textContent : '', gc: sg ? sg.className : '' };
+  });
+  const rec = card.querySelector('.rc-card-record'); snap.record = rec ? rec.innerHTML : '';
+  const foot = card.querySelector('.rc-card-footer'); snap.footer = foot ? foot.innerHTML : '';
+  card.__snap = snap;
+}
+function restoreCard(card) {
+  const s = card.__snap; if (!s) return;
+  const gb = card.querySelector('.rc-card-top .grade-badge');
+  if (gb && s.grade) { gb.textContent = s.grade.t; gb.className = s.grade.c; }
+  card.className = s.cardCls;
+  card.querySelectorAll('.rc-stat[data-stat]').forEach(st => {
+    const o = s.stats[st.dataset.stat]; if (!o) return;
+    const v = st.querySelector('.rc-stat-val'); const sg = st.querySelector('.sub-grade');
+    if (v) { v.textContent = o.vt; v.className = o.vc; }
+    if (sg) { sg.textContent = o.gt; sg.className = o.gc; }
+  });
+  const rec = card.querySelector('.rc-card-record'); if (rec) rec.innerHTML = s.record;
+  const foot = card.querySelector('.rc-card-footer'); if (foot) foot.innerHTML = s.footer;
+}
+function patchCard(card, d) {
+  const gb = card.querySelector('.rc-card-top .grade-badge');
+  if (gb) { gb.textContent = d.grade; swapClass(gb, 'grade', d.grade_class); }
+  swapClass(card, 'grade', d.grade_class);
+  Object.entries(d.stats || {}).forEach(([k, cell]) => {
+    const st = card.querySelector(`.rc-stat[data-stat="${k}"]`); if (!st) return;
+    const v = st.querySelector('.rc-stat-val'); const sg = st.querySelector('.sub-grade');
+    if (v) { v.textContent = cell.val; swapClass(v, 'heat', cell.heat); }
+    if (sg) { sg.textContent = cell.grade; swapClass(sg, 'grade', cell.grade_class); }
+  });
+  const rec = card.querySelector('.rc-card-record');
+  if (rec && d.extra) rec.innerHTML = `${d.record} &nbsp;·&nbsp; ${d.win_pct} &nbsp;·&nbsp; <span class="rcg-adj-note">adjusted</span>`;
+  const foot = card.querySelector('.rc-card-footer');
+  if (foot && d.extra) {
+    const spans = foot.querySelectorAll('span');
+    if (spans[0]) spans[0].textContent = `Acc ${d.extra.accuracy}`;
+    if (spans[1]) spans[1].textContent = `K ${d.extra.kills} · D ${d.extra.deaths} · A ${d.extra.assists}`;
+  }
+}
+
+function initRegrade() {
+  document.querySelectorAll('.rc-game-grades').forEach(strip => {
+    const player = strip.dataset.player;
+    const origGrade = strip.dataset.origGrade || '';
+    const origClass = strip.dataset.origClass || '';
+    const card = strip.closest('.rc-card');
+    const chips = Array.from(strip.querySelectorAll('.rcg-chip'));
+    const items = Array.from(strip.querySelectorAll('.rcg-gitem'));
+    const adj = strip.querySelector('.rcg-adjusted');
+    const count = strip.querySelector('.rcg-count');
+    const reset = strip.querySelector('.rcg-reset');
+    if (!chips.length || !adj || !card) return;
+    let timer = null;
+    const setGrade = (g, cls) => { adj.textContent = g; adj.className = 'rcg-adjusted inline-grade ' + (cls || ''); };
+
+    // Reflect a mid's on/off state across BOTH the chip strip and the list.
+    function setState(mid, off) {
+      chips.forEach(c => { if (c.dataset.mid === mid) c.classList.toggle('rcg-off', off); });
+      items.forEach(li => { if (li.dataset.mid === mid) { li.classList.toggle('rcg-off', off); const cb = li.querySelector('input'); if (cb) cb.checked = !off; } });
+    }
+
+    strip.__recompute = function recompute() {
+      const included = chips.filter(c => !c.classList.contains('rcg-off')).map(c => c.dataset.mid);
+      const dropped = chips.length - included.length;
+      strip.classList.toggle('rcg-active', dropped > 0);
+      if (dropped > 0) RC_ACTIVE_STRIPS.add(strip); else RC_ACTIVE_STRIPS.delete(strip);
+      if (dropped === 0) { setGrade(origGrade, origClass); count.textContent = ''; restoreCard(card); return; }
+      if (included.length === 0) { setGrade('—', ''); count.textContent = '(0 games)'; return; }
+      snapshotCard(card);
+      const mode = (localStorage.getItem('haloGradeMode') === 'self') ? 'self' : 'squad';
+      count.textContent = '(computing…)';
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        fetch(`/api/regrade?player=${encodeURIComponent(player)}&mode=${mode}&games=${included.join(',')}`)
+          .then(r => r.json())
+          .then(d => {
+            if (d && d.ok) { setGrade(d.grade, d.grade_class); count.textContent = `(${d.games} of ${chips.length} · was ${origGrade})`; patchCard(card, d); }
+            else { count.textContent = ''; }
+          })
+          .catch(() => { count.textContent = ''; });
+      }, 160);
+    };
+
+    chips.forEach(c => c.addEventListener('click', () => { setState(c.dataset.mid, !c.classList.contains('rcg-off')); strip.__recompute(); }));
+    items.forEach(li => {
+      const cb = li.querySelector('input');
+      const toggle = () => { setState(li.dataset.mid, cb ? !cb.checked : !li.classList.contains('rcg-off')); strip.__recompute(); };
+      if (cb) cb.addEventListener('change', () => { setState(li.dataset.mid, !cb.checked); strip.__recompute(); });
+    });
+    if (reset) reset.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('rcg-off'));
+      items.forEach(li => { li.classList.remove('rcg-off'); const cb = li.querySelector('input'); if (cb) cb.checked = true; });
+      strip.__recompute();
+      if (typeof applyGradeMode === 'function') applyGradeMode((localStorage.getItem('haloGradeMode') === 'self') ? 'self' : 'squad');
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', initRegrade);
+// Re-run any adjusted cards when the squad/self grade mode flips.
+document.addEventListener('click', e => {
+  if (e.target.closest('.rc-grade-toggle')) setTimeout(() => RC_ACTIVE_STRIPS.forEach(s => s.__recompute && s.__recompute()), 30);
+});
+
+// On DESKTOP, opening one player's game-by-game breakdown opens them all —
+// the vertical space is already committed, so show every player's games at once.
+function initGameBreakdownSync() {
+  if (!window.matchMedia('(min-width: 721px)').matches) return;
+  document.querySelectorAll('.rc-cards').forEach(wrap => {
+    const dets = Array.from(wrap.querySelectorAll('.rcg-games'));
+    let syncing = false;
+    dets.forEach(d => d.addEventListener('toggle', () => {
+      if (syncing) return;
+      syncing = true;
+      dets.forEach(o => { if (o !== d) o.open = d.open; });
+      syncing = false;
+    }));
+  });
+}
+document.addEventListener('DOMContentLoaded', initGameBreakdownSync);
+</script>
+
+<script>
+// ── Grade-over-time chart (session report-card grade per player) ──
+(function () {
+  const el = document.getElementById('grade-timeline-data');
+  const canvas = document.getElementById('gradeTimelineChart');
+  if (!el || !canvas || typeof Chart === 'undefined') return;
+  let data;
+  try { data = JSON.parse(el.textContent); } catch (e) { return; }
+  if (!data || !data.players || !data.players.length) return;
+
+  // Resolve each player's themed color from CSS (same colors used site-wide).
+  function colorFor(cls) {
+    const probe = document.createElement('span');
+    probe.className = 'player-name ' + (cls || '');
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    const c = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    return c || '#7c8aff';
+  }
+  const datasets = data.players.map(p => {
+    const col = colorFor(p.cls);
+    return {
+      label: p.player,
+      data: p.points.map(pt => pt ? pt.pct : null),
+      _grades: p.points.map(pt => pt ? pt.grade : null),
+      borderColor: col,
+      backgroundColor: col,
+      borderWidth: 2,
+      tension: 0.25,
+      spanGaps: true,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    };
+  });
+  new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: data.labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aeb7c7', boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const g = ctx.dataset._grades?.[ctx.dataIndex];
+              return `${ctx.dataset.label}: ${g || '—'} (${Math.round(ctx.parsed.y)}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0, max: 100,
+          ticks: {
+            color: '#8b95a7',
+            callback: (v) => ({ 90: 'S', 75: 'A', 50: 'B', 25: 'C', 10: 'D', 0: 'F' }[v] ?? '')
+          },
+          grid: { color: 'rgba(255,255,255,.06)' }
+        },
+        x: { ticks: { color: '#8b95a7', maxRotation: 0, autoSkip: true }, grid: { display: false } }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Data files / runtime state (this folder doubles as the /data bind-mount —
+# NONE of the app's runtime state may ever be committed)
+*.csv
+tokens.json
+api_config.json
+update_status.json
+insights_cache.json
+notify_state.json
+push_subs.json
+
+# Secrets — web-push keypair lives on disk next to the source
+vapid.json
+vapid_private.pem
+cabundle.pem
+
+# Databases (live Postgres data dir + backups are bind-mounted here)
+postgres/
+postgres.lossy-bak/
+*.dump
+*.sql.gz
+
+# Local tooling output / venvs / backups / stray artifacts
+.venv/
+graphify-out/
+*.bak
+*.bak-*
+compose.yaml.bak*
+=
+tmpclaude-*
+
+# Docker
+*.pid
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Roster configured via /setup (runtime state)
+players.json

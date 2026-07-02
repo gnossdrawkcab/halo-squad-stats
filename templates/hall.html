@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Hall of Fame - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Hall of Fame</h2>
+  <p class="muted">Best single-game peaks and streaks per player (Ranked Arena only).</p>
+  <div class="table-wrap">
+    <table class="data-table" style="min-width: 2600px;">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Composite Hall of Fame grade (best-game peaks vs the squad)">Grade</th>
+          <th title="Longest win streak">Win Streak</th>
+          <th title="Most kills in one game">Max K</th>
+          <th title="Most assists in one game">Max A</th>
+          <th title="Best KDA in one game">Best KDA</th>
+          <th title="Best KD ratio in one game">Best KD</th>
+          <th title="Best accuracy in one game">Best Acc</th>
+          <th title="Most damage dealt in one game">Max Dmg+</th>
+          <th title="Best damage differential in one game">Max Dmg Dif</th>
+          <th title="Highest score in one game">Max Score</th>
+          <th title="Highest objective score in one game">Max Obj Score</th>
+          <th title="Most medals in one game">Max Medals</th>
+          <th title="Most headshots in one game">Max HS</th>
+          <th title="Most grenade kills in one game">Max Nades</th>
+          <th title="Most melee kills in one game">Max Melee</th>
+          <th title="Most power weapon kills in one game">Max Power</th>
+          <th title="Most callout assists in one game">Max Callouts</th>
+          <th title="Most shots fired in one game">Max Fired</th>
+          <th title="Most shots landed in one game">Max Landed</th>
+          <th title="Most objectives completed in one game">Max Obj</th>
+          <th title="Highest killing spree in one game">Max Spree</th>
+          <th title="Longest average life duration in one game">Max Life</th>
+          <th title="Biggest CSR gain in one game">Max CSR +</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if hall_fame_rows %}
+        {% for row in hall_fame_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td class="{{ row.win_streak_heat }}">{{ row.win_streak }}</td>
+          <td class="{{ row.max_kills_heat }}">{{ row.max_kills }}</td>
+          <td class="{{ row.max_assists_heat }}">{{ row.max_assists }}</td>
+          <td class="{{ row.max_kda_heat }}">{{ row.max_kda }}</td>
+          <td class="{{ row.max_kd_heat }}">{{ row.max_kd }}</td>
+          <td class="{{ row.max_accuracy_heat }}">{{ row.max_accuracy }}</td>
+          <td class="{{ row.max_damage_dealt_heat }}">{{ row.max_damage_dealt }}</td>
+          <td class="{{ row.max_damage_diff_heat }}">{{ row.max_damage_diff }}</td>
+          <td class="{{ row.max_score_heat }}">{{ row.max_score }}</td>
+          <td class="{{ row.max_obj_score_heat }}">{{ row.max_obj_score }}</td>
+          <td class="{{ row.max_medals_heat }}">{{ row.max_medals }}</td>
+          <td class="{{ row.max_headshots_heat }}">{{ row.max_headshots }}</td>
+          <td class="{{ row.max_grenades_heat }}">{{ row.max_grenades }}</td>
+          <td class="{{ row.max_melee_heat }}">{{ row.max_melee }}</td>
+          <td class="{{ row.max_power_heat }}">{{ row.max_power }}</td>
+          <td class="{{ row.max_callouts_heat }}">{{ row.max_callouts }}</td>
+          <td class="{{ row.max_fired_heat }}">{{ row.max_fired }}</td>
+          <td class="{{ row.max_landed_heat }}">{{ row.max_landed }}</td>
+          <td class="{{ row.max_objectives_heat }}">{{ row.max_objectives }}</td>
+          <td class="{{ row.max_spree_heat }}">{{ row.max_spree }}</td>
+          <td class="{{ row.max_avg_life_heat }}">{{ row.max_avg_life }}</td>
+          <td class="{{ row.max_csr_gain_heat }}">{{ row.max_csr_gain }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="24" class="empty">No hall of fame data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Hall of Shame</h2>
+  <p class="muted">Worst single-game lines and cold streaks per player (Ranked Arena only).</p>
+  <div class="table-wrap">
+    <table class="data-table" style="min-width: 2000px;">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Composite Hall of Shame grade (higher = cleaner record vs the squad)">Grade</th>
+          <th title="Longest loss streak">Loss Streak</th>
+          <th title="Most deaths in one game">Max D</th>
+          <th title="Lowest KDA in one game">Worst KDA</th>
+          <th title="Lowest KD ratio in one game">Worst KD</th>
+          <th title="Lowest accuracy in one game">Worst Acc</th>
+          <th title="Most damage taken in one game">Max Dmg-</th>
+          <th title="Worst damage differential in one game">Worst Dmg Dif</th>
+          <th title="Lowest score in one game">Min Score</th>
+          <th title="Lowest objective score in one game">Min Obj Score</th>
+          <th title="Lowest medals in one game">Min Medals</th>
+          <th title="Shortest average life duration in one game">Min Life</th>
+          <th title="Biggest CSR loss in one game">Max CSR -</th>
+          <th title="Most betrayals in one game">Max Betrayals</th>
+          <th title="Most suicides in one game">Max Suicides</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if hall_shame_rows %}
+        {% for row in hall_shame_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td class="{{ row.loss_streak_heat }}">{{ row.loss_streak }}</td>
+          <td class="{{ row.max_deaths_heat }}">{{ row.max_deaths }}</td>
+          <td class="{{ row.min_kda_heat }}">{{ row.min_kda }}</td>
+          <td class="{{ row.min_kd_heat }}">{{ row.min_kd }}</td>
+          <td class="{{ row.min_accuracy_heat }}">{{ row.min_accuracy }}</td>
+          <td class="{{ row.max_damage_taken_heat }}">{{ row.max_damage_taken }}</td>
+          <td class="{{ row.min_damage_diff_heat }}">{{ row.min_damage_diff }}</td>
+          <td class="{{ row.min_score_heat }}">{{ row.min_score }}</td>
+          <td class="{{ row.min_obj_score_heat }}">{{ row.min_obj_score }}</td>
+          <td class="{{ row.min_medals_heat }}">{{ row.min_medals }}</td>
+          <td class="{{ row.min_avg_life_heat }}">{{ row.min_avg_life }}</td>
+          <td class="{{ row.max_csr_loss_heat }}">{{ row.max_csr_loss }}</td>
+          <td class="{{ row.max_betrayals_heat }}">{{ row.max_betrayals }}</td>
+          <td class="{{ row.max_suicides_heat }}">{{ row.max_suicides }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="16" class="empty">No hall of shame data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

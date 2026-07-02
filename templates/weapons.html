@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Gunplay - {{ app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">🔫 Gunplay Performance</h1>
+  <p class="page-sub">Accuracy and kill stats across the squad (Ranked matches only).</p>
+</div>
+
+<section class="panel">
+  <h2>Overall Gunplay Stats</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="weapons">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Composite gunplay grade">Grade</th>
+          <th title="Total shots fired">Fired</th>
+          <th title="Total shots that hit">Landed</th>
+          <th title="Overall accuracy percentage">Accuracy</th>
+          <th title="Total headshot kills">Headshots</th>
+          <th title="Headshot percentage of kills">HS %</th>
+          <th title="Melee kills">Melee</th>
+          <th title="Grenade kills">Grenades</th>
+          <th title="Power weapon kills">Power</th>
+          <th title="Total sniper kills = Snipe + No-Scope medals">Sniper Kills</th>
+          <th title="Scoped sniper kills">Snipe Medals</th>
+          <th title="Unscoped sniper kills">No Scope Medals</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if weapon_rows %}
+        {% for row in weapon_rows %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.shots_fired }}</td>
+          <td>{{ row.shots_hit }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.headshots_heat }}">{{ row.headshots }}</td>
+          <td class="{{ row.hs_pct_heat }}">{{ row.hs_pct }}</td>
+          <td class="{{ row.melee_heat }}">{{ row.melee }}</td>
+          <td class="{{ row.grenades_heat }}">{{ row.grenades }}</td>
+          <td class="{{ row.power_heat }}">{{ row.power }}</td>
+          <td class="{{ row.sniper_kills_heat }}"><strong>{{ row.sniper_kills }}</strong></td>
+          <td class="{{ row.snipe_medals_heat }}">{{ row.snipe_medals }}</td>
+          <td class="{{ row.no_scope_medals_heat }}">{{ row.no_scope_medals }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="12" class="empty">No weapon data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Accuracy Trend (Last 30 Days)</h2>
+  {% if weapon_rows %}
+  <div class="chart-grade-strip">
+    {% for row in weapon_rows[:5] %}
+    <span class="chart-grade-pill">
+      <strong>{{ row.player }}</strong>
+      <span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span>
+      Acc {{ row.accuracy }}%
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="chart-container">
+    <canvas id="accuracyChart"></canvas>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
+// Server-assigned palette: lowercase gamertag → hex (matches the .player-cN CSS classes).
+const playerColorMap = {{ player_colors|default({})|tojson|safe }};
+
+const hexToRgb = (hex) => {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length !== 6) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16)
+  };
+};
+
+const withAlpha = (hex, alpha) => {
+  const rgb = hexToRgb(hex);
+  return rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})` : hex;
+};
+
+const getPlayerColor = (player, fallback) =>
+  playerColorMap[String(player || '').trim().toLowerCase()] || fallback;
+
+const sortTrendData = (data) => data.slice().sort((a, b) => a.date.localeCompare(b.date));
+const buildTrendLabels = (trends) => {
+  const dates = new Set();
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => dates.add(point.date));
+  });
+  return Array.from(dates).sort((a, b) => a.localeCompare(b));
+};
+const getTrendRange = (trends, valueKey, padding = 0.1, bounds = null) => {
+  const values = [];
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => {
+      const value = Number(point[valueKey]);
+      if (Number.isFinite(value)) {
+        values.push(value);
+      }
+    });
+  });
+  if (!values.length) {
+    return {};
+  }
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+  const range = max - min;
+  const pad = range * padding;
+  min -= pad;
+  max += pad;
+  if (bounds) {
+    if (typeof bounds.min === 'number') {
+      min = Math.max(min, bounds.min);
+    }
+    if (typeof bounds.max === 'number') {
+      max = Math.min(max, bounds.max);
+    }
+  }
+  return { min, max };
+};
+
+const accuracyData = {{ accuracy_trend|tojson|safe }};
+if (accuracyData && Object.keys(accuracyData).length > 0) {
+  const ctx = document.getElementById('accuracyChart').getContext('2d');
+  const labels = buildTrendLabels(accuracyData);
+  const datasets = Object.entries(accuracyData).map(([player, data], index) => ({
+    label: player,
+    data: sortTrendData(data).map(d => ({ x: d.date, y: d.accuracy })),
+    borderColor: getPlayerColor(player, chartColors[index % chartColors.length]),
+    backgroundColor: withAlpha(getPlayerColor(player, chartColors[index % chartColors.length]), 0.2),
+    tension: 0.2,
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 3,
+    spanGaps: true
+  }));
+  
+  const accuracyRange = getTrendRange(accuracyData, 'accuracy', 0.12, { min: 0, max: 100 });
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { 
+          labels: { color: '#e8dfd3' }
+        }
+      },
+      scales: {
+        x: {
+          type: 'category',
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' },
+          min: accuracyRange.min,
+          max: accuracyRange.max
+        }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

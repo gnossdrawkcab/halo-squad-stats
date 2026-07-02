@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_title }} - Match{% endblock %}
+
+{% block content %}
+{% if full_scoreboard %}
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h2>Match Scoreboard</h2>
+      <p class="muted">{{ full_scoreboard.meta.map }} · {{ full_scoreboard.meta.playlist }} · {{ full_scoreboard.meta.date }}</p>
+    </div>
+    {% set _w = watch_url(match_id) %}{% if _w %}<a class="btn btn-small watch-rewatch-btn" href="{{ _w }}" target="_blank" rel="noopener" title="Open the synced co-stream rewatch at this game's start time (MultiTwitch)">📺 Watch the rewatch</a>{% endif %}
+  </div>
+  {% for team in full_scoreboard.teams %}
+  <h3 class="{{ 'heat-excellent' if team.won else 'heat-poor' }}">
+    Team {{ team.team_id }} — {{ 'Victory' if team.won else 'Defeat' }}
+    <span class="match-team-tot">{{ team.total_kills }} kills · {{ team.total_deaths }} deaths · {{ team.total_assists }} assists · {{ team.avg_kda }} avg KDA</span>
+  </h3>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Player</th><th title="Absolute single-game grade">Grade</th><th>K</th><th>D</th><th>A</th><th title="kills + assists/3 − deaths">KDA</th><th>Acc</th><th>Damage</th><th title="Rank by KDA among all 8 players in the lobby">Lobby</th></tr>
+      </thead>
+      <tbody>
+        {% for p in team.players %}
+        <tr class="{{ 'tracked-row' if p.is_tracked }}">
+          <td>{% if p.is_tracked %}<a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>{% else %}{{ p.player }}{% endif %}</td>
+          <td><span class="inline-grade {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span></td>
+          <td>{{ p.kills }}</td>
+          <td>{{ p.deaths }}</td>
+          <td>{{ p.assists }}</td>
+          <td>{{ p.kda }}</td>
+          <td>{{ p.accuracy }}</td>
+          <td>{{ p.damage }}</td>
+          <td class="match-lobby{% if p.lobby_rank == 1 %} match-lobby-top{% endif %}" title="{{ p.lobby_pct }}th percentile in the lobby">#{{ p.lobby_rank }}<span class="muted">/{{ p.lobby_n }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  {% if match_rows and match_rows.medals %}
+  <h3>Your Medals</h3>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Medal</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for row in match_rows.medals %}
+        <tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% else %}
+{# Fallback: older matches with no captured lobby — show tracked players only. #}
+<section class="panel">
+  <div class="panel-header"><h2>Tracked Players</h2></div>
+  {% if not match_rows %}
+  <p class="empty">No tracked-player data for this match.</p>
+  {% else %}
+  <div class="match-info">
+    <p><strong>Map:</strong> {{ match_rows.map }}</p>
+    <p><strong>Game Type:</strong> {{ match_rows.game_type }}</p>
+    <p><strong>Playlist:</strong> {{ match_rows.playlist }}</p>
+    <p><strong>Date:</strong> {{ match_rows.date }}</p>
+  </div>
+
+  <h3>Scoreboard</h3>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Player</th><th title="Absolute single-game grade">Grade</th><th>Kills</th><th>Deaths</th><th>Assists</th><th>KDA</th><th>Accuracy</th><th>DMG+</th><th>DMG-</th></tr>
+      </thead>
+      <tbody>
+        {% for row in match_rows.scoreboard %}
+        <tr>
+          <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.kills }}</td>
+          <td>{{ row.deaths }}</td>
+          <td>{{ row.assists }}</td>
+          <td>{{ row.kda }}</td>
+          <td>{{ row.accuracy }}</td>
+          <td>{{ row.dmg_plus }}</td>
+          <td>{{ row.dmg_minus }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if match_rows.medals %}
+  <h3>Medals</h3>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Medal</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for row in match_rows.medals %}
+        <tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

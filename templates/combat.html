@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_combat_macros.html" as cm %}
+
+{% block title %}Combat &amp; Medals — {{ app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">⚔️ Combat &amp; Medals</h1>
+  <p class="page-sub">Snipes, power weapons, headshots, callouts and every medal.</p>
+</div>
+
+{% if combat_report and combat_report.has_data %}
+
+<section class="panel sb-panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🏆 Squad Scoreboard</div>
+    <span class="muted">Ranked · sorted by CSR</span>
+  </div>
+  <p class="muted section-intro">Ordered by current CSR. Tap a card for the full profile.</p>
+  {{ cm.scoreboard_grid(combat_report) }}
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🏅 Medal &amp; Weapon Leaders</div>
+    <span class="muted">Full squad ranking per category</span>
+  </div>
+  <p class="muted section-intro">Ranked <strong>per game</strong> (lifetime total in parentheses).</p>
+  {{ cm.combat_leaders(combat_report, top_n=0) }}
+</section>
+
+{% else %}
+<section class="panel">
+  <p class="muted">No combat data yet — once a few ranked games come in this fills up.</p>
+</section>
+{% endif %}
+{% endblock %}

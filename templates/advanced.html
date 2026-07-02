@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Stats - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">🎯 Objective Stats</h1>
+    <p class="page-sub">Per-game objective output by mode. Times as m:ss.</p>
+  </div>
+
+      <section class="panel">
+        <h2>Objective Stats - Last Session</h2>
+        <div class="table-wrap">
+          <table class="data-table" data-table="objectives-session" style="min-width: 2200px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Objective grade (percentile vs squad)">Grade</th>
+                <th title="Games in last session">Games</th>
+                <th title="CTF flag captures">CTF Caps</th>
+                <th title="CTF flag grabs">CTF Grabs</th>
+                <th title="CTF flag returns">CTF Returns</th>
+                <th title="CTF flag steals">CTF Steals</th>
+                <th title="CTF flag secures">CTF Secures</th>
+                <th title="CTF carrier kills">CTF Carrier Kills</th>
+                <th title="CTF returner kills">CTF Returner Kills</th>
+                <th title="CTF kills as carrier">CTF Kills (Carrier)</th>
+                <th title="CTF kills as returner">CTF Kills (Returner)</th>
+                <th title="CTF time as carrier (seconds)">CTF Time</th>
+                <th title="Oddball time as carrier (seconds)">Oddball Time</th>
+                <th title="Longest oddball carry (seconds)">Oddball Longest</th>
+                <th title="Oddball skull grabs">Oddball Grabs</th>
+                <th title="Oddball scoring ticks">Oddball Ticks</th>
+                <th title="Oddball kills as carrier">Oddball Carrier Kills</th>
+                <th title="Oddball carriers killed">Oddball Carriers Killed</th>
+                <th title="Stronghold captures">SH Caps</th>
+                <th title="Stronghold secures">SH Secures</th>
+                <th title="Stronghold scoring ticks">SH Ticks</th>
+                <th title="Stronghold offensive kills">SH Off Kills</th>
+                <th title="Stronghold defensive kills">SH Def Kills</th>
+                <th title="Stronghold occupation time (seconds)">SH Time</th>
+                <th title="King of the Hill time (seconds)">KOTH Time</th>
+                <th title="King of the Hill scoring ticks">KOTH Ticks</th>
+                <th title="Successful extractions">Extract Success</th>
+                <th title="Extraction conversions completed">Extract Conv</th>
+                <th title="Extraction conversions denied">Extract Denied</th>
+                <th title="Extraction initiations completed">Extract Init</th>
+                <th title="Extraction initiations denied">Extract Init Denied</th>
+                <th title="Average life duration (seconds)">Avg Life</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if objective_session_rows %}
+              {% for row in objective_session_rows %}
+              <tr>
+                <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+                <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                <td class="{{ row.ctf_caps_heat }}">{{ row.ctf_caps }}</td>
+                <td class="{{ row.ctf_grabs_heat }}">{{ row.ctf_grabs }}</td>
+                <td class="{{ row.ctf_returns_heat }}">{{ row.ctf_returns }}</td>
+                <td class="{{ row.ctf_steals_heat }}">{{ row.ctf_steals }}</td>
+                <td class="{{ row.ctf_secures_heat }}">{{ row.ctf_secures }}</td>
+                <td class="{{ row.ctf_carrier_kills_heat }}">{{ row.ctf_carrier_kills }}</td>
+                <td class="{{ row.ctf_returner_kills_heat }}">{{ row.ctf_returner_kills }}</td>
+                <td class="{{ row.ctf_kills_as_carrier_heat }}">{{ row.ctf_kills_as_carrier }}</td>
+                <td class="{{ row.ctf_kills_as_returner_heat }}">{{ row.ctf_kills_as_returner }}</td>
+                <td class="{{ row.ctf_time_heat }}">{{ row.ctf_time|mmss }}</td>
+                <td class="{{ row.oddball_time_heat }}">{{ row.oddball_time|mmss }}</td>
+                <td class="{{ row.oddball_longest_heat }}">{{ row.oddball_longest|mmss }}</td>
+                <td class="{{ row.oddball_grabs_heat }}">{{ row.oddball_grabs }}</td>
+                <td class="{{ row.oddball_ticks_heat }}">{{ row.oddball_ticks }}</td>
+                <td class="{{ row.oddball_carrier_kills_heat }}">{{ row.oddball_carrier_kills }}</td>
+                <td class="{{ row.oddball_carriers_killed_heat }}">{{ row.oddball_carriers_killed }}</td>
+                <td class="{{ row.sh_caps_heat }}">{{ row.sh_caps }}</td>
+                <td class="{{ row.sh_secures_heat }}">{{ row.sh_secures }}</td>
+                <td class="{{ row.sh_ticks_heat }}">{{ row.sh_ticks }}</td>
+                <td class="{{ row.sh_off_kills_heat }}">{{ row.sh_off_kills }}</td>
+                <td class="{{ row.sh_def_kills_heat }}">{{ row.sh_def_kills }}</td>
+                <td class="{{ row.sh_time_heat }}">{{ row.sh_time|mmss }}</td>
+                <td class="{{ row.koth_time_heat }}">{{ row.koth_time|mmss }}</td>
+                <td class="{{ row.koth_ticks_heat }}">{{ row.koth_ticks }}</td>
+                <td class="{{ row.extract_success_heat }}">{{ row.extract_success }}</td>
+                <td class="{{ row.extract_conv_complete_heat }}">{{ row.extract_conv_complete }}</td>
+                <td class="{{ row.extract_conv_denied_heat }}">{{ row.extract_conv_denied }}</td>
+                <td class="{{ row.extract_init_complete_heat }}">{{ row.extract_init_complete }}</td>
+                <td class="{{ row.extract_init_denied_heat }}">{{ row.extract_init_denied }}</td>
+                <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="33" class="empty">No recent objective stats available</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Objective Stats - Last 30 Days</h2>
+        <div class="table-wrap">
+          <table class="data-table" data-table="objectives-30day" style="min-width: 2200px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Objective grade (percentile vs squad)">Grade</th>
+                <th title="Games in last 30 days">Games</th>
+                <th title="CTF flag captures">CTF Caps</th>
+                <th title="CTF flag grabs">CTF Grabs</th>
+                <th title="CTF flag returns">CTF Returns</th>
+                <th title="CTF flag steals">CTF Steals</th>
+                <th title="CTF flag secures">CTF Secures</th>
+                <th title="CTF carrier kills">CTF Carrier Kills</th>
+                <th title="CTF returner kills">CTF Returner Kills</th>
+                <th title="CTF kills as carrier">CTF Kills (Carrier)</th>
+                <th title="CTF kills as returner">CTF Kills (Returner)</th>
+                <th title="CTF time as carrier (seconds)">CTF Time</th>
+                <th title="Oddball time as carrier (seconds)">Oddball Time</th>
+                <th title="Longest oddball carry (seconds)">Oddball Longest</th>
+                <th title="Oddball skull grabs">Oddball Grabs</th>
+                <th title="Oddball scoring ticks">Oddball Ticks</th>
+                <th title="Oddball kills as carrier">Oddball Carrier Kills</th>
+                <th title="Oddball carriers killed">Oddball Carriers Killed</th>
+                <th title="Stronghold captures">SH Caps</th>
+                <th title="Stronghold secures">SH Secures</th>
+                <th title="Stronghold scoring ticks">SH Ticks</th>
+                <th title="Stronghold offensive kills">SH Off Kills</th>
+                <th title="Stronghold defensive kills">SH Def Kills</th>
+                <th title="Stronghold occupation time (seconds)">SH Time</th>
+                <th title="King of the Hill time (seconds)">KOTH Time</th>
+                <th title="King of the Hill scoring ticks">KOTH Ticks</th>
+                <th title="Successful extractions">Extract Success</th>
+                <th title="Extraction conversions completed">Extract Conv</th>
+                <th title="Extraction conversions denied">Extract Denied</th>
+                <th title="Extraction initiations completed">Extract Init</th>
+                <th title="Extraction initiations denied">Extract Init Denied</th>
+                <th title="Average life duration (seconds)">Avg Life</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if objective_30day_rows %}
+              {% for row in objective_30day_rows %}
+              <tr>
+                <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+                <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                <td class="{{ row.ctf_caps_heat }}">{{ row.ctf_caps }}</td>
+                <td class="{{ row.ctf_grabs_heat }}">{{ row.ctf_grabs }}</td>
+                <td class="{{ row.ctf_returns_heat }}">{{ row.ctf_returns }}</td>
+                <td class="{{ row.ctf_steals_heat }}">{{ row.ctf_steals }}</td>
+                <td class="{{ row.ctf_secures_heat }}">{{ row.ctf_secures }}</td>
+                <td class="{{ row.ctf_carrier_kills_heat }}">{{ row.ctf_carrier_kills }}</td>
+                <td class="{{ row.ctf_returner_kills_heat }}">{{ row.ctf_returner_kills }}</td>
+                <td class="{{ row.ctf_kills_as_carrier_heat }}">{{ row.ctf_kills_as_carrier }}</td>
+                <td class="{{ row.ctf_kills_as_returner_heat }}">{{ row.ctf_kills_as_returner }}</td>
+                <td class="{{ row.ctf_time_heat }}">{{ row.ctf_time|mmss }}</td>
+                <td class="{{ row.oddball_time_heat }}">{{ row.oddball_time|mmss }}</td>
+                <td class="{{ row.oddball_longest_heat }}">{{ row.oddball_longest|mmss }}</td>
+                <td class="{{ row.oddball_grabs_heat }}">{{ row.oddball_grabs }}</td>
+                <td class="{{ row.oddball_ticks_heat }}">{{ row.oddball_ticks }}</td>
+                <td class="{{ row.oddball_carrier_kills_heat }}">{{ row.oddball_carrier_kills }}</td>
+                <td class="{{ row.oddball_carriers_killed_heat }}">{{ row.oddball_carriers_killed }}</td>
+                <td class="{{ row.sh_caps_heat }}">{{ row.sh_caps }}</td>
+                <td class="{{ row.sh_secures_heat }}">{{ row.sh_secures }}</td>
+                <td class="{{ row.sh_ticks_heat }}">{{ row.sh_ticks }}</td>
+                <td class="{{ row.sh_off_kills_heat }}">{{ row.sh_off_kills }}</td>
+                <td class="{{ row.sh_def_kills_heat }}">{{ row.sh_def_kills }}</td>
+                <td class="{{ row.sh_time_heat }}">{{ row.sh_time|mmss }}</td>
+                <td class="{{ row.koth_time_heat }}">{{ row.koth_time|mmss }}</td>
+                <td class="{{ row.koth_ticks_heat }}">{{ row.koth_ticks }}</td>
+                <td class="{{ row.extract_success_heat }}">{{ row.extract_success }}</td>
+                <td class="{{ row.extract_conv_complete_heat }}">{{ row.extract_conv_complete }}</td>
+                <td class="{{ row.extract_conv_denied_heat }}">{{ row.extract_conv_denied }}</td>
+                <td class="{{ row.extract_init_complete_heat }}">{{ row.extract_init_complete }}</td>
+                <td class="{{ row.extract_init_denied_heat }}">{{ row.extract_init_denied }}</td>
+                <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="33" class="empty">No objective stats in the last 30 days</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Objective Stats - Lifetime</h2>
+        <div class="table-wrap">
+          <table class="data-table" data-table="objectives-lifetime" style="min-width: 2200px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Objective grade (percentile vs squad)">Grade</th>
+                <th title="Lifetime Ranked games">Games</th>
+                <th title="CTF flag captures">CTF Caps</th>
+                <th title="CTF flag grabs">CTF Grabs</th>
+                <th title="CTF flag returns">CTF Returns</th>
+                <th title="CTF flag steals">CTF Steals</th>
+                <th title="CTF flag secures">CTF Secures</th>
+                <th title="CTF carrier kills">CTF Carrier Kills</th>
+                <th title="CTF returner kills">CTF Returner Kills</th>
+                <th title="CTF kills as carrier">CTF Kills (Carrier)</th>
+                <th title="CTF kills as returner">CTF Kills (Returner)</th>
+                <th title="CTF time as carrier (seconds)">CTF Time</th>
+                <th title="Oddball time as carrier (seconds)">Oddball Time</th>
+                <th title="Longest oddball carry (seconds)">Oddball Longest</th>
+                <th title="Oddball skull grabs">Oddball Grabs</th>
+                <th title="Oddball scoring ticks">Oddball Ticks</th>
+                <th title="Oddball kills as carrier">Oddball Carrier Kills</th>
+                <th title="Oddball carriers killed">Oddball Carriers Killed</th>
+                <th title="Stronghold captures">SH Caps</th>
+                <th title="Stronghold secures">SH Secures</th>
+                <th title="Stronghold scoring ticks">SH Ticks</th>
+                <th title="Stronghold offensive kills">SH Off Kills</th>
+                <th title="Stronghold defensive kills">SH Def Kills</th>
+                <th title="Stronghold occupation time (seconds)">SH Time</th>
+                <th title="King of the Hill time (seconds)">KOTH Time</th>
+                <th title="King of the Hill scoring ticks">KOTH Ticks</th>
+                <th title="Successful extractions">Extract Success</th>
+                <th title="Extraction conversions completed">Extract Conv</th>
+                <th title="Extraction conversions denied">Extract Denied</th>
+                <th title="Extraction initiations completed">Extract Init</th>
+                <th title="Extraction initiations denied">Extract Init Denied</th>
+                <th title="Average life duration (seconds)">Avg Life</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if objective_lifetime_rows %}
+              {% for row in objective_lifetime_rows %}
+              <tr>
+                <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+                <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                <td class="{{ row.ctf_caps_heat }}">{{ row.ctf_caps }}</td>
+                <td class="{{ row.ctf_grabs_heat }}">{{ row.ctf_grabs }}</td>
+                <td class="{{ row.ctf_returns_heat }}">{{ row.ctf_returns }}</td>
+                <td class="{{ row.ctf_steals_heat }}">{{ row.ctf_steals }}</td>
+                <td class="{{ row.ctf_secures_heat }}">{{ row.ctf_secures }}</td>
+                <td class="{{ row.ctf_carrier_kills_heat }}">{{ row.ctf_carrier_kills }}</td>
+                <td class="{{ row.ctf_returner_kills_heat }}">{{ row.ctf_returner_kills }}</td>
+                <td class="{{ row.ctf_kills_as_carrier_heat }}">{{ row.ctf_kills_as_carrier }}</td>
+                <td class="{{ row.ctf_kills_as_returner_heat }}">{{ row.ctf_kills_as_returner }}</td>
+                <td class="{{ row.ctf_time_heat }}">{{ row.ctf_time|mmss }}</td>
+                <td class="{{ row.oddball_time_heat }}">{{ row.oddball_time|mmss }}</td>
+                <td class="{{ row.oddball_longest_heat }}">{{ row.oddball_longest|mmss }}</td>
+                <td class="{{ row.oddball_grabs_heat }}">{{ row.oddball_grabs }}</td>
+                <td class="{{ row.oddball_ticks_heat }}">{{ row.oddball_ticks }}</td>
+                <td class="{{ row.oddball_carrier_kills_heat }}">{{ row.oddball_carrier_kills }}</td>
+                <td class="{{ row.oddball_carriers_killed_heat }}">{{ row.oddball_carriers_killed }}</td>
+                <td class="{{ row.sh_caps_heat }}">{{ row.sh_caps }}</td>
+                <td class="{{ row.sh_secures_heat }}">{{ row.sh_secures }}</td>
+                <td class="{{ row.sh_ticks_heat }}">{{ row.sh_ticks }}</td>
+                <td class="{{ row.sh_off_kills_heat }}">{{ row.sh_off_kills }}</td>
+                <td class="{{ row.sh_def_kills_heat }}">{{ row.sh_def_kills }}</td>
+                <td class="{{ row.sh_time_heat }}">{{ row.sh_time|mmss }}</td>
+                <td class="{{ row.koth_time_heat }}">{{ row.koth_time|mmss }}</td>
+                <td class="{{ row.koth_ticks_heat }}">{{ row.koth_ticks }}</td>
+                <td class="{{ row.extract_success_heat }}">{{ row.extract_success }}</td>
+                <td class="{{ row.extract_conv_complete_heat }}">{{ row.extract_conv_complete }}</td>
+                <td class="{{ row.extract_conv_denied_heat }}">{{ row.extract_conv_denied }}</td>
+                <td class="{{ row.extract_init_complete_heat }}">{{ row.extract_init_complete }}</td>
+                <td class="{{ row.extract_init_denied_heat }}">{{ row.extract_init_denied }}</td>
+                <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="33" class="empty">No lifetime objective stats available</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+{% endblock %}

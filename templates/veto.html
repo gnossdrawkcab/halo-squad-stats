@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Map Veto - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Map Veto Cheat-Sheet</h2>
+  <p class="muted">Per playlist: 🟢 prefer (≥55%), 🔴 ban (≤45%).</p>
+</section>
+
+{% if sheets %}
+{% for sheet in sheets %}
+<section class="panel">
+  <h2>{{ sheet.playlist }}</h2>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Verdict</th><th>Map</th><th title="Composite map grade within this playlist (win% + KDA)">Grade</th><th>Win %</th><th>Games</th><th>Avg KDA</th></tr></thead>
+      <tbody>
+        {% for m in sheet.maps %}
+        <tr class="veto-{{ m.verdict }}">
+          <td>{% if m.verdict == 'prefer' %}🟢 Prefer{% elif m.verdict == 'ban' %}🔴 Ban{% else %}⚪ Neutral{% endif %}</td>
+          <td><strong>{{ m.map }}</strong></td>
+          <td><span class="inline-grade {{ m.grade_class }}" title="{{ m.grade_tip }}">{{ m.grade }}</span></td>
+          <td class="{{ 'heat-excellent' if m.win_pct >= 55 else ('heat-poor' if m.win_pct <= 45 else '') }}">{{ m.win_pct_str }}</td>
+          <td>{{ m.games }}</td>
+          <td>{{ m.kda }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+{% else %}
+<section class="panel"><p class="empty">Not enough map data yet.</p></section>
+{% endif %}
+{% endblock %}

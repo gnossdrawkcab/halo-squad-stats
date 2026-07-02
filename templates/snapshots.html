@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Snapshots - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>📸 Comparison Snapshots</h2>
+    <p class="muted">Save a point-in-time view of stats. Each snapshot gets a shareable link.</p>
+  </div>
+
+  {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form method="post" style="max-width:540px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save">
+    <div class="form-row">
+      <label>Snapshot name *
+        <input type="text" name="name" required class="form-input" placeholder="e.g. Season High — April 2026">
+      </label>
+    </div>
+    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <label>Date from
+        <input type="date" name="date_from" class="form-input">
+      </label>
+      <label>Date to
+        <input type="date" name="date_to" class="form-input">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Players (leave empty for all)
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+          {% for p in players %}
+          <label style="display:flex;align-items:center;gap:4px;font-weight:normal">
+            <input type="checkbox" name="players" value="{{ p }}" checked>
+            <span class="player-name {{ p|player_class }}">{{ p }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Notes
+        <textarea name="notes" rows="2" class="form-input" placeholder="Optional notes about this snapshot…"></textarea>
+      </label>
+    </div>
+    <button type="submit" class="btn">Save Snapshot</button>
+  </form>
+</section>
+
+{% if snapshots %}
+<section class="panel">
+  <div class="panel-header"><h2>Saved Snapshots</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="snapshots">
+      <thead><tr>
+        <th>Name</th><th>Created</th><th>Players</th><th>Range</th><th>Games</th><th>Notes</th><th>Share</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for s in snapshots %}
+      <tr>
+        <td><a href="/share/{{ s.share_token }}">{{ s.name }}</a></td>
+        <td>{{ s.created_at }}</td>
+        <td>
+          {% if s.players %}
+            {% for p in s.players %}<span class="player-name {{ p|player_class }}">{{ p }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+          {% else %}All{% endif %}
+        </td>
+        <td>
+          {% if s.date_from or s.date_to %}{{ s.date_from or '—' }} → {{ s.date_to or '—' }}
+          {% else %}All time{% endif %}
+        </td>
+        <td>{{ s.payload.total_games if s.payload and s.payload.total_games else '—' }}</td>
+        <td class="muted">{{ s.notes }}</td>
+        <td>
+          <input type="text" value="{{ request.host_url }}share/{{ s.share_token }}"
+                 readonly class="form-input" style="width:160px;font-size:0.75rem"
+                 onclick="this.select();document.execCommand('copy');this.blur();"
+                 title="Click to copy share link">
+        </td>
+        <td>
+          <form method="post" style="display:inline"
+                onsubmit="return confirm('Delete this snapshot?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="snapshot_id" value="{{ s.id }}">
+            <button type="submit" class="btn btn-small btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if snapshots|length >= 2 %}
+<section class="panel">
+  <div class="panel-header"><h2>⚖️ Compare Two Snapshots</h2></div>
+  <p class="muted">Pick two snapshots to see each player's CSR change between them.</p>
+  <form method="get" action="/snapshots" class="snap-cmp-form">
+    <select name="cmp_a" class="form-input">
+      {% for s in snapshots %}<option value="{{ s.share_token }}"{% if s.share_token == cmp_a %} selected{% endif %}>{{ s.name }} ({{ s.created_at }})</option>{% endfor %}
+    </select>
+    <span class="snap-cmp-arrow">→</span>
+    <select name="cmp_b" class="form-input">
+      {% for s in snapshots %}<option value="{{ s.share_token }}"{% if s.share_token == cmp_b %} selected{% endif %}>{{ s.name }} ({{ s.created_at }})</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn">Compare</button>
+  </form>
+
+  {% if comparison %}
+  <div class="snap-cmp-result">
+    <p class="muted snap-cmp-cap"><strong>{{ comparison.a.name }}</strong> <span class="muted">({{ comparison.a.date }})</span> → <strong>{{ comparison.b.name }}</strong> <span class="muted">({{ comparison.b.date }})</span></p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Player</th><th>{{ comparison.a.name }}</th><th>{{ comparison.b.name }}</th><th>Δ CSR</th></tr></thead>
+        <tbody>
+          {% for r in comparison.rows %}
+          <tr>
+            <td><a href="{{ r.player|player_href }}" class="player-name {{ r.css }}">{{ r.player }}</a></td>
+            <td>{{ r.csr_a }}</td>
+            <td>{{ r.csr_b }}</td>
+            <td class="{{ r.delta_class }}"><strong>{{ r.delta }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+<style>
+.snap-cmp-form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.snap-cmp-form select { min-width: 200px; }
+.snap-cmp-arrow { color: var(--muted, #9a8f82); font-weight: 700; }
+.snap-cmp-cap { margin: 14px 0 8px; }
+</style>

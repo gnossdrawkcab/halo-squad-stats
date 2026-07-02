@@ -1,0 +1,27 @@
+{# Shared "How grades work" explainer. Include + call {{ grade_legend() }}. #}
+{% macro grade_legend() %}
+<details class="grade-help">
+  <summary><span class="gh-i">ⓘ</span> How grades work</summary>
+  <div class="grade-help-body">
+    <p>Every letter grade runs <strong>S · A · B · C · D · F</strong> (with +/–). There are three kinds, depending on where you see it:</p>
+    <div class="grade-help-types">
+      <div class="ght ght-skill">
+        <span class="ght-name">🎯 Skill grade <span class="muted">(absolute)</span></span>
+        <p>Overall skill on a <strong>fixed Halo scale</strong>, from a player's ranked-game averages — <em>not</em> affected by how teammates do. Weighted: Slaying/KDA 35%, Impact/damage-ratio 25%, Gunplay/accuracy 20%, Survival/avg-life 10%, Medals 10%.</p>
+        <span class="ght-where muted">Player cards · player report card · Lifetime · each match's grade</span>
+      </div>
+      <div class="ght ght-session">
+        <span class="ght-name">📅 Session report card</span>
+        <p>How a player did <strong>this session vs their own last-365-day baseline</strong> — a percentile against <em>themselves</em>. An A means well above their usual, so it can differ from their skill grade.</p>
+        <span class="ght-where muted">Dashboard “Squad Session Report Card”</span>
+      </div>
+      <div class="ght ght-rank">
+        <span class="ght-name">📊 Ranking grade <span class="muted">(vs squad)</span></span>
+        <p>Where a player ranks <strong>against the other tracked players</strong> in that one table. S = top 10% of the squad, B = middle of the pack.</p>
+        <span class="ght-where muted">Comparison tables: maps, matchups, objectives, veto…</span>
+      </div>
+    </div>
+    <p class="muted grade-scale-line">Letter scale: <strong>S</strong> top 10% · <strong>A</strong> top 25% · <strong>B</strong> middle/average · <strong>C</strong> below · <strong>D–F</strong> well below. Hover any grade on the site to see the exact numbers behind it.</p>
+  </div>
+</details>
+{% endmacro %}

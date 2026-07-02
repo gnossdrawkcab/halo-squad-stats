@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Suggestions - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Suggestions</h2>
+  <p class="muted">Share ideas, fixes, or new features. Submissions are stored permanently.</p>
+</section>
+
+<section class="panel">
+  {% if message %}
+  <div class="alert">{{ message }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <form class="suggestions-form" method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>
+      Summary
+      <input type="text" name="summary" placeholder="Short title for the idea" required />
+    </label>
+    <label>
+      Gamertag (optional)
+      <input type="text" name="gamertag" placeholder="Your gamertag" />
+    </label>
+    <label>
+      Name (optional)
+      <input type="text" name="name" placeholder="Your name" />
+    </label>
+    <label>
+      Contact (optional)
+      <input type="text" name="contact" placeholder="Discord, email, etc." />
+    </label>
+    <label class="span-2">
+      Details
+      <textarea name="details" rows="4" placeholder="What should change, and why?"></textarea>
+    </label>
+    <label class="span-2">
+      Follow-up (optional)
+      <textarea name="follow_up" rows="3" placeholder="Anything else we should ask or clarify?"></textarea>
+    </label>
+    <button type="submit" class="btn">Submit Suggestion</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Recent Suggestions</h2>
+  {% if suggestions %}
+  <div class="suggestions-list">
+    {% for row in suggestions %}
+    <div class="suggestion-item">
+      <div class="suggestion-meta">
+        <strong>{{ row.summary }}</strong>
+        <span class="muted">{{ row.submitted_at }}</span>
+        {% if is_admin() %}
+        <form method="post" style="display:inline;margin-left:auto" onsubmit="return confirm('Delete this suggestion?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="suggestion_id" value="{{ row.id }}">
+          <button type="submit" class="btn btn-small btn-danger">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if row.gamertag or row.name %}
+      <div class="suggestion-meta">
+        <span>{{ row.gamertag }}</span>
+        {% if row.gamertag and row.name %}•{% endif %}
+        <span>{{ row.name }}</span>
+      </div>
+      {% endif %}
+      {% if row.details %}
+      <p>{{ row.details }}</p>
+      {% endif %}
+      {% if row.follow_up %}
+      <p class="muted">Follow-up: {{ row.follow_up }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No suggestions yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

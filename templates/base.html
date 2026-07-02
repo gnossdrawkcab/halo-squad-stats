@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme|default('dark') }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}{{ app_title }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#101218" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="{{ app_title }}" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!-- NOTE: NOT deferred — several inline chart scripts run at parse time and
+         need Chart defined synchronously. preconnect above speeds the CDN fetch. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block head %}{% endblock %}
+  </head>
+  {% set embed = request.args.get('embed') %}
+  <body{% if embed %} class="embed-mode"{% endif %}>
+    {% if not embed %}
+    <header class="site-header">
+      <div class="header-left">
+        {# stay=1 skips the streaming→/live redirect — the logo must always be a
+           way OUT of the live page, never a loop back into it. #}
+        <a class="site-logo" href="/?stay=1">{{ app_title }}</a>
+        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false"><span aria-hidden="true">&#9776;</span></button>
+        <div class="nav-overlay" id="navOverlay" onclick="closeNav()" aria-hidden="true"></div>
+        <nav class="site-nav" id="siteNav" aria-label="Primary navigation">
+          <div class="nav-drawer">
+            <div class="nav-drawer-header">
+              <span class="nav-title">Navigate</span>
+              <button class="nav-close" type="button" onclick="closeNav()" aria-label="Close navigation">Close</button>
+            </div>
+            <div class="nav-drawer-body">
+              <div class="nav-group nav-group-direct">
+                <div class="nav-menu">
+                  <a class="nav-link" href="/?stay=1">🏠 Dashboard</a>
+                  <a class="nav-link" href="/live">🟢 Live</a>
+                  <a class="nav-link" href="/sessions">🗓️ Sessions</a>
+                  <a class="nav-link" href="/combat-hub">⚔️ Combat</a>
+                  <a class="nav-link" href="/winning-hub">🏆 Winning</a>
+                  <a class="nav-link" href="/analysis">📈 Analysis</a>
+                  <a class="nav-link" href="/records">🏅 Records</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label" tabindex="0" role="button" aria-haspopup="true">Players</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/compare">Compare Players</a>
+                  {% if players %}
+                    {% for p in players %}
+                    <a class="nav-link player-name {{ p|player_class }}" href="{{ p|player_href }}">{{ p }}</a>
+                    {% endfor %}
+                  {% else %}
+                    <span class="nav-link" style="color: var(--muted);">No players yet</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label" tabindex="0" role="button" aria-haspopup="true">Maps</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/maps">Maps &amp; Modes</a>
+                  <a class="nav-link" href="/veto">Map Veto</a>
+                  <a class="nav-link" href="/nemesis">Nemesis</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label" tabindex="0" role="button" aria-haspopup="true">Coach</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/coach">🤖 AI Coach</a>
+                  <a class="nav-link" href="/goals">Goals</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label" tabindex="0" role="button" aria-haspopup="true">Admin</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/report">📋 Session Browser</a>
+                  <a class="nav-link" href="/overlay">📺 OBS Overlay</a>
+                  <a class="nav-link" href="/session-card.png">🖼️ Recap Image</a>
+                  <a class="nav-link" href="/setup">Setup</a>
+                  <a class="nav-link" href="/settings">Settings</a>
+                  <a class="nav-link" href="/rosters">Rosters</a>
+                  <a class="nav-link" href="/suggestions">Suggestions</a>
+                  <a class="nav-link" href="/columns">Columns</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <div class="header-right">
+        <div class="header-info">
+          {% if last_update %}<span class="header-update">{{ last_update }}</span>{% endif %}
+          <span class="header-matches">{{ db_row_count }} matches</span>
+          <button id="notifyBtn" class="btn btn-small" title="Enable live notifications" style="display:none">🔔</button>
+          <button id="pwaInstall" class="btn btn-small" title="Install app" style="display:none">⬇ Install</button>
+          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
+          {% if auth_enabled() and is_admin() %}
+          <form method="post" action="{{ url_for('logout') }}" style="display:inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn btn-small" type="submit">Logout</button>
+          </form>
+          {% endif %}
+          {% if export_enabled|default(true) %}
+          {% set export_player = request.args.get('player', 'all') %}
+          {% set export_playlist = request.args.get('playlist', 'all') %}
+          {% set export_mode = request.args.get('mode', 'all') %}
+          <div class="export-dropdown">
+            <button class="btn btn-small" onclick="toggleExport()">Export</button>
+            <div class="export-menu" id="exportMenu">
+              <a href="{{ url_for('export_data', format='csv', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">CSV</a>
+              <a href="{{ url_for('export_data', format='json', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">JSON</a>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+    {% endif %}
+
+    <main class="page{% if embed %} page-embed{% endif %}">
+      {% block content %}{% endblock %}
+    </main>
+
+
+    {% if not embed %}
+    <footer class="site-footer">
+      <p>{{ app_title }}  Data refreshes every {{ update_interval|default(60) }}s</p>
+    </footer>
+    {% endif %}
+
+    <script>
+      window.playerHoverData = {{ player_hover_data|default({})|tojson|safe }};
+      window.haloInitialRowCount = {{ db_row_count|default(0)|tojson|safe }};
+      window.haloRealtimePollSeconds = {{ realtime_poll_seconds|default(2.5)|tojson|safe }};
+    </script>
+
+
+
+    <script src="{{ url_for('static', filename='app.js', v=static_version) }}"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      }
+    </script>
+    <script>
+      // ── PWA install prompt ──
+      (function () {
+        var deferred = null;
+        var installBtn = document.getElementById('pwaInstall');
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault(); deferred = e;
+          if (installBtn) installBtn.style.display = '';
+        });
+        if (installBtn) installBtn.addEventListener('click', async function () {
+          if (!deferred) return;
+          deferred.prompt(); await deferred.userChoice;
+          deferred = null; installBtn.style.display = 'none';
+        });
+        window.addEventListener('appinstalled', function () {
+          if (installBtn) installBtn.style.display = 'none';
+        });
+      })();
+
+      // ── Web Push: live-event notifications ──
+      (function () {
+        var btn = document.getElementById('notifyBtn');
+        if (!btn) return;
+        var supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+        // Push needs a secure context (HTTPS); the LAN http:// origin can't subscribe.
+        if (!supported || !window.isSecureContext) return;
+        btn.style.display = '';
+
+        function b64ToU8(base64) {
+          var pad = '='.repeat((4 - base64.length % 4) % 4);
+          var b = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+          var raw = atob(b), arr = new Uint8Array(raw.length);
+          for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        }
+        function setState(on) {
+          btn.textContent = on ? '🔔 On' : '🔔';
+          btn.title = on ? 'Live notifications on (tap to send a test)' : 'Enable live notifications';
+        }
+        // Reflect current subscription state.
+        navigator.serviceWorker.ready
+          .then(function (reg) { return reg.pushManager.getSubscription(); })
+          .then(function (s) { setState(!!s && Notification.permission === 'granted'); })
+          .catch(function () {});
+
+        btn.addEventListener('click', async function () {
+          try {
+            var reg = await navigator.serviceWorker.ready;
+            var existing = await reg.pushManager.getSubscription();
+            if (existing && Notification.permission === 'granted') {
+              await fetch('/api/push/test', { method: 'POST' }); // already on → send a test
+              return;
+            }
+            var perm = await Notification.requestPermission();
+            if (perm !== 'granted') { alert('Notifications are blocked in your browser settings.'); return; }
+            var key = (await (await fetch('/api/push/key')).json()).key;
+            if (!key) { alert('Notifications are not configured yet.'); return; }
+            var sub = existing || await reg.pushManager.subscribe({
+              userVisibleOnly: true, applicationServerKey: b64ToU8(key),
+            });
+            await fetch('/api/push/subscribe', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sub),
+            });
+            setState(true);
+            await fetch('/api/push/test', { method: 'POST' });
+          } catch (e) { alert('Could not enable notifications: ' + e.message); }
+        });
+      })();
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

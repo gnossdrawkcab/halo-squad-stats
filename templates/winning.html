@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Winning Formula - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🏆 Winning Formula</div>
+  </div>
+  <p class="muted">What our stats look like when the {{ stack_size }}-stack wins — who steps up, who takes a backseat.</p>
+  <div class="wd-controls">
+    <div class="wd-switch" role="group" aria-label="Stack size">
+      {% for s in [4, 3, 2] %}
+      <a href="/winning?stack={{ s }}&range={{ range_key }}" class="btn btn-small {{ 'btn-active' if s == stack_size else '' }}">{{ s }}-stack</a>
+      {% endfor %}
+    </div>
+    <div class="wd-switch" role="group" aria-label="Time range">
+      {% for rk in ['30', '90', '180', '365', '2y', 'lifetime'] %}
+      <a href="/winning?stack={{ stack_size }}&range={{ rk }}" class="btn btn-small {{ 'btn-active' if rk == range_key else '' }}">{{ range_labels[rk] }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if not dna.has_data %}
+  <p class="empty">{% if dna.thin %}Only {{ dna.games }} {{ stack_size }}-stack game{{ 's' if dna.games != 1 else '' }} with both wins and losses so far — need a few more to compare.{% else %}No {{ stack_size }}-stack games with both wins and losses yet.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if dna.has_data %}
+<section class="panel wd-hero">
+  <span class="wd-record-num">{{ dna.wins }}<span class="wd-dash">–</span>{{ dna.losses }}</span>
+  <span class="wd-record-lbl">{{ stack_size }}-stack record · <strong>{{ dna.win_pct }}%</strong> · {{ dna.games }} games together</span>
+</section>
+
+<section class="panel">
+  <div class="section-label">💡 The read</div>
+  <ul class="wd-insights">
+    {% for i in dna.insights %}<li>{{ i|safe }}</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="section-label">📊 What a win looks like</div>
+  <p class="muted">Average per-player stats in wins vs losses.</p>
+  <div class="wd-team">
+    {% for key, t in dna.team.items() %}
+    <div class="wd-team-stat {{ 'wd-good' if t.good else 'wd-bad' }}">
+      <span class="wd-ts-label">{{ t.label }}</span>
+      <span class="wd-ts-vals"><strong class="wd-win">{{ t.win }}</strong><span class="wd-vs">vs</span><span class="wd-loss">{{ t.loss }}</span></span>
+      <span class="wd-ts-delta">{{ t.delta }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-label">🧬 Player win-lift</div>
+  <p class="muted">KDA in wins vs losses, sorted by who lifts most. <em>r</em> = how tied their game is to the result (+1 = wins when they pop off).</p>
+  <div class="wd-players">
+    {% for r in dna.players %}
+    <div class="wd-pcard {{ r.role_tone }}">
+      <div class="wd-pc-top">
+        <a href="{{ r.player|player_href }}" class="player-name {{ r.css }}">{{ r.player }}</a>
+        <span class="wd-role {{ r.role_tone }}">{{ r.role_emoji }} {{ r.role }}</span>
+      </div>
+      <div class="wd-pc-kda">
+        <div class="wd-kda-col wd-kda-win"><span>WIN KDA</span><strong class="{{ r.kda_win_raw_heat }}">{{ r.kda_win }}</strong><em>{{ r.win_games }}g</em></div>
+        <div class="wd-kda-arrow"><span class="wd-delta">{{ r.delta }}</span><span class="wd-delta-lbl">win&nbsp;lift</span></div>
+        <div class="wd-kda-col wd-kda-loss"><span>LOSS KDA</span><strong>{{ r.kda_loss }}</strong><em>{{ r.loss_games }}g</em></div>
+      </div>
+      <div class="wd-pc-meta">
+        <span title="Correlation between this player's per-game KDA and winning">🎯 r&nbsp;{{ '%+.2f'|format(r.corr) }}</span>
+        <span title="Damage ± per game — wins / losses">💥 {{ r.dmg_win }}&nbsp;/&nbsp;{{ r.dmg_loss }}</span>
+        <span title="Share of team score — wins / losses">📈 {{ r.share_win }}%&nbsp;/&nbsp;{{ r.share_loss }}%</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% macro breakdown(label, title, hint, cats, players) %}
+{% if cats %}
+<section class="panel">
+  <div class="section-label">{{ title }}</div>
+  <p class="muted">{{ hint }} Sorted by our win rate. Each player's number is their <strong>KDA win-lift</strong> (wins − losses) there — green = they step up when we win, red = flat/backseat.</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr>
+        <th>{{ label }}</th><th title="Squad record">Rec</th><th title="Squad win %">Win%</th>
+        {% for p in players %}<th class="player-name {{ p|player_class }}">{{ p }}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for c in cats %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td class="wd-bd-sub">{{ c.wins }}-{{ c.losses }}</td>
+          <td><span class="wd-win-pill {{ 'wd-win-hi' if c.win_pct_raw >= 55 else ('wd-win-lo' if c.win_pct_raw <= 45 else 'wd-win-mid') }}">{{ c.win_pct }}%</span></td>
+          {% for p in players %}
+          <td>{% if p in c.players %}{% set cell = c.players[p] %}{% if cell.lift is defined %}<span class="wd-bd-kda {{ cell.heat }}">{{ '%+.1f'|format(cell.lift) }}</span> <span class="wd-bd-sub">{{ cell.kda }}k</span>{% else %}<span class="wd-bd-sub">{{ cell.kda }}k · {{ cell.games }}g</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endmacro %}
+
+{{ breakdown('Mode', '🎮 By Game Mode', 'Which modes we win, and who lifts in them.', dna.by_mode, dna.player_names) }}
+{{ breakdown('Map', '🗺️ By Map', 'Which maps we win, and who lifts on them.', dna.by_map, dna.player_names) }}
+
+{% if dna.scouting %}
+<section class="panel">
+  <div class="section-label">🔎 Player Scouting</div>
+  <p class="muted">Where each player is strong or weak in this {{ stack_size }}-stack window.</p>
+  <div class="wd-scout">
+    {% for s in dna.scouting %}
+    <div class="wd-scout-card {{ s.role_tone }}">
+      <a href="{{ s.player|player_href }}" class="player-name {{ s.css }}">{{ s.player }}</a>
+      <ul class="wd-scout-notes">
+        {% for n in s.notes %}<li>{{ n|safe }}</li>{% endfor %}
+      </ul>
+      {% if s.focus %}
+      <div class="wd-focus">
+        <span class="wd-focus-label">🎯 What {{ s.player }} should focus on</span>
+        <ul class="wd-focus-notes">
+          {% for f in s.focus %}<li>{{ f|safe }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

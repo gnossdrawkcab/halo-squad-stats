@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Highlights - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Highlights</h2>
+    <p class="muted" style="margin: -8px 0 0 0;">The squad's highest-KDA games (Ranked, completed games only)</p>
+  </section>
+
+      {% if highlight_rows %}
+      <section class="panel">
+        <h2>All Players</h2>
+        <div class="table-wrap">
+          <table class="data-table" data-table="highlights" style="font-size: 0.85rem;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Absolute single-game grade">Grade</th>
+                <th>Date</th>
+                <th>Playlist</th>
+                <th>Mode</th>
+                <th>Map</th>
+                <th>Outcome</th>
+                <th>K</th>
+                <th>D</th>
+                <th>A</th>
+                <th title="kills + assists/3 − deaths (additive)">KDA</th>
+                <th>Acc.</th>
+                <th>Score</th>
+                <th>Dmg/m</th>
+                <th>Dmg Dif</th>
+                <th>Medals</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in highlight_rows %}
+              <tr>
+                <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+                <td>{{ row.date }}</td>
+                <td>{{ row.playlist }}</td>
+                <td>{{ row.game_type }}</td>
+                <td>{{ row.map }}</td>
+                <td>{{ row.outcome }}</td>
+                <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+                <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                <td class="{{ row.dmg_min_heat }}">{{ row.dmg_min }}</td>
+                <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% else %}
+      <section class="panel">
+        <div class="empty">No highlight data available yet.</div>
+      </section>
+      {% endif %}
+{% endblock %}

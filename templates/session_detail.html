@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Session {{ detail.date if detail else '' }} - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>🗓️ Session — {{ detail.date if detail else 'Not found' }}{% if detail %} <span class="session-kind kind-{{ detail.kind }}">{{ detail.kind|upper }}</span>{% endif %}</h2>
+    <a href="/sessions" class="btn btn-small">← All sessions</a>
+  </div>
+  {% if detail %}
+  <div class="sess-summary">
+    <span class="sess-stat"><span class="sess-stat-num">{{ detail.games }}</span><span class="sess-stat-lbl">games</span></span>
+    <span class="sess-stat"><span class="sess-stat-num">{{ detail.record }}</span><span class="sess-stat-lbl">record</span></span>
+    <span class="sess-stat"><span class="sess-stat-num">{{ detail.win_pct_str }}</span><span class="sess-stat-lbl">win %</span></span>
+  </div>
+  {% endif %}
+</section>
+
+{% if not detail %}
+<section class="panel"><p class="empty">Session not found.</p></section>
+{% else %}
+
+<section class="panel">
+  <h2>Player Performance</h2>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead>
+        <tr><th>Player</th><th title="Session grade (vs squad this session)">Grade</th><th>Games</th><th>Record</th><th title="kills + assists/3 − deaths">KDA</th><th title="KDA per minute">KDA/min</th><th title="Objective score per minute">OBJ/min</th><th>Kills</th><th>Deaths</th><th>Assists</th><th title="Perfect-kill medals per game">✨/g</th>{% if detail.has_hill %}<th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for p in detail.players %}
+        <tr>
+          <td><a href="{{ p.player|player_href }}" class="player-name {{ p.css }}">{{ p.player }}</a></td>
+          <td><span class="inline-grade {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span></td>
+          <td>{{ p.games }}</td>
+          <td>{{ p.record }}</td>
+          <td>{{ p.kda }}</td>
+          <td>{{ p.kda_min }}</td>
+          <td>{{ p.obj_min }}</td>
+          <td>{{ p.kills }}</td>
+          <td>{{ p.deaths }}</td>
+          <td>{{ p.assists }}</td>
+          <td title="{{ p.perfect_total }} perfect medals this session">{{ p.perfect_pg }}</td>
+          {% if detail.has_hill %}<td title="{{ p.hill_total }} over {{ p.hill_games }} hill game{{ 's' if p.hill_games != 1 else '' }}">{{ p.hill_pg or '—' }}</td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if detail.session_games %}
+<section class="panel">
+  <h2>📜 Game-by-Game</h2>
+  <div class="sh-run-grid">
+    {% for game in detail.session_games %}
+    <div class="sh-run-card">
+      {% set _w = watch_url(game.match_id) %}{% if _w %}<a class="sh-run-watch watch-ico" href="{{ _w }}" target="_blank" rel="noopener" title="Watch the synced co-stream rewatch (MultiTwitch)">📺</a>{% endif %}
+      <a class="sh-run-head" href="{% if game.match_id %}/match/{{ game.match_id }}{% else %}#{% endif %}">
+        <span class="sh-run-num">G{{ game.num }}</span>
+        <span class="sh-run-result {{ game.result_class }}">{{ game.result }}</span>
+        <span class="sh-run-map">{{ game.map }}{% if game.mode %} · {{ game.mode }}{% endif %}</span>
+        <span class="sh-run-time muted">{{ game.time }}</span>
+      </a>
+      <table class="sh-run-table">
+        <tbody>
+          {% for p in game.players %}
+          <tr>
+            <td class="sh-run-player"><a href="{{ p.player|player_href }}" class="cl-player {{ p.css }}">{{ p.player }}</a></td>
+            <td class="sh-run-kda">{{ p.line }}{% for o in p.objs %} <span class="sh-run-chip" title="{{ o.lbl }} — outlier game (top 15%+ for this stat)">{{ o.emoji }} {{ o.val }}</span>{% endfor %}</td>
+            <td class="sh-run-kdanum">{{ p.kda }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+<style>
+.sess-summary { display: flex; gap: 28px; margin-top: 8px; }
+.sess-stat { display: flex; flex-direction: column; }
+.sess-stat-num { font-size: 1.6rem; font-weight: 700; font-family: "Rajdhani", sans-serif; }
+.sess-stat-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted, #9a8f82); }
+</style>

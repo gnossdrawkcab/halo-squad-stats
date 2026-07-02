@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Goals - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>🎯 Goals &amp; Challenges</h2>
+    <p class="muted">Set targets and track progress over your most recent games.</p>
+  </div>
+
+  {% if message %}<div class="alert alert-success">{{ message }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form method="post" class="goal-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save">
+    <div class="goal-form-grid">
+      <label>Player
+        <select name="player" class="form-input" required>
+          <option value="">Select…</option>
+          {% for p in players %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Metric
+        <select name="metric" class="form-input" required>
+          {% for m in metric_options %}<option value="{{ m.key }}">{{ m.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Target
+        <input type="number" step="0.01" name="target" class="form-input" required placeholder="e.g. 2.0">
+      </label>
+      <label>Over last N games
+        <input type="number" name="window_games" class="form-input" value="20" min="1">
+      </label>
+      <label>Note
+        <input type="text" name="note" class="form-input" placeholder="Optional">
+      </label>
+    </div>
+    <button type="submit" class="btn">Add Goal</button>
+  </form>
+</section>
+
+{% if goals %}
+<section class="panel">
+  <div class="panel-header"><h2>Active Goals</h2></div>
+  <div class="goals-list">
+    {% for g in goals %}
+    <div class="goal-card {{ 'goal-done' if g.done }}">
+      <div class="goal-top">
+        <a href="{{ g.player|player_href }}" class="player-name {{ g.player|player_class }}"><strong>{{ g.player }}</strong></a>
+        <span class="goal-metric">{{ g.metric_label }}{% if g.kind != 'csr' %} <span class="muted">(last {{ g.window }})</span>{% endif %}</span>
+        <form method="post" onsubmit="return confirm('Remove this goal?')" style="margin-left:auto">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="goal_id" value="{{ g.id }}">
+          <button type="submit" class="btn btn-small btn-danger">✕</button>
+        </form>
+      </div>
+      <div class="goal-progress-row">
+        <div class="goal-bar-wrap"><div class="goal-bar{{ ' goal-bar-over' if g.over }}{{ ' goal-bar-neg' if g.below_zero }}" style="width: {{ g.pct }}%"></div></div>
+        <div class="goal-nums">{{ g.current }} / {{ g.target }} <span class="muted">({{ g.pct_label }})</span>{% if g.done %} ✅{% endif %}</div>
+      </div>
+      {% if g.note %}<div class="muted goal-note">{{ g.note }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="panel"><p class="empty">No goals yet — add one above.</p></section>
+{% endif %}
+{% endblock %}

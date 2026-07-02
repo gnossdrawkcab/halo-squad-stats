@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Medals - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Ranked Medals (Per Game)</h2>
+    <p class="muted section-intro">Each medal <strong>per ranked game</strong>. Greener = leads the squad.</p>
+    <div class="table-wrap">
+      <table class="data-table sticky-header" data-table="ranked-session-medals" style="font-size: 0.8rem;">
+        <thead>
+          <tr>
+            <th>Medal</th>
+            {% for player in ranked_arena_medal_players %}
+            <th>
+              <a href="{{ player|player_href }}" class="player-name {{ player|player_class }}">
+                {{ player }}
+              </a>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if ranked_arena_medal_rows %}
+          {% for row in ranked_arena_medal_rows %}
+          <tr>
+              <td>{{ row.medal }}</td>
+            {% for player in ranked_arena_medal_players %}
+            <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="{{ 1 + (ranked_arena_medal_players|length) }}" class="empty">No Ranked medal session data available</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Medals (Lifetime Totals)</h2>
+    <p class="muted section-intro">Raw career totals across every tracked game.</p>
+    <div class="table-wrap">
+      <table class="data-table sticky-header" data-table="medals-matrix" style="font-size: 0.8rem;">
+        <thead>
+          <tr>
+            <th>Medal</th>
+            {% for player in medal_players %}
+            <th>
+              <a href="{{ player|player_href }}" class="player-name {{ player|player_class }}">
+                {{ player }}
+              </a>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if medal_rows %}
+          {% for row in medal_rows %}
+          <tr>
+              <td>{{ row.medal }}</td>
+            {% for player in medal_players %}
+            <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="{{ 1 + (medal_players|length) }}" class="empty">No medal data available</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

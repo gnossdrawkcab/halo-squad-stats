@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Nemesis - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>😈 Nemesis Tracker</h2>
+    <p class="muted">Opponents you face most, and who troubles you.</p>
+  </div>
+  {% if not have_data %}
+  <p class="empty">No opponent data yet. Opponent capture runs on each new match — this fills in after the next few scrapes.</p>
+  {% endif %}
+</section>
+
+{% if have_data %}
+<section class="panel">
+  <h2>Your Nemeses</h2>
+  <p class="muted">Recurring opponents your squad loses to most (min 4 meetings).</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Opponent</th><th title="Matchup grade — higher = your squad fares better against them">Grade</th><th>Met</th><th>Squad Record</th><th>Squad Win %</th><th title="Opponent average KDA (kills + assists/3 − deaths); can be negative">Their Avg KDA</th></tr></thead>
+      <tbody>
+        {% if nemeses %}
+        {% for n in nemeses %}
+        <tr>
+          <td><strong>{{ n.gamertag }}</strong></td>
+          <td><span class="inline-grade {{ n.grade_class }}" title="{{ n.grade_tip }}">{{ n.grade }}</span></td>
+          <td>{{ n.games }}</td>
+          <td>{{ n.squad_record }}</td>
+          <td class="{{ 'heat-poor' if n.win_pct < 45 else ('heat-excellent' if n.win_pct >= 55 else '') }}">{{ n.win_pct_str }}</td>
+          <td>{{ n.avg_kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr><td colspan="6" class="empty">Not enough repeat opponents yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Favorable Matchups</h2>
+  <p class="muted">Recurring opponents your squad beats up on (min 4 meetings).</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Opponent</th><th title="Matchup grade — higher = your squad fares better against them">Grade</th><th>Met</th><th>Squad Record</th><th>Squad Win %</th><th title="Opponent average KDA (kills + assists/3 − deaths); can be negative">Their Avg KDA</th></tr></thead>
+      <tbody>
+        {% if favorites %}
+        {% for n in favorites %}
+        <tr>
+          <td><strong>{{ n.gamertag }}</strong></td>
+          <td><span class="inline-grade {{ n.grade_class }}" title="{{ n.grade_tip }}">{{ n.grade }}</span></td>
+          <td>{{ n.games }}</td>
+          <td>{{ n.squad_record }}</td>
+          <td class="{{ 'heat-excellent' if n.win_pct >= 55 else ('heat-poor' if n.win_pct < 45 else '') }}">{{ n.win_pct_str }}</td>
+          <td>{{ n.avg_kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr><td colspan="6" class="empty">Not enough repeat opponents yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Most Faced</h2>
+  <p class="muted">The opponents you've crossed paths with most often.</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Opponent</th><th title="Matchup grade — higher = your squad fares better against them">Grade</th><th>Met</th><th>Squad Record</th><th>Squad Win %</th></tr></thead>
+      <tbody>
+        {% for n in most_faced %}
+        <tr>
+          <td><strong>{{ n.gamertag }}</strong></td>
+          <td><span class="inline-grade {{ n.grade_class }}" title="{{ n.grade_tip }}">{{ n.grade }}</span></td>
+          <td>{{ n.games }}</td>
+          <td>{{ n.squad_record }}</td>
+          <td>{{ n.win_pct_str }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if nemesis_breakdown %}
+<section class="panel">
+  <h2>💀 Who They Wreck — Per Player</h2>
+  <p class="muted">How each of you fares vs each nemesis (worst KDA first).</p>
+  <div class="nem-bd-grid">
+    {% for o in nemesis_breakdown %}
+    <div class="nem-bd-card">
+      <div class="nem-bd-head">
+        <span class="nem-bd-name">{{ o.opponent }}</span>
+        <span class="nem-bd-rec muted">squad {{ o.squad_record }} · {{ o.win_pct_str }}</span>
+      </div>
+      <table class="nem-bd-table">
+        <tbody>
+          {% for p in o.players %}
+          <tr>
+            <td><a href="{{ p.player|player_href }}" class="player-name {{ p.css }}">{{ p.player }}</a></td>
+            <td class="nem-bd-rec2">{{ p.record }}</td>
+            <td class="nem-bd-kda">{{ p.avg_kda }} <span class="muted">KDA · {{ p.games }}g</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+<style>
+.nem-bd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.nem-bd-card { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 12px; }
+.nem-bd-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.nem-bd-name { font-weight: 700; }
+.nem-bd-rec { font-size: 0.72rem; white-space: nowrap; }
+.nem-bd-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.nem-bd-table td { padding: 3px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.nem-bd-rec2 { text-align: center; font-variant-numeric: tabular-nums; color: var(--muted, #9a8f82); }
+.nem-bd-kda { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+[data-theme="light"] .nem-bd-card { background: #fff4f1; border-color: #f0c8c0; }
+</style>

@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Live Session - {{ app_title }}{% endblock %}
+
+{% block content %}
+<div class="sl-page {{ 'sl-watch' if live.streams else 'sl-stats-only' }}">
+<div class="sl-mobile-actions" aria-label="Live controls">
+  <button class="sl-drawer-btn sl-drawer-stats" type="button" data-drawer="stats">Stats</button>
+  {% if live.streams %}<button class="sl-drawer-btn sl-drawer-chat" type="button" data-drawer="chat">Chat</button>{% endif %}
+</div>
+<button class="sl-drawer-backdrop" type="button" aria-label="Close panel"></button>
+<section class="panel sl-hero {{ 'sl-on' if live.live else 'sl-off' }}">
+  <div class="sl-hero-top">
+    <div class="sl-live-badge">{% if live.live %}<span class="sl-dot"></span> LIVE{% else %}◍ IDLE{% endif %}</div>
+    <div class="sl-hero-title">
+      {% if live.live %}<strong>{{ live.live_count }} online</strong> · in a {{ live.kind }} session{% else %}No one's playing right now — showing the last session{% endif %}
+    </div>
+    <span class="sl-refresh" id="sl-refresh">checking for new games</span>
+    {% if live.streams %}<button class="btn btn-small sl-drawer-btn sl-hero-stats-btn" data-drawer="stats" type="button" title="Show live player stats">📊 Stats</button>{% endif %}
+    <a href="/?stay=1" class="btn btn-small sl-dash-link" title="Back to the dashboard">🏠 Dashboard</a>
+  </div>
+  {% if live.has_data %}
+  <div class="sl-hero-stats">
+    <div class="sl-hs"><span>Record</span><strong class="{{ 'rec-pos' if live.wins > live.losses else ('rec-neg' if live.losses > live.wins else '') }}">{{ live.wins }}–{{ live.losses }}</strong></div>
+    <div class="sl-hs"><span>Win%</span><strong>{{ live.win_pct }}</strong></div>
+    <div class="sl-hs"><span>Games</span><strong>{{ live.game_count }}</strong></div>
+    {% if live.session_rank %}<div class="sl-hs"><span>Night rank</span><strong>#{{ live.session_rank.rank }}/{{ live.session_rank.total }}</strong></div>{% endif %}
+    <div class="sl-hs"><span>{{ 'Last game' if live.live else 'Session' }}</span><strong>{{ live.ago if live.live else live.session_date }}</strong></div>
+  </div>
+  {% endif %}
+</section>
+
+{% if live.streams %}
+<section class="panel sl-streams-panel" id="sl-streams-panel" data-channels="{{ live.streams|map(attribute='channel')|join(',') }}">
+  <div class="sl-streams-head">📺 {{ 'Live on Twitch — watch along with the stats' if live.live else 'Streaming now' }}
+    <span class="sl-streams-note">embeds need the site's domain — on LAN IPs you get links instead</span>
+  </div>
+  <div class="sl-watch-stage">
+    <div class="sl-streams sl-streams-{{ live.streams|length }}">
+      {% for s in live.streams %}
+      <div class="sl-stream">
+        <div class="sl-stream-meta">
+          <span class="player-name {{ s.css }}">{{ s.gamertag }}</span>
+          <span class="sl-stream-title">{{ s.title }}</span>
+          {% if s.viewers is not none %}<span class="sl-stream-viewers">👁 {{ s.viewers }}</span>{% endif %}
+        </div>
+        <div class="sl-stream-frame" data-channel="{{ s.channel }}"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <aside class="sl-chat-panel" data-active-channel="{{ live.streams[0].channel }}">
+      <div class="sl-chat-bar">
+        <div class="sl-chat-tabs" aria-label="Twitch chat channels">
+          {% for s in live.streams %}
+          <button class="sl-chat-tab {{ 'active' if loop.first else '' }}" type="button" data-channel="{{ s.channel }}">{{ s.gamertag }}</button>
+          {% endfor %}
+        </div>
+        <button class="sl-chat-embed" type="button" title="Try embedded chat">in</button>
+        <a class="sl-chat-popout" href="https://www.twitch.tv/popout/{{ live.streams[0].channel }}/chat?popout=" target="halo_twitch_chat" rel="noopener" title="Open Twitch chat in a logged-in first-party Twitch window">↗</a>
+      </div>
+      <div class="sl-chat-frame" data-channel="{{ live.streams[0].channel }}"></div>
+    </aside>
+  </div>
+</section>
+{% endif %}
+
+<section class="sl-stats-pane" id="sl-stats-pane">
+{% if not live.has_data %}
+<section class="panel"><p class="empty">No recent session data yet.</p></section>
+{% else %}
+<div class="sl-session-strip">
+  <span><b>{{ live.wins }}-{{ live.losses }}</b> record</span>
+  <span><b>{{ live.win_pct }}</b> win</span>
+  <span><b>{{ live.game_count }}</b> games</span>
+  <span><b>{{ live.kind }}</b> session</span>
+  {% if live.session_rank %}<span><b>#{{ live.session_rank.rank }}/{{ live.session_rank.total }}</b> night</span>{% endif %}
+  <span><b>{{ live.ago if live.live else live.session_date }}</b></span>
+</div>
+
+<div class="sl-grid">
+  {% for p in live.players %}
+  <section class="panel sl-card {{ 'sl-card-live' if p.is_live else '' }} {{ p.grade_class }}">
+    <div class="sl-card-head">
+      <span class="grade-badge {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span>
+      <div class="sl-name-wrap">
+        <a href="{{ p.player|player_href }}" class="player-name {{ p.css }} sl-name">{{ p.player }}</a>
+        <span class="sl-status">{% if p.is_live %}<span class="sl-dot sl-dot-sm"></span> playing · last game {{ p.ago }}{% else %}idle{% endif %}</span>
+      </div>
+      <div class="sl-csr">
+        <strong>{{ p.current_csr }}</strong>
+        <span class="{{ 'rec-pos' if '+' in (p.csr_delta|string) else ('rec-neg' if '-' in (p.csr_delta|string) else '') }}">CSR {{ p.csr_delta }}</span>
+      </div>
+    </div>
+
+    <div class="sl-record">{{ p.wins }}W · {{ p.games }}G · {{ p.win_pct }}</div>
+
+    <div class="sl-stats">
+      <div class="sl-stat sl-big"><span>KDA</span><strong>{{ p.kda }}</strong></div>
+      <div class="sl-stat"><span>K/D/A</span><strong>{{ p.kills }}/{{ p.deaths }}/{{ p.assists }}</strong></div>
+      <div class="sl-stat"><span>Acc</span><strong>{{ p.accuracy }}</strong></div>
+      <div class="sl-stat"><span>Dmg±/g</span><strong>{{ p.dmg_diff_pg }}</strong></div>
+      <div class="sl-stat"><span>Dmg/m</span><strong>{{ p.dmg_per_min }}</strong></div>
+      <div class="sl-stat"><span>KDA/min</span><strong>{{ p.kda_min }}</strong></div>
+      <div class="sl-stat"><span>Life</span><strong>{{ p.avg_life }}</strong></div>
+      <div class="sl-stat"><span>ObjSc</span><strong>{{ p.obj_score }}</strong></div>
+      <div class="sl-stat"><span>Sc%</span><strong>{{ p.score_pct }}</strong></div>
+      <div class="sl-stat"><span>✨/g</span><strong>{{ p.perfect_pg }}</strong></div>
+    </div>
+
+    {% if p.game_grades %}
+    <div class="sl-games">
+      <span class="sl-games-label">Games</span>
+      <span class="sl-pips">
+        {% for g in p.game_grades %}<span class="sl-pip {{ g.grade_class }}{{ ' sl-pip-win' if g.won else ' sl-pip-loss' }}" title="G{{ g.num }} · {{ g.map }} · {{ g.mode }} · {{ g.result }} · KDA {{ g.kda }} · {{ g.grade }}{% if g.watch %} · {{ g.watch_reason }}{% endif %}">{{ g.grade }}</span>{% endfor %}
+      </span>
+    </div>
+    {% endif %}
+
+    <div class="sl-hilo">
+      {% if p.best_game %}<span class="sl-hi" title="Best game">▲ G{{ p.best_game.num }} {{ p.best_game.map }} · {{ p.best_game.grade }} ({{ p.best_game.kda }} KDA)</span>{% endif %}
+      {% if p.worst_game and p.worst_game.num != p.best_game.num %}<span class="sl-lo" title="Worst game">▼ G{{ p.worst_game.num }} {{ p.worst_game.map }} · {{ p.worst_game.grade }} ({{ p.worst_game.kda }} KDA)</span>{% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+</section>
+</div>
+
+<script>
+(function () {
+  window.haloLiveStreamKey = {{ live.stream_key|default('')|tojson|safe }};
+  window.haloLiveStreamPollSeconds = {{ live.stream_poll_seconds|default(5)|tojson|safe }};
+  window.haloDisableGlobalRefresh = true;
+  function syncWatchMode(root) {
+    var page = (root || document).querySelector('.sl-page');
+    document.body.classList.toggle('live-watch-mode', !!(page && page.classList.contains('sl-watch')));
+  }
+  function closeDrawers() {
+    document.body.classList.remove('sl-stats-open', 'sl-chat-open');
+  }
+  function openDrawer(which) {
+    var statsWasOpen = document.body.classList.contains('sl-stats-open');
+    var chatWasOpen = document.body.classList.contains('sl-chat-open');
+    document.body.classList.toggle('sl-stats-open', which === 'stats' && !statsWasOpen);
+    document.body.classList.toggle('sl-chat-open', which === 'chat' && !chatWasOpen);
+  }
+  syncWatchMode(document);
+  // ── Twitch embeds ────────────────────────────────────────────────────
+  // Built client-side because the player needs parent=<page hostname>, and
+  // Twitch only accepts real domains — on a LAN IP we fall back to links.
+  function buildStreams(root) {
+    var host = location.hostname;
+    var isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+    (root || document).querySelectorAll('.sl-stream-frame').forEach(function (f) {
+      if (f.dataset.built) return;
+      f.dataset.built = '1';
+      var ch = f.dataset.channel;
+      if (isIp) {
+        f.innerHTML = '<a class="sl-stream-link" href="https://twitch.tv/' + ch +
+          '" target="_blank" rel="noopener">▶ twitch.tv/' + ch + '</a>';
+        return;
+      }
+      var ifr = document.createElement('iframe');
+      ifr.src = 'https://player.twitch.tv/?channel=' + encodeURIComponent(ch) +
+        '&parent=' + encodeURIComponent(host) + '&muted=true&autoplay=true';
+      ifr.allowFullscreen = true;
+      ifr.setAttribute('allow', 'autoplay; fullscreen');
+      f.appendChild(ifr);
+    });
+  }
+  function setChatChannel(ch) {
+    var panel = document.querySelector('.sl-chat-panel');
+    var frame = document.querySelector('.sl-chat-frame');
+    if (!panel || !frame || !ch) return;
+    panel.dataset.activeChannel = ch;
+    try { localStorage.setItem('haloLiveChatChannel', ch); } catch (_) {}
+    var pop = document.querySelector('.sl-chat-popout');
+    if (pop) pop.href = 'https://www.twitch.tv/popout/' + encodeURIComponent(ch) + '/chat?popout=';
+    frame.dataset.channel = ch;
+    frame.dataset.built = '';
+    frame.innerHTML = '';
+    document.querySelectorAll('.sl-chat-tab').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.channel === ch);
+    });
+    buildChat(document);
+  }
+  function buildChat(root) {
+    var wrap = (root || document).querySelector('.sl-chat-frame');
+    if (!wrap || wrap.dataset.built) return;
+    wrap.dataset.built = '1';
+    var host = location.hostname;
+    var isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost';
+    var ch = wrap.dataset.channel || '';
+    if (!ch) return;
+    var popUrl = 'https://www.twitch.tv/popout/' + encodeURIComponent(ch) + '/chat?popout=';
+    var mode = 'popout';
+    try { mode = localStorage.getItem('haloLiveChatMode') || 'popout'; } catch (_) {}
+    if (mode !== 'embed') {
+      wrap.innerHTML = '<div class="sl-chat-persist"><a class="sl-chat-open-link" href="' + popUrl +
+        '" target="halo_twitch_chat" rel="noopener">Open persistent Twitch chat</a>' +
+        '<button class="sl-chat-use-embed" type="button">Embed here</button></div>';
+      return;
+    }
+    if (isIp) {
+      wrap.innerHTML = '<a class="sl-stream-link" href="' + popUrl +
+        '" target="halo_twitch_chat" rel="noopener">Open ' + ch + ' chat</a>';
+      return;
+    }
+    var ifr = document.createElement('iframe');
+    ifr.src = 'https://www.twitch.tv/embed/' + encodeURIComponent(ch) +
+      '/chat?parent=' + encodeURIComponent(host) + '&darkpopout';
+    ifr.setAttribute('title', ch + ' Twitch chat');
+    wrap.appendChild(ifr);
+  }
+  function syncStreamPanel(curP, neuP) {
+    if (!curP && neuP) {
+      var hero = document.querySelector('.sl-hero');
+      if (hero) hero.after(neuP);
+      buildStreams(document);
+      buildChat(document);
+      return;
+    }
+    if (curP && !neuP) {
+      curP.remove();
+      return;
+    }
+    if (!curP || !neuP) return;
+
+    var curGrid = curP.querySelector('.sl-streams');
+    var neuGrid = neuP.querySelector('.sl-streams');
+    if (curGrid && neuGrid) {
+      curGrid.className = neuGrid.className;
+      var wanted = {};
+      neuGrid.querySelectorAll('.sl-stream-frame').forEach(function (f) {
+        wanted[f.dataset.channel] = f.closest('.sl-stream');
+      });
+      curGrid.querySelectorAll('.sl-stream').forEach(function (stream) {
+        var ch = stream.querySelector('.sl-stream-frame')?.dataset.channel;
+        if (ch && !wanted[ch]) stream.remove();
+      });
+      Object.keys(wanted).forEach(function (ch) {
+        if (!curGrid.querySelector('.sl-stream-frame[data-channel="' + ch + '"]')) {
+          curGrid.appendChild(wanted[ch].cloneNode(true));
+        }
+      });
+      buildStreams(document);
+    }
+
+    var curTabs = curP.querySelector('.sl-chat-tabs');
+    var neuTabs = neuP.querySelector('.sl-chat-tabs');
+    if (curTabs && neuTabs) curTabs.replaceWith(neuTabs);
+    var active = curP.querySelector('.sl-chat-panel')?.dataset.activeChannel || '';
+    var channels = Array.from(curP.querySelectorAll('.sl-chat-tab')).map(function (b) { return b.dataset.channel; });
+    if (!channels.includes(active)) active = channels[0] || '';
+    if (active) setChatChannel(active);
+  }
+  buildStreams(document);
+  buildChat(document);
+  try {
+    var savedChat = localStorage.getItem('haloLiveChatChannel');
+    var hasSaved = false;
+    document.querySelectorAll('.sl-chat-tab').forEach(function (b) {
+      if (b.dataset.channel === savedChat) hasSaved = true;
+    });
+    if (savedChat && hasSaved) {
+      setChatChannel(savedChat);
+    }
+  } catch (_) {}
+  document.addEventListener('click', function (e) {
+    var tab = e.target.closest('.sl-chat-tab');
+    if (tab) setChatChannel(tab.dataset.channel);
+    var drawerBtn = e.target.closest('.sl-drawer-btn');
+    if (drawerBtn) openDrawer(drawerBtn.dataset.drawer);
+    if (e.target.closest('.sl-drawer-backdrop')) closeDrawers();
+    if (e.target.closest('.sl-chat-popout')) {
+      try { localStorage.setItem('haloLiveChatMode', 'popout'); } catch (_) {}
+    }
+    if (e.target.closest('.sl-chat-embed') || e.target.closest('.sl-chat-use-embed')) {
+      try { localStorage.setItem('haloLiveChatMode', 'embed'); } catch (_) {}
+      var frame = document.querySelector('.sl-chat-frame');
+      if (frame) { frame.dataset.built = ''; frame.innerHTML = ''; buildChat(document); }
+    }
+  });
+
+  // ── Auto-refresh ─────────────────────────────────────────────────────
+  // Fetch + swap the stats (hero + player grid) instead of a full reload so
+  // the stream embeds keep playing. The streams panel is only rebuilt when
+  // the set of live channels actually changes.
+  var refreshing = false, livePoll = null;
+  function refreshStats() {
+    if (refreshing) return;
+    refreshing = true;
+    fetch(location.href, { cache: 'no-store' }).then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var curPage = document.querySelector('.sl-page'), neuPage = doc.querySelector('.sl-page');
+        if (curPage && neuPage) curPage.className = neuPage.className;
+        ['.sl-hero', '.sl-stats-pane'].forEach(function (sel) {
+          var cur = document.querySelector(sel), neu = doc.querySelector(sel);
+          if (cur && neu) cur.replaceWith(neu);
+          else if (cur && !neu) cur.remove();
+        });
+        var curP = document.getElementById('sl-streams-panel');
+        var neuP = doc.getElementById('sl-streams-panel');
+        var curCh = curP ? curP.dataset.channels : '';
+        var neuCh = neuP ? neuP.dataset.channels : '';
+        if (curCh !== neuCh) syncStreamPanel(curP, neuP);
+        window.haloLiveStreamKey = neuCh;
+        syncWatchMode(document);
+        refreshing = false;
+      })
+      .catch(function () { refreshing = false; });
+  }
+  window.haloRefreshStats = refreshStats;
+  function pollLiveVersion() {
+    var url = '/api/live-version?count=' + encodeURIComponent(window.haloInitialRowCount || 0) +
+      '&streams=' + encodeURIComponent(window.haloLiveStreamKey || '') + '&_=' + Date.now();
+    fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) {
+          if (data.changed) {
+            window.haloInitialRowCount = data.count || window.haloInitialRowCount;
+            window.haloLiveStreamKey = data.stream_key || '';
+            refreshStats();
+          }
+          var secs = Number(data.poll_seconds || window.haloLiveStreamPollSeconds || 5);
+          livePoll = setTimeout(pollLiveVersion, Math.max(2000, secs * 1000));
+        } else {
+          livePoll = setTimeout(pollLiveVersion, 7000);
+        }
+      })
+      .catch(function () { livePoll = setTimeout(pollLiveVersion, 7000); });
+  }
+  livePoll = setTimeout(pollLiveVersion, Math.max(2000, Number(window.haloLiveStreamPollSeconds || 5) * 1000));
+  // Pause checks while hidden; when shown, check the tiny version endpoint,
+  // not the full stats HTML.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (livePoll) clearTimeout(livePoll);
+    } else {
+      pollLiveVersion();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeDrawers();
+  });
+})();
+</script>
+{% endblock %}

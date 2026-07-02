@@ -1,0 +1,703 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player_name }} - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel player-header">
+  <div class="player-info">
+    <h1>{{ player_name }}</h1>
+    <div class="player-status">
+      <span class="status-dot {% if is_online %}online{% endif %}"></span>
+      {% if is_online %}Online{% else %}Offline{% endif %}
+    </div>
+    <a class="btn btn-small" href="{{ player_name|player_card_href }}" target="_blank" rel="noopener" title="Open a shareable stat card image">📸 Share Card</a>
+  </div>
+  <div class="player-csr-card">
+    <div class="csr-display">
+      <span class="csr-label">Current CSR</span>
+      <span class="csr-value">{{ current_csr }}</span>
+    </div>
+    <div class="csr-display">
+      <span class="csr-label">Peak CSR</span>
+      <span class="csr-value peak">{{ max_csr }}</span>
+    </div>
+    <div class="csr-display">
+      <span class="csr-label">Win Streak</span>
+      <span class="csr-value {% if current_streak > 0 %}streak-win{% elif current_streak < 0 %}streak-loss{% endif %}">
+        {% if current_streak > 0 %}🔥 {{ current_streak }}W{% elif current_streak < 0 %}❄️ {{ current_streak|abs }}L{% else %}—{% endif %}
+      </span>
+    </div>
+  </div>
+</section>
+
+<div class="tab-bar" role="tablist">
+  <button class="tab-btn active" type="button" data-tab="overview">Overview</button>
+  <button class="tab-btn" type="button" data-tab="matches">Matches</button>
+  <button class="tab-btn" type="button" data-tab="objective">Objective</button>
+  <button class="tab-btn" type="button" data-tab="gunplay">Gunplay</button>
+  <button class="tab-btn" type="button" data-tab="maps">Maps</button>
+  <button class="tab-btn" type="button" data-tab="form">Form</button>
+</div>
+
+<div class="player-tabs">
+<div class="tab-pane active" id="tab-overview">
+
+{% if scouting and (scouting.role or scouting.opp) %}
+<section class="panel">
+  <div class="report-card">
+    {% if scouting.role %}
+    <div class="mvp-card" style="flex:1 1 240px">
+      <span class="mvp-card-label">🎯 Play Role</span>
+      <div class="mvp-card-body"><div class="mvp-card-info">
+        <strong style="font-size:1.15rem">{{ scouting.role }}</strong>
+        <span class="muted">{{ scouting.role_detail }}</span>
+      </div></div>
+    </div>
+    {% endif %}
+    {% if scouting.opp %}
+    <div class="mvp-card tone-{{ scouting.opp.tone }}" style="flex:1 1 240px">
+      <span class="mvp-card-label">🛡️ Strength of Opposition</span>
+      <div class="mvp-card-body"><div class="mvp-card-info">
+        <strong style="font-size:1.15rem">{{ scouting.opp.label }}</strong>
+        <span class="muted">avg enemy KDA faced: {{ scouting.opp.avg_enemy_kda }}</span>
+      </div></div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if report_card %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>Performance Report Card</h2>
+    <p class="muted">Absolute grades from {{ report_card.games }} ranked games.</p>
+  </div>
+  {% from "_grade_help.html" import grade_legend %}{{ grade_legend() }}
+  <div class="report-card">
+    <div class="report-card-overall">
+      <span class="report-card-overall-grade grade-badge {{ report_card.overall.grade_class }}" title="Overall skill grade (absolute): {{ report_card.overall.score }}/100 — weighted Slaying/KDA 35%, Impact/damage 25%, Gunplay/accuracy 20%, Survival 10%, Medals 10%. From {{ report_card.games }} ranked games.">{{ report_card.overall.grade }}</span>
+      <span class="report-card-overall-label">Overall</span>
+      <span class="report-card-overall-score">{{ report_card.overall.score }}/100</span>
+    </div>
+    <div class="report-card-cats">
+      {% for cat in report_card.categories %}
+      <div class="report-card-cat" title="{{ cat.label }}: {{ cat.score }}/100 ({{ cat.detail }})">
+        <span class="report-card-cat-grade inline-grade {{ cat.grade_class }}">{{ cat.grade }}</span>
+        <span class="report-card-cat-label">{{ cat.label }}</span>
+        <span class="report-card-cat-detail">{{ cat.detail }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if skill_perf and skill_perf.games %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>📈 Performance vs Skill Bracket</h2>
+  </div>
+  <p class="muted" style="margin:0 0 12px">How {{ player_name }} actually performs vs what the Halo matchmaking model <em>expects</em> from a player of their skill — over {{ skill_perf.games }} ranked game{{ 's' if skill_perf.games != 1 else '' }} with skill data (backfilling).</p>
+  <div class="skp-grid">
+    <div class="skp-card {{ 'skp-good' if skill_perf.perf_index > 0 else ('skp-bad' if skill_perf.perf_index < 0 else '') }}">
+      <span class="skp-label">Overperformance / game</span>
+      <span class="skp-big">{{ '%+.1f'|format(skill_perf.perf_index) }}</span>
+      <span class="skp-sub">net kills+deaths vs expected</span>
+    </div>
+    <div class="skp-card {{ 'skp-good' if skill_perf.kills_delta > 0 else ('skp-bad' if skill_perf.kills_delta < 0 else '') }}">
+      <span class="skp-label">Kills vs expected</span>
+      <span class="skp-big">{{ '%+.1f'|format(skill_perf.kills_delta) }}</span>
+      <span class="skp-sub">{{ skill_perf.actual_kills }} actual · {{ skill_perf.expected_kills }} expected</span>
+    </div>
+    <div class="skp-card {{ 'skp-good' if skill_perf.deaths_delta < 0 else ('skp-bad' if skill_perf.deaths_delta > 0 else '') }}">
+      <span class="skp-label">Deaths vs expected</span>
+      <span class="skp-big">{{ '%+.1f'|format(skill_perf.deaths_delta) }}</span>
+      <span class="skp-sub">{{ skill_perf.actual_deaths }} actual · {{ skill_perf.expected_deaths }} expected</span>
+    </div>
+    <div class="skp-card">
+      <span class="skp-label">Beat expected kills</span>
+      <span class="skp-big">{{ skill_perf.beat_kills_pct }}%</span>
+      <span class="skp-sub">of games above their bracket</span>
+    </div>
+    {% if skill_perf.team_mmr %}
+    <div class="skp-card">
+      <span class="skp-label">Avg lobby MMR</span>
+      <span class="skp-big">{{ skill_perf.team_mmr }}</span>
+      <span class="skp-sub">team {{ skill_perf.team_mmr }} · enemy {{ skill_perf.enemy_mmr }}{% if skill_perf.mmr_gap is not none %} ({{ '%+d'|format(skill_perf.mmr_gap) }}){% endif %}</span>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if coach_tip %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>Coach's Take</h2>
+    <span class="muted">Weakest area: {{ coach_tip.category }} <span class="inline-grade {{ coach_tip.grade_class }}">{{ coach_tip.grade }}</span></span>
+  </div>
+  <p style="margin:0 0 10px">{{ coach_tip.tip }}</p>
+  <div>
+    <button class="btn btn-small" id="coachAiBtn" data-player="{{ player_name }}" type="button">🤖 Get AI deep-dive</button>
+  </div>
+  <div id="coachAiOut" style="display:none;white-space:pre-wrap;margin-top:12px;color:var(--ink);background:var(--panel-strong);border:1px solid var(--border);border-radius:10px;padding:12px"></div>
+</section>
+{% endif %}
+
+{% if achievements %}
+<section class="panel">
+  <h2>Achievements</h2>
+  <div class="badge-grid">
+    {% for a in achievements %}
+    <div class="badge-tile {{ 'earned' if a.earned else 'locked' }}" title="{{ a.desc }} — {{ a.detail }}">
+      <span class="badge-icon">{{ a.icon }}</span>
+      <span class="badge-name">{{ a.name }}</span>
+      <span class="badge-detail">{{ a.detail }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if grade_trend and grade_trend|length > 1 %}
+<section class="panel">
+  <h2>Game Grade Trend</h2>
+  <p class="muted">Average absolute Game Grade per session — your form over time.</p>
+  <div class="chart-container">
+    <canvas id="gradeTrendChart"></canvas>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>CSR History</h2>
+  {% if last_session.grade %}
+  <div class="chart-grade-strip">
+    <span class="chart-grade-pill" title="{{ last_session.grade_tip|default('Last session grade') }}">
+      Last session <span class="inline-grade {{ last_session.grade_class }}">{{ last_session.grade }}</span>
+      <strong>{{ last_session.games }}</strong> games
+    </span>
+    <span class="chart-grade-pill">KDA <strong>{{ last_session.kda }}</strong></span>
+    <span class="chart-grade-pill">CSR Δ <strong>{{ last_session.csr_delta }}</strong></span>
+  </div>
+  {% endif %}
+  <div class="chart-container">
+    <canvas id="csrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win % Correlation</h2>
+  <p class="muted">Top 20 stats correlated with winning. Sorted by impact.</p>
+  {% if comparison.trend %}
+  <div class="chart-grade-strip">
+    <span class="chart-grade-pill">Trend <strong>{{ comparison.trend|title }}</strong></span>
+    <span class="chart-grade-pill">Win % Δ <strong class="{{ comparison.win_pct_class }}">{{ comparison.win_pct_diff }}</strong></span>
+    <span class="chart-grade-pill">KDA Δ <strong class="{{ comparison.kda_class }}">{{ comparison.kda_diff }}</strong></span>
+  </div>
+  {% endif %}
+  <div class="chart-container" style="height: 420px;">
+    <canvas id="playerWinCorrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Session Comparison</h2>
+  <div class="comparison-grid">
+    <div class="comparison-card">
+      <h3>Last Session</h3>
+      <div class="stat-row">
+        <span>Games</span>
+        <span>{{ last_session.games }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Win %</span>
+        <span class="{{ last_session.win_pct_heat }}">{{ last_session.win_pct }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA</span>
+        <span class="{{ last_session.kda_heat }}">{{ last_session.kda }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Accuracy</span>
+        <span class="{{ last_session.accuracy_heat }}">{{ last_session.accuracy }}</span>
+      </div>
+      <div class="stat-row">
+        <span>CSR Change</span>
+        <span class="{{ last_session.csr_delta_heat }}">{{ last_session.csr_delta }}</span>
+      </div>
+    </div>
+    <div class="comparison-card">
+      <h3>30-Day Average</h3>
+      <div class="stat-row">
+        <span>Games</span>
+        <span>{{ avg_30day.games }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Win %</span>
+        <span class="{{ avg_30day.win_pct_heat }}">{{ avg_30day.win_pct }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA</span>
+        <span class="{{ avg_30day.kda_heat }}">{{ avg_30day.kda }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Accuracy</span>
+        <span class="{{ avg_30day.accuracy_heat }}">{{ avg_30day.accuracy }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Avg CSR/Session</span>
+        <span>{{ avg_30day.avg_csr_change }}</span>
+      </div>
+    </div>
+    <div class="comparison-card {% if comparison.trend == 'up' %}trend-up{% elif comparison.trend == 'down' %}trend-down{% endif %}">
+      <h3>Trend</h3>
+      <div class="trend-indicator">
+        {% if comparison.trend == 'up' %}
+          <span class="trend-arrow">📈</span>
+          <span>Improving</span>
+        {% elif comparison.trend == 'down' %}
+          <span class="trend-arrow">📉</span>
+          <span>Declining</span>
+        {% else %}
+          <span class="trend-arrow">➡️</span>
+          <span>Stable</span>
+        {% endif %}
+      </div>
+      <div class="stat-row">
+        <span>Win % Change</span>
+        <span class="{{ comparison.win_pct_class }}">{{ comparison.win_pct_diff }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA Change</span>
+        <span class="{{ comparison.kda_class }}">{{ comparison.kda_diff }}</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /tab-overview -->
+<div class="tab-pane" id="tab-matches">
+
+<section class="panel">
+  <h2>Recent Matches</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="player-matches">
+      <thead>
+        <tr>
+          <th title="Match date and time">Date</th>
+          <th title="Absolute single-game grade (KDA, accuracy & damage)">Grade</th>
+          <th title="Game mode">Mode</th>
+          <th title="Map played">Map</th>
+          <th title="Match result">Result</th>
+          <th title="Kills">K</th>
+          <th title="Deaths">D</th>
+          <th title="Assists">A</th>
+          <th title="Kill/Death/Assist ratio">KDA</th>
+          <th title="KDA per minute — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+          <th title="Shot accuracy percentage">Acc</th>
+          <th title="CSR before match">Pre</th>
+          <th title="CSR after match">Post</th>
+          <th title="CSR change">Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if match_history %}
+        {% for match in match_history %}
+        <tr class="expandable-row" data-match-id="{{ match.match_id }}">
+          <td>{{ match.date }}{% set _w = watch_url(match.match_id) %}{% if _w %} <a href="{{ _w }}" target="_blank" rel="noopener" class="watch-ico" onclick="event.stopPropagation()" title="Watch the synced co-stream rewatch (MultiTwitch)">📺</a>{% endif %}</td>
+          <td><span class="inline-grade {{ match.grade_class }}" title="{{ match.grade_tip }}">{{ match.grade }}</span></td>
+          <td>{{ match.game_type }}</td>
+          <td>{{ match.map }}</td>
+          <td><span class="pill {{ match.outcome_class }}">{{ match.outcome }}</span></td>
+          <td class="{{ match.kills_heat }}">{{ match.kills }}</td>
+          <td class="{{ match.deaths_heat }}">{{ match.deaths }}</td>
+          <td class="{{ match.assists_heat }}">{{ match.assists }}</td>
+          <td class="{{ match.kda_heat }}">{{ match.kda }}</td>
+          <td>{{ match.kda_min }}</td>
+          <td>{{ match.obj_min }}</td>
+          <td class="{{ match.accuracy_heat }}">{{ match.accuracy }}</td>
+          <td>{{ match.pre_csr }}</td>
+          <td>{{ match.post_csr }}</td>
+          <td class="{{ match.csr_delta_heat }}">{{ match.csr_delta }}</td>
+        </tr>
+        <tr class="match-details hidden" id="details-{{ match.match_id }}">
+          <td colspan="13">
+            <div class="match-detail-grid">
+              <div class="detail-section">
+                <h4>Damage</h4>
+                <div class="detail-row"><span>Dealt:</span> <span>{{ match.damage_dealt }}</span></div>
+                <div class="detail-row"><span>Taken:</span> <span>{{ match.damage_taken }}</span></div>
+                <div class="detail-row"><span>Difference:</span> <span class="{{ match.dmg_diff_heat }}">{{ match.dmg_diff }}</span></div>
+              </div>
+              <div class="detail-section">
+                <h4>Gunplay</h4>
+                <div class="detail-row"><span>Shots Fired:</span> <span>{{ match.shots_fired }}</span></div>
+                <div class="detail-row"><span>Shots Hit:</span> <span>{{ match.shots_hit }}</span></div>
+                <div class="detail-row"><span>Headshots:</span> <span>{{ match.headshots }}</span></div>
+              </div>
+              <div class="detail-section">
+                <h4>Performance</h4>
+                <div class="detail-row"><span>Score:</span> <span>{{ match.score }}</span></div>
+                <div class="detail-row"><span>Medals:</span> <span>{{ match.medals }}</span></div>
+                <div class="detail-row"><span>Avg Life:</span> <span>{{ match.avg_life }}s</span></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="13" class="empty">No match history available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</div><!-- /tab-matches -->
+<div class="tab-pane" id="tab-objective">
+<section class="panel">
+  <h2>Objective Play</h2>
+  <p class="muted">Lifetime objective contribution (totals).</p>
+  {% if objective and objective.games %}
+  <div class="stat-grid">
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.ctf_caps }}</span><span class="stat-tile-lbl">CTF Captures</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.ctf_returns }}</span><span class="stat-tile-lbl">CTF Returns</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.ctf_carrier_kills }}</span><span class="stat-tile-lbl">Carrier Kills</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.oddball_grabs }}</span><span class="stat-tile-lbl">Oddball Grabs</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.oddball_ticks }}</span><span class="stat-tile-lbl">Oddball Ticks</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.sh_secures }}</span><span class="stat-tile-lbl">Zone Secures</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.sh_ticks }}</span><span class="stat-tile-lbl">Zone Ticks</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.extract_success }}</span><span class="stat-tile-lbl">Extractions</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ objective.avg_life }}</span><span class="stat-tile-lbl">Avg Life (s)</span></div>
+  </div>
+  {% else %}<p class="empty">No objective data yet.</p>{% endif %}
+</section>
+</div><!-- /tab-objective -->
+
+<div class="tab-pane" id="tab-gunplay">
+<section class="panel">
+  <h2>Gunplay</h2>
+  <p class="muted">Ranked shooting profile (lifetime totals).</p>
+  {% if gunplay and gunplay.player %}
+  <div class="stat-grid">
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.accuracy }}</span><span class="stat-tile-lbl">Accuracy</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.hs_pct }}</span><span class="stat-tile-lbl">Headshot %</span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.headshots_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">Headshot Kills <span class="tile-tot">({{ gunplay.headshots_total }})</span></span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.power_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">Power Wpn Kills <span class="tile-tot">({{ gunplay.power_total }})</span></span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.melee_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">Melee Kills <span class="tile-tot">({{ gunplay.melee_total }})</span></span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.grenades_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">Grenade Kills <span class="tile-tot">({{ gunplay.grenades_total }})</span></span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.snipe_medals_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">Snipe Medals <span class="tile-tot">({{ gunplay.snipe_medals_total }})</span></span></div>
+    <div class="stat-tile"><span class="stat-tile-val">{{ gunplay.no_scope_medals_pg }}<span class="tile-unit">/g</span></span><span class="stat-tile-lbl">No-Scope Medals <span class="tile-tot">({{ gunplay.no_scope_medals_total }})</span></span></div>
+  </div>
+  {% else %}<p class="empty">No gunplay data yet.</p>{% endif %}
+</section>
+{% if medal_fingerprint %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>Medal Fingerprint</h2>
+    <span class="grade-badge grade-s" title="Playstyle inferred from your most-earned medals">{{ medal_fingerprint.tag }}</span>
+  </div>
+  <p class="muted">Your most-earned medals (per game) reveal how you play.</p>
+  <div class="stat-grid">
+    {% for m in medal_fingerprint.top %}
+    <div class="stat-tile" title="{{ m.total }} total">
+      <span class="stat-tile-val">{{ m.per_game }}<span class="tile-unit">/g</span></span>
+      <span class="stat-tile-lbl">{{ m.name }} <span class="tile-tot">({{ m.total }})</span></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div><!-- /tab-gunplay -->
+
+<div class="tab-pane" id="tab-maps">
+<section class="panel">
+  <h2>Best Maps</h2>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead>
+        <tr>
+          <th>Map</th>
+          <th>Grade</th>
+          <th>Games</th>
+          <th title="Win percentage">Win %</th>
+          <th title="Average KDA on this map">Avg KDA</th>
+          <th title="KDA per minute — normalizes for game length">KDA/min</th>
+          <th title="Objective score per minute">OBJ/min</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if map_stats %}
+        {% for row in map_stats %}
+        <tr>
+          <td>{{ row.map }}</td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td>{{ row.kda_min }}</td>
+          <td>{{ row.obj_min }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty">No map data</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Teammate Synergy</h2>
+  <p class="muted">Performance when playing with other tracked players</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead>
+        <tr>
+          <th>Teammate</th>
+          <th>Grade</th>
+          <th title="Games played together">Games</th>
+          <th title="Win rate when playing together">Win %</th>
+          <th title="Your average KDA when playing with this teammate">Your KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if teammate_stats %}
+        {% for row in teammate_stats %}
+        <tr>
+          <td><a href="{{ row.teammate|player_href }}">{{ row.teammate }}</a></td>
+          <td><span class="inline-grade {{ row.grade_class }}" title="{{ row.grade_tip }}">{{ row.grade }}</span></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty">No teammate data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+</div><!-- /tab-maps -->
+
+<div class="tab-pane" id="tab-form">
+{% if form_heatmap and form_heatmap.grid %}
+<section class="panel">
+  <h2>When You Win</h2>
+  <p class="muted">Win rate by day &amp; time of day (cells show win% / games · KDA).</p>
+  <div class="table-wrap">
+    <table class="data-table heatmap-table">
+      <thead><tr><th>Day</th>{% for h in form_heatmap.hours %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in form_heatmap.grid %}
+        <tr>
+          <td><strong>{{ row.day }}</strong></td>
+          {% for c in row.cells %}
+          <td class="{{ c.heat }}">{% if c.games %}{{ c.win_pct }}<br><span class="muted">{{ c.games }}g · {{ c.kda }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% if form_heatmap and form_heatmap.by_position %}
+<section class="panel">
+  <h2>Do You Fall Off Late?</h2>
+  <p class="muted">Performance by how deep you are into a session.</p>
+  <div class="table-wrap">
+    <table class="data-table cards">
+      <thead><tr><th>Session Stretch</th><th>Grade</th><th>Games</th><th>Win %</th><th>Avg KDA</th></tr></thead>
+      <tbody>
+        {% for r in form_heatmap.by_position %}
+        <tr>
+          <td><strong>{{ r.label }}</strong></td>
+          <td><span class="inline-grade {{ r.grade_class }}" title="{{ r.grade_tip }}">{{ r.grade }}</span></td>
+          <td>{{ r.games }}</td>
+          <td class="{{ 'heat-excellent' if r.win_val >= 55 else ('heat-poor' if r.win_val < 45 else '') }}">{{ r.win_pct }}</td>
+          <td>{{ r.kda }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% if not (form_heatmap and (form_heatmap.grid or form_heatmap.by_position)) %}
+<section class="panel"><p class="empty">Not enough timestamped matches yet.</p></section>
+{% endif %}
+</div><!-- /tab-form -->
+
+</div><!-- /player-tabs -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Player tab switching
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-' + tab); });
+  });
+});
+
+// Coach AI deep-dive (on-demand so the page never blocks on the model)
+const coachBtn = document.getElementById('coachAiBtn');
+if (coachBtn) coachBtn.addEventListener('click', async function () {
+  const out = document.getElementById('coachAiOut');
+  coachBtn.disabled = true; coachBtn.textContent = '🤖 Thinking…';
+  out.style.display = 'block'; out.textContent = 'Asking the coach — this can take a few seconds…';
+  try {
+    const r = await fetch('/api/coach/player/' + encodeURIComponent(coachBtn.dataset.player));
+    const j = await r.json();
+    out.textContent = j.ok ? j.text : ('⚠ ' + (j.error || 'unavailable'));
+  } catch (e) { out.textContent = '⚠ request failed'; }
+  coachBtn.disabled = false; coachBtn.textContent = '🤖 Get AI deep-dive';
+});
+
+// CSR History Chart
+const csrData = {{ csr_history|tojson|safe }};
+if (csrData && csrData.length > 0) {
+  const ctx = document.getElementById('csrChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: csrData.map(d => d.date),
+      datasets: [{
+        label: 'CSR',
+        data: csrData.map(d => d.csr),
+        borderColor: '#3dbfb8',
+        backgroundColor: 'rgba(61, 191, 184, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return 'CSR: ' + context.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' }
+        }
+      }
+    }
+  });
+}
+
+// Game Grade Trend Chart
+const gradeTrend = {{ grade_trend|default([])|tojson|safe }};
+if (gradeTrend && gradeTrend.length > 1 && document.getElementById('gradeTrendChart')) {
+  const ctx = document.getElementById('gradeTrendChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: gradeTrend.map(d => d.date),
+      datasets: [{
+        label: 'Avg Game Grade',
+        data: gradeTrend.map(d => d.score),
+        borderColor: '#ff7a3d',
+        backgroundColor: 'rgba(255, 122, 61, 0.12)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: c => 'Grade: ' + c.parsed.y + '/100 (' + (gradeTrend[c.dataIndex].games) + ' games)'
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+
+const playerWinCorr = {{ player_win_corr|default([])|tojson|safe }};
+if (playerWinCorr && playerWinCorr.length > 0) {
+  const ctx = document.getElementById('playerWinCorrChart').getContext('2d');
+  const labels = playerWinCorr.map(row => row.stat);
+  const values = playerWinCorr.map(row => row.corr);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Correlation',
+        data: values,
+        backgroundColor: values.map(value => value >= 0 ? 'rgba(61, 191, 184, 0.6)' : 'rgba(255, 122, 61, 0.6)'),
+        borderColor: values.map(value => value >= 0 ? '#3dbfb8' : '#ff7a3d'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Corr: ${context.parsed.x.toFixed(3)}`
+          }
+        }
+      },
+      scales: {
+        x: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#9a8f82' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+
+// Expandable match rows
+document.querySelectorAll('.expandable-row').forEach(row => {
+  row.addEventListener('click', function() {
+    const matchId = this.dataset.matchId;
+    const details = document.getElementById('details-' + matchId);
+    if (details) {
+      details.classList.toggle('hidden');
+      this.classList.toggle('expanded');
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ snap.name }} - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <h2>📸 {{ snap.name }}</h2>
+    <p class="muted">
+      Saved {{ snap.created_at }}
+      {% if snap.date_from or snap.date_to %} · {{ snap.date_from or '—' }} → {{ snap.date_to or '—' }}{% endif %}
+      {% if snap.players %} · {% for p in snap.players %}<span class="player-name {{ p|player_class }}">{{ p }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+    </p>
+    {% if snap.notes %}<p>{{ snap.notes }}</p>{% endif %}
+  </div>
+  <p class="muted" style="font-size:0.8rem">
+    Shareable link:
+    <input type="text" value="{{ request.url }}" readonly class="form-input"
+           style="width:300px;font-size:0.75rem;display:inline-block"
+           onclick="this.select();document.execCommand('copy');"
+           title="Click to copy">
+  </p>
+</section>
+
+{% set payload = snap.payload %}
+
+{% if payload and payload.csr_overview %}
+<section class="panel">
+  <div class="panel-header"><h2>CSR Overview at Snapshot Time</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="snap-csr">
+      <thead><tr>
+        <th>Player</th><th>Session Start</th><th>CSR</th><th>Δ Session</th><th>7d</th><th>30d</th><th>90d</th>
+      </tr></thead>
+      <tbody>
+      {% for row in payload.csr_overview %}
+      <tr>
+        <td><span class="player-name {{ row.player|player_class }}">{{ row.player }}</span></td>
+        <td>{{ row.session_start_csr }}</td>
+        <td class="{{ row.current_csr_heat }}">{{ row.current_csr }}</td>
+        <td class="{{ row.session_csr_change_heat }}">{{ row.session_csr_change }}</td>
+        <td class="{{ row.delta_7_heat }}">{{ row.delta_7 }}</td>
+        <td class="{{ row.delta_30_heat }}">{{ row.delta_30 }}</td>
+        <td class="{{ row.delta_90_heat }}">{{ row.delta_90 }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No CSR data in this snapshot.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if payload and payload.ranked_30day %}
+<section class="panel">
+  <div class="panel-header"><h2>30-Day Stats at Snapshot Time</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="snap-30day">
+      <thead><tr>
+        <th>Player</th><th>CSR</th><th>Games</th><th>Win%</th>
+        <th>K</th><th>D</th><th>A</th><th>KDA</th>
+        <th>DMG+</th><th>DMG-</th><th>Acc.</th>
+      </tr></thead>
+      <tbody>
+      {% for row in payload.ranked_30day %}
+      <tr>
+        <td><span class="player-name {{ row.player|player_class }}">{{ row.player }}</span></td>
+        <td>{{ row.csr }}</td>
+        <td>{{ row.games }}</td>
+        <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}%</td>
+        <td>{{ row.kills }}</td><td>{{ row.deaths }}</td><td>{{ row.assists }}</td>
+        <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+        <td>{{ row.dmg_plus }}</td><td>{{ row.dmg_minus }}</td>
+        <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">No 30-day data in this snapshot.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if payload and payload.map_breakdown %}
+<section class="panel">
+  <div class="panel-header"><h2>Map Performance at Snapshot Time</h2></div>
+  <div class="table-wrap">
+    <table class="data-table" data-table="snap-maps">
+      <thead><tr><th>Map</th><th>Matches</th><th>Win Rate</th></tr></thead>
+      <tbody>
+      {% for row in payload.map_breakdown %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td>{{ row.count }}</td>
+        <td class="{{ row.win_rate_heat }}">{{ row.win_rate }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="empty">No map data.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<div style="margin-top:16px">
+  <a href="/snapshots" class="btn btn-small">← All Snapshots</a>
+</div>
+{% endblock %}
