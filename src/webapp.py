@@ -2902,6 +2902,8 @@ def build_player_solo_cards(df: pd.DataFrame) -> list[dict]:
             'hill_pg_secs': row['hill_pg_secs'],
             'hill_total': row['hill_total'],
             'csr_delta': row['csr_delta'],
+            'opp_mmr': (card.get('enemy_summary') or {}).get('enemy_mmr'),
+            'opp_gap': (card.get('enemy_summary') or {}).get('mmr_gap'),
         })
     cards.sort(key=lambda c: c['session_ts'], reverse=True)
     return cards
@@ -7464,6 +7466,7 @@ def _index_base_build(df: pd.DataFrame) -> dict:
     # Fast tier: the live-ish, per-game stuff (report card + grade chart + CSR).
     fast = {
         'squad_report_card': build_squad_report_card(df, mode='squad'),
+        'latest_report_card': build_squad_report_card(df, mode='latest'),
         'grade_timeline': build_grade_timeline(df, mode='squad'),
         'squad_skill_perf': build_squad_skill_performance(df),
         'csr_overview_rows': build_csr_overview(df),
@@ -9042,6 +9045,7 @@ def index():
                           session_highlights=session_highlights,
                           session_mvp=session_mvp,
                           squad_report_card=squad_card,
+                          latest_report_card=base.get('latest_report_card'),
                           session_list=session_list,
                           selected_sid=sel_sid,
                           prev_sid=prev_sid,

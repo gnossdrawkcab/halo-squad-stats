@@ -962,6 +962,11 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=docum
 
 {% if squad_report_card and squad_report_card.rows %}
 {{ render_report_card(squad_report_card, 'rc', '/report', '🗓️ Browse sessions →', true, ('Session Report Card' if single_session else 'Squad Session Report Card')) }}
+{% if latest_report_card and latest_report_card.rows and latest_report_card.sid
+      and latest_report_card.sid != squad_report_card.sid
+      and not single_session and not selected_sid %}
+{{ render_report_card(latest_report_card, 'rcsq', '/sessions', '🧍 Solo sessions →', false, 'Latest Session Report Card') }}
+{% endif %}
 {% if not single_session %}
 <div class="mobile-dashboard-links">
   <a class="btn btn-small" href="/report">Sessions</a>
@@ -1019,7 +1024,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=docum
       <span class="grade-badge {{ c.grade_class }}" title="{{ c.grade_tip }}">{{ c.grade }}</span>
       <span class="mobile-row-main">
         <strong class="player-name {{ c.css }}">{{ c.player }}</strong>
-        <span>{{ c.session_date }} · {{ c.games }}g · {{ c.record }} · ObjSc {{ c.obj_score }} · CSR {{ c.csr_delta }}</span>
+        <span>{{ c.session_date }} · {{ c.games }}g · {{ c.record }} · ObjSc {{ c.obj_score }} · CSR {{ c.csr_delta }}{% if c.opp_mmr %} · ⚔️ {{ c.opp_mmr }}{% endif %}</span>
       </span>
       <span class="mobile-row-side">
         <span>KDA</span>
@@ -1086,6 +1091,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=docum
           <th title="Perfect-kill medals per game">✨/g</th>
           <th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>
           <th title="CSR change across the session">CSR Δ</th>
+          <th title="Average enemy-lobby MMR faced that session (+/- vs our own rating)">⚔️ Faced</th>
           <th></th>
         </tr>
       </thead>
@@ -1104,6 +1110,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var d=docum
           <td title="{{ c.perfect_total }} perfect medals this session">{{ c.perfect_pg }}</td>
           <td title="{{ c.hill_total }} over {{ c.hill_games }} hill game{{ 's' if c.hill_games != 1 else '' }}">{{ c.hill_pg or '—' }}</td>
           <td>{{ c.csr_delta }}</td>
+          <td>{% if c.opp_mmr %}{{ c.opp_mmr }}{% if c.opp_gap is not none %} <span class="muted">({{ '%+d'|format(c.opp_gap) }})</span>{% endif %}{% else %}—{% endif %}</td>
           <td>{% if c.sid %}<a href="/session/{{ c.sid }}" class="btn btn-small">Full →</a>{% endif %}</td>
         </tr>
         {% endfor %}
