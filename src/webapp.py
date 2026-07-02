@@ -2811,6 +2811,21 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             if k != 'composite':
                 row[k + '_self'] = v
 
+        # Extra vs-365d-history percentiles for the Full Stat Table's cell
+        # tint (data-pct). Convention: 0 = bad → 100 = good, ALWAYS — deaths
+        # and damage-taken are inverted HERE (lower is better) so the JS can
+        # treat every data-pct identically. Squad pool only (no self toggle;
+        # the tint is a fixed vs-history reading, not a grading mode).
+        _xa = squad_arrays
+        row['kills_pctile']    = round(_percentile(r['kills_pg'],       _xa.get('kills', ())))
+        row['deaths_pctile']   = round(100 - _percentile(r['deaths_pg'], _xa.get('deaths', ())))
+        row['assists_pctile']  = round(_percentile(r['assists_pg'],     _xa.get('assists', ())))
+        row['kd1_pctile']      = round(_percentile(r['kd1'],            _xa.get('kd', ())))
+        row['acc_pctile']      = round(_percentile(r['accuracy'],       _xa.get('acc', ())))
+        row['dmgplus_pctile']  = round(_percentile(r['dmg_plus_pg'],    _xa.get('dmgplus', ())))
+        row['dmgminus_pctile'] = round(100 - _percentile(r['dmg_minus_pg'], _xa.get('dmgminus', ())))
+        row['perfect_pctile']  = round(_percentile(r['perfect_pg'],     _xa.get('perfect', ())))
+
         # Norm & form: the player's own 365d body of work (ALL their games,
         # not session-sliced), aggregated and graded on the same squad game
         # scale as tonight. form_delta = tonight's composite minus their norm.
@@ -2919,6 +2934,52 @@ def build_player_solo_cards(df: pd.DataFrame) -> list[dict]:
         })
     cards.sort(key=lambda c: c['session_ts'], reverse=True)
     return cards
+
+
+def build_solo_all_table(df: pd.DataFrame) -> dict:
+    """
+    The /solo Full Stat Table: ONE row per tracked player = that player's
+    LATEST SOLO session (the sessions differ in date, so each row carries
+    session_date/session_sid/session_games and the macro adds a Session
+    column). Rows are the full report-card rows — same fields and the same
+    vs-365d-solo-history data-pct tint as the squad table. obj_columns is the
+    UNION across the per-player cards (deduped by key); the macro guards
+    row.objs lookups with .get() since a given row may lack union columns.
+    """
+    out = {'rows': [], 'obj_columns': [], 'has_hill': False, 'kind': 'solo',
+           'session_date': '', 'game_count': 0, 'sid': ''}
+    if df.empty or 'player_gamertag' not in df.columns:
+        return out
+    rdf = _ranked_only(df)
+    players = unique_sorted(rdf['player_gamertag']) if not rdf.empty else []
+    # Same memo pattern as build_player_solo_cards: the solo history pool /
+    # arrays / weights are identical for every player, so only the first
+    # card build pays for them.
+    shared: dict = {}
+    rows: list[dict] = []
+    obj_columns: list[dict] = []
+    seen_obj_keys: set = set()
+    has_hill = False
+    for p in players:
+        card = build_squad_report_card(df, player=p, _shared=shared)
+        crows = card.get('rows') or []
+        if not crows:
+            continue
+        row = dict(crows[0])
+        row['session_date'] = card.get('session_date', '')
+        row['session_sid'] = card.get('sid', '')
+        row['session_games'] = card.get('game_count', 0)
+        rows.append(row)
+        for oc in card.get('obj_columns') or []:
+            if oc.get('key') not in seen_obj_keys:
+                seen_obj_keys.add(oc.get('key'))
+                obj_columns.append(oc)
+        has_hill = has_hill or (bool(card.get('has_hill'))
+                                and row.get('hill_pg_secs', 0) > 0)
+    rows.sort(key=lambda r: r.get('composite_pct', 0) or 0, reverse=True)
+    out.update(rows=rows, obj_columns=obj_columns, has_hill=has_hill,
+               game_count=sum(r.get('session_games', 0) or 0 for r in rows))
+    return out
 
 
 def build_session_list(df: pd.DataFrame, mode: str = 'squad', limit: int = 40) -> list[dict]:
@@ -3191,6 +3252,16 @@ def _rc_build_arrays(frame: pd.DataFrame) -> dict:
     dmgmin_vals = rdmgp.where(rdur > 0) / (rdur / 60).replace(0, pd.NA)
     kdamin_vals = numeric_series(frame, 'kda/min').replace([float('inf'), float('-inf')], pd.NA)
     objmin_vals = numeric_series(frame, 'obj/min').replace([float('inf'), float('-inf')], pd.NA)
+    # Extra per-game distributions for the Full Stat Table's vs-365d-history
+    # tint (kills/deaths/assists/KD/acc/dmg dealt/dmg taken/perfect medals).
+    # Same pool as the graded stats, so every data-pct in that table speaks
+    # the same language. Deaths/dmg-taken stay raw here — the INVERSION
+    # (lower = better) happens where the row percentiles are computed.
+    kd_vals = (rk / rd.where(rd > 0)).where(rd > 0, rk)  # deathless game → KD = kills
+    fired = numeric_series(frame, 'shots_fired')
+    hit = numeric_series(frame, 'shots_hit')
+    acc_vals = (hit / fired.where(fired > 0) * 100).replace([float('inf'), float('-inf')], pd.NA)
+    perfect_vals = numeric_series(frame, 'medal_perfect')
     return {
         'kda': _rc_sorted_arr(kda_vals),
         'ddiff': _rc_sorted_arr(ddiff_vals),
@@ -3200,6 +3271,14 @@ def _rc_build_arrays(frame: pd.DataFrame) -> dict:
         'dmgmin': _rc_sorted_arr(dmgmin_vals),
         'kdamin': _rc_sorted_arr(kdamin_vals),
         'objmin': _rc_sorted_arr(objmin_vals[objmin_vals > 0]),
+        'kills': _rc_sorted_arr(rk),
+        'deaths': _rc_sorted_arr(rd),
+        'assists': _rc_sorted_arr(ra),
+        'kd': _rc_sorted_arr(kd_vals),
+        'acc': _rc_sorted_arr(acc_vals),
+        'dmgplus': _rc_sorted_arr(rdmgp),
+        'dmgminus': _rc_sorted_arr(rdmgm),
+        'perfect': _rc_sorted_arr(perfect_vals),
     }
 
 
@@ -9337,6 +9416,9 @@ def solo_dashboard():
     df = cache.get()
     payload = get_cached_page_payload('solo_page', lambda: {
         'solo_card': build_squad_report_card(df, mode='solo'),
+        # Top-of-page Full Stat Table: every tracked player's latest solo
+        # session, one row each (rows carry their own session date/sid).
+        'solo_all_card': build_solo_all_table(df),
         'solo_player_cards': build_player_solo_cards(df),
         'grade_timeline': build_grade_timeline(df, mode='solo'),
         'session_list': build_session_list(df, mode='solo'),
@@ -9363,6 +9445,7 @@ def solo_dashboard():
     return render_template('solo.html',
                            app_title=APP_TITLE,
                            solo_card=solo_card,
+                           solo_all_card=payload.get('solo_all_card') or {},
                            solo_player_cards=payload.get('solo_player_cards', []),
                            grade_timeline=payload.get('grade_timeline', {}),
                            session_list=session_list,

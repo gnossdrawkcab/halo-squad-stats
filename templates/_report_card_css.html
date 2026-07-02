@@ -447,30 +447,12 @@
       padding: 4px 10px;
     }
 
-    /* Detail table: horizontal scroll with clear affordance */
-    #rc-detail-table, #rcsq-detail-table {
-      font-size: 0.78rem;
-    }
-    /* Pin the Player column so names stay put while scrolling the wide table. */
-    #rc-detail-table th:first-child, #rc-detail-table td:first-child,
-    #rcsq-detail-table th:first-child, #rcsq-detail-table td:first-child {
-      position: sticky;
-      left: 0;
-      z-index: 2;
-      background: var(--bg-2, #1b2230);
-      box-shadow: 1px 0 0 var(--border, #38415a);
-    }
-    .rc-detail-table-wrap > summary {
-      font-size: 0.8rem;
-    }
-    .rc-detail-table-wrap .table-wrap::after {
-      content: "⇄ scroll for all stats";
-      display: block;
-      font-size: 0.68rem;
-      color: var(--text-3, #8b95a7);
-      text-align: right;
-      padding: 4px 2px 0;
-    }
+    /* Full Stat Table mobile rules live in the .rc-fullstat-panel block at
+       the end of this file. The old #rc-detail-table ID rules that used to
+       sit here WERE the mobile sticky-corner bug: their ID specificity
+       clobbered the corner th's z-index from inside this media query, so
+       the other header cells painted OVER the pinned Player header while
+       swiping. Don't reintroduce #id selectors for those cells. */
 
     /* Tappable stat/chip affordance on touch — subtle dotted underline */
     .mobile-obj-chip { cursor: pointer; }
@@ -508,13 +490,40 @@
   .solo-xlink .btn { white-space: nowrap; }
 </style>
 <style>
-/* ── Full stat table panel (top of squad + solo dash) ── */
+/* ── Full stat table panel (top of squad + solo dash) ──
+   Cell tint = percentile vs the squad's 365d history (applyRcHeatmap reads
+   the server-side data-pct on each cell — NOT relative across the rows).
+   Sticky rules, learned the hard way:
+   • the corner th needs position:sticky with BOTH top:0 AND left:0, the
+     HIGHEST z-index of the table, and an OPAQUE background — otherwise the
+     other header cells (or the body) paint over it while swiping;
+   • the table must be border-collapse:separate — with the .data-table
+     default (collapse), cell backgrounds/borders detach from sticky cells
+     while scrolling and the columns underneath peek through;
+   • never target these cells by #id from a media query — ID specificity
+     silently clobbers the z-index ladder (that was the mobile bug). */
+.rc-fullstat-scroll{position:relative;margin-top:12px}
 .rc-fullstat-panel .table-wrap{max-height:none;border-radius:10px;border:1px solid rgba(255,255,255,0.06)}
-.rc-fullstat-panel table{font-size:.92em}
-.rc-fullstat-panel thead th{position:sticky;top:0;z-index:3;background:var(--panel-bg,#14161d);box-shadow:0 1px 0 rgba(255,255,255,0.08)}
-.rc-fullstat-panel th:first-child,.rc-fullstat-panel td:first-child{position:sticky;left:0;z-index:2;background:var(--panel-bg,#14161d)}
-.rc-fullstat-panel thead th:first-child{z-index:4}
+.rc-fullstat-panel table{font-size:.92em;border-collapse:separate;border-spacing:0}
+.rc-fullstat-panel thead th{position:sticky;top:0;z-index:6;background:var(--panel-strong,#252120);box-shadow:0 1px 0 rgba(255,255,255,0.08)}
+.rc-fullstat-panel th:first-child,.rc-fullstat-panel td:first-child{position:sticky;left:0;background:var(--panel-strong,#252120)}
+.rc-fullstat-panel tbody td:first-child{z-index:5;box-shadow:1px 0 0 var(--border,#2d2825)}
+.rc-fullstat-panel thead th:first-child{top:0;left:0;z-index:7;box-shadow:1px 0 0 var(--border,#2d2825),0 1px 0 rgba(255,255,255,0.08)}
 .rc-fullstat-panel tbody tr{transition:background .12s ease}
 .rc-fullstat-panel tbody tr:hover td:first-child{filter:brightness(1.15)}
 .rc-fullstat-panel td,.rc-fullstat-panel th{padding:7px 10px;white-space:nowrap}
+.rc-fullstat-panel .rc-sess-cell{font-size:.88em}
+.rc-fullstat-panel .rc-sess-cell a{color:var(--accent-2,#3dbfb8);text-decoration:none;border-bottom:1px dotted rgba(61,191,184,.45)}
+.rc-fullstat-panel .rc-sess-cell a:hover{border-bottom-style:solid}
+.rc-swipe-hint{display:none;font-size:.72rem;text-align:center;margin:8px 0 -6px}
+@media (max-width: 720px) {
+  /* Compact density — this matrix is wide, phones need every pixel. */
+  .rc-fullstat-panel table{font-size:.8em}
+  .rc-fullstat-panel td,.rc-fullstat-panel th{padding:5px 7px}
+  /* Opaque + wide enough that adjacent digits never show through the pin. */
+  .rc-fullstat-panel th:first-child,.rc-fullstat-panel td:first-child{min-width:96px}
+  .rc-swipe-hint{display:block}
+  /* Subtle right-edge fade = "there's more, swipe" affordance. */
+  .rc-fullstat-scroll::after{content:"";position:absolute;top:0;right:0;bottom:0;width:26px;pointer-events:none;border-radius:0 10px 10px 0;background:linear-gradient(to left,var(--bg-1,#1a1714),transparent)}
+}
 </style>

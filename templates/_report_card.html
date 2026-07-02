@@ -197,90 +197,92 @@
 
 
 {% macro render_full_stat_table(rc, pfx) %}
-{# ── THE full stat table — every stat, one row per player, heatmapped
-     per column (green=best, red=worst across the players shown). Rendered
-     as the FIRST panel on the squad and solo dashboards. ── #}
+{# ── THE full stat table — every stat, one row per player. Cell tint = that
+     stat's percentile vs the squad's 365-day history (server-computed
+     data-pct, 0=bad → 100=good; deaths / dmg-taken are pre-inverted server
+     side). Cells with no honest history distribution (Gms/W/Win%/CSR/hill/
+     per-mode objectives) carry no tint. Columns are ordered by importance:
+     result + CSR block first, then stats in win-correlation order, detail
+     stats after. When rows carry session_date (the /solo all-players view,
+     pfx 'rcall') a Session column appears after Player — each row is that
+     player's LATEST SOLO session, so the dates differ per row. ── #}
 {% if rc and rc.rows %}
+{% set has_session = rc.rows[0].get('session_date') %}
 <section class="panel rc-fullstat-panel">
   <div class="panel-header">
     <div class="section-label" style="margin-bottom:0">📊 Full Stat Table
       <span class="session-kind kind-{{ rc.kind|default('squad') }}">{{ (rc.kind|default('squad'))|upper }}</span>
     </div>
-    <span class="muted">{{ rc.session_date }} · {{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }} · color = best → worst across players</span>
+    <span class="muted">{% if has_session %}each player's latest solo session{% else %}{{ rc.session_date }} · {{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }}{% endif %} · color = vs 365d squad history</span>
   </div>
-  <div class="table-wrap" style="margin-top:12px">
-      <table class="data-table compact" id="{{ pfx }}-detail-table" data-table="report-card">
+  <div class="rc-swipe-hint muted">← swipe for all stats →</div>
+  <div class="rc-fullstat-scroll">
+  <div class="table-wrap">
+      {# data-heatmap="off" opts out of app.js's GLOBAL per-column min-max
+         tint (applyGlobalTableHeatmaps) — this table tints by data-pct vs
+         the 365d history instead (applyRcHeatmap). #}
+      <table class="data-table compact" id="{{ pfx }}-detail-table" data-table="report-card" data-heatmap="off">
         <thead><tr>
           <th>Player</th>
+          {% if has_session %}<th title="The solo session this row describes — date · games">Session</th>{% endif %}
           <th title="Overall grade vs historical baseline">Grade</th>
           <th title="Games in this session">Gms</th>
           <th title="Wins">W</th>
           <th title="Win %">Win%</th>
-          <th title="KDA grade vs history">KDA ▸</th>
-          <th title="KDA value">KDA</th>
+          <th title="CSR change this session">CSR Δ</th>
+          <th title="Current CSR">CSR</th>
+          <th title="Average enemy-lobby MMR this player faced this session">⚔️ Faced</th>
+          <th title="KDA value (K + A/3 − D per game)">KDA</th>
+          <th title="Avg life duration (seconds)">Life</th>
+          <th title="Damage difference per game (dealt − taken)">Dmg±/g</th>
+          <th title="Damage per minute">Dmg/m</th>
+          <th title="Objective score per game">ObjSc</th>
+          <th title="Score % of team">Sc%</th>
           <th title="KD ratio">KD</th>
           <th title="Kills/game">K</th>
           <th title="Deaths/game">D</th>
           <th title="Assists/game">A</th>
           <th title="Perfect-kill medals per game">✨/g</th>
-          <th title="Damage diff grade vs history">Dmg± ▸</th>
-          <th title="Damage difference per game (dealt − taken)">Dmg±/g</th>
+          <th title="Accuracy">Acc</th>
           <th title="Avg damage dealt">Dmg+</th>
           <th title="Avg damage taken">Dmg-</th>
-          <th title="Damage per minute grade vs history">Dmg/m ▸</th>
-          <th title="Damage per minute">Dmg/m</th>
-          <th title="Avg life duration grade vs history">Life ▸</th>
-          <th title="Avg life duration (seconds)">Life</th>
-          <th title="Objective score grade vs history">ObjSc ▸</th>
-          <th title="Objective score per game">ObjSc</th>
-          <th title="Personal score grade vs history">Sc% ▸</th>
-          <th title="Score % of team">Sc%</th>
-          <th title="Accuracy">Acc</th>
           {% if rc.has_hill %}<th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>{% endif %}
-          {% for oc in rc.obj_columns %}<th title="{{ oc.label }} per game of that mode ({{ oc.games }} game{{ 's' if oc.games != 1 else '' }} this session)">{{ oc.emoji }} {{ oc.label }}/g</th>{% endfor %}
-          <th title="Average enemy-lobby MMR this player faced this session">⚔️ Faced</th>
-          <th title="CSR change this session">CSR Δ</th>
-          <th title="Current CSR">CSR</th>
+          {% for oc in rc.obj_columns %}<th title="{{ oc.label }} per game of that mode ({{ oc.games }} game{{ 's' if oc.games != 1 else '' }})">{{ oc.emoji }} {{ oc.label }}/g</th>{% endfor %}
         </tr></thead>
         <tbody>
           {% for row in rc.rows %}
           <tr>
             <td><a href="{{ row.player|player_href }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+            {% if has_session %}<td class="rc-sess-cell">{% if row.get('session_sid') %}<a href="/session/{{ row.session_sid }}" title="Open this solo session">{{ row.session_date }}</a>{% else %}{{ row.get('session_date') or '—' }}{% endif %}<span class="muted"> · {{ row.get('session_games', 0) }}g</span></td>{% endif %}
             <td><span class="grade-badge {{ row.grade_class }}">{{ row.grade }}</span></td>
-            <td>{{ row.games }}</td>
+            <td data-val="{{ row.games }}">{{ row.games }}</td>
             <td data-val="{{ row.wins }}">{{ row.wins }}</td>
             <td data-val="{{ row.win_pct|replace('%','') }}">{{ row.win_pct }}</td>
-            <td><span class="sub-grade {{ row.kda_grade_class }}">{{ row.kda_grade }}</span></td>
-            <td data-val="{{ row.kda }}" data-pct="{{ row.kda_pctile }}"><strong>{{ row.kda }}</strong></td>
-            <td data-val="{{ row.kd1 }}">{{ row.kd1 }}</td>
-            <td data-val="{{ row.kills }}">{{ row.kills }}</td>
-            <td data-val="{{ row.deaths }}" data-heat-invert>{{ row.deaths }}</td>
-            <td data-val="{{ row.assists }}">{{ row.assists }}</td>
-            <td data-val="{{ row.perfect_pg }}" title="{{ row.perfect_total }} perfect medals this session">{{ row.perfect_pg }}</td>
-            <td><span class="sub-grade {{ row.ddiff_grade_class }}">{{ row.ddiff_grade }}</span></td>
-            <td data-val="{{ row.dmg_diff_pg|replace('+','') }}" data-pct="{{ row.ddiff_pctile }}">{{ row.dmg_diff_pg }}</td>
-            <td data-val="{{ row.dmg_plus }}">{{ row.dmg_plus }}</td>
-            <td data-val="{{ row.dmg_minus }}" data-heat-invert>{{ row.dmg_minus }}</td>
-            <td><span class="sub-grade {{ row.dmgm_grade_class }}">{{ row.dmgm_grade }}</span></td>
-            <td data-val="{{ row.dmg_per_min }}" data-pct="{{ row.dmgm_pctile }}">{{ row.dmg_per_min }}</td>
-            <td><span class="sub-grade {{ row.life_grade_class }}">{{ row.life_grade }}</span></td>
-            <td data-val="{{ row.avg_life|replace('s','') }}" data-pct="{{ row.life_pctile }}">{{ row.avg_life }}</td>
-            <td><span class="sub-grade {{ row.obj_grade_class }}">{{ row.obj_grade }}</span></td>
-            <td data-val="{{ row.obj_score }}" data-pct="{{ row.obj_pctile if row.obj_pctile is not none else '' }}">{{ row.obj_score }}</td>
-            <td><span class="sub-grade {{ row.score_grade_class }}">{{ row.score_grade }}</span></td>
-            <td data-val="{{ row.score_pct|replace('%','') }}" data-pct="{{ row.scorepct_pctile }}">{{ row.score_pct }}</td>
-            <td data-val="{{ row.accuracy|replace('%','') }}">{{ row.accuracy }}</td>
-            {% if rc.has_hill %}<td data-val="{{ row.hill_pg_secs }}" title="{{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }}">{{ row.hill_pg or '—' }}</td>{% endif %}
-            {% for oc in rc.obj_columns %}<td data-val="{{ row.objs[oc.key].val }}" title="{{ row.objs[oc.key].total }} total this session">{{ row.objs[oc.key].display or '—' }}</td>{% endfor %}
-            <td data-val="{{ row.opp_mmr or '' }}">{{ row.opp_mmr or '—' }}</td>
             <td data-val="{{ row.csr_delta|replace('+','') }}">{{ row.csr_delta }}</td>
             <td data-val="{{ row.current_csr|replace('—','') }}">{{ row.current_csr }}</td>
+            <td data-val="{{ row.opp_mmr or '' }}">{{ row.opp_mmr or '—' }}</td>
+            <td data-val="{{ row.kda }}" data-pct="{{ row.kda_pctile }}"><strong>{{ row.kda }}</strong></td>
+            <td data-val="{{ row.avg_life|replace('s','') }}" data-pct="{{ row.life_pctile }}">{{ row.avg_life }}</td>
+            <td data-val="{{ row.dmg_diff_pg|replace('+','') }}" data-pct="{{ row.ddiff_pctile }}">{{ row.dmg_diff_pg }}</td>
+            <td data-val="{{ row.dmg_per_min }}" data-pct="{{ row.dmgm_pctile }}">{{ row.dmg_per_min }}</td>
+            <td data-val="{{ row.obj_score }}" data-pct="{{ row.obj_pctile if row.obj_pctile is not none else '' }}">{{ row.obj_score }}</td>
+            <td data-val="{{ row.score_pct|replace('%','') }}" data-pct="{{ row.scorepct_pctile }}">{{ row.score_pct }}</td>
+            <td data-val="{{ row.kd1 }}" data-pct="{{ row.get('kd1_pctile', '') }}">{{ row.kd1 }}</td>
+            <td data-val="{{ row.kills }}" data-pct="{{ row.get('kills_pctile', '') }}">{{ row.kills }}</td>
+            <td data-val="{{ row.deaths }}" data-pct="{{ row.get('deaths_pctile', '') }}">{{ row.deaths }}</td>
+            <td data-val="{{ row.assists }}" data-pct="{{ row.get('assists_pctile', '') }}">{{ row.assists }}</td>
+            <td data-val="{{ row.perfect_pg }}" data-pct="{{ row.get('perfect_pctile', '') }}" title="{{ row.perfect_total }} perfect medals this session">{{ row.perfect_pg }}</td>
+            <td data-val="{{ row.accuracy|replace('%','') }}" data-pct="{{ row.get('acc_pctile', '') }}">{{ row.accuracy }}</td>
+            <td data-val="{{ row.dmg_plus }}" data-pct="{{ row.get('dmgplus_pctile', '') }}">{{ row.dmg_plus }}</td>
+            <td data-val="{{ row.dmg_minus }}" data-pct="{{ row.get('dmgminus_pctile', '') }}">{{ row.dmg_minus }}</td>
+            {% if rc.has_hill %}<td data-val="{{ row.hill_pg_secs }}" title="{{ row.hill_total }} over {{ row.hill_games }} hill game{{ 's' if row.hill_games != 1 else '' }}">{{ row.hill_pg or '—' }}</td>{% endif %}
+            {% for oc in rc.obj_columns %}{% set _oc = row.objs.get(oc.key) if row.objs else none %}<td data-val="{{ _oc.val if _oc else '' }}" title="{{ _oc.total if _oc else 0 }} total this session">{{ (_oc.display if _oc else '') or '—' }}</td>{% endfor %}
           </tr>
           {% endfor %}
         </tbody>
       </table>
   </div>
-  
+  </div>
 </section>
 {% endif %}
 {% endmacro %}

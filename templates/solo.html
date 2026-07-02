@@ -22,7 +22,10 @@
 {{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid, base='/solo', label='📅 Solo session') }}
 {% endif %}
 
-{{ render_full_stat_table(solo_card, 'rc') }}
+{# Top table: EVERY tracked player, one row = their LATEST SOLO session
+   (dates differ per row — the macro adds a Session column). pfx 'rcall' so
+   applyRcHeatmap('rcall') tints it alongside the report-card 'rc' pieces. #}
+{{ render_full_stat_table(solo_all_card, 'rcall') }}
 
 
 {% if solo_card and solo_card.rows %}

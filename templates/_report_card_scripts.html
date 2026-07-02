@@ -304,43 +304,17 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 
 // ── Report-card table heatmap ────────────────────────────────
+// Every tintable cell carries a server-computed data-pct = that stat's
+// percentile vs the squad's 365-day history (0=bad → 100=good; deaths /
+// dmg-taken are pre-inverted server side). Tint is NEVER relative across
+// the rows on screen — a table of one plays by the same rules as a table
+// of eight. data-val remains for sorting only.
 function applyRcHeatmap(pfx) {
   const table = document.getElementById((pfx || 'rc') + '-detail-table');
   if (!table) return;
-  const rows = Array.from(table.querySelectorAll('tbody tr'));
-  if (rows.length === 1) {
-    // One player (e.g. a solo session): column-relative heat is meaningless,
-    // so tint graded stats by their percentile vs the 365d history instead.
-    rows[0].querySelectorAll('td[data-pct]').forEach(td => {
-      const p = parseFloat(td.getAttribute('data-pct'));
-      if (!isNaN(p)) td.style.background = heatColor(p / 100);
-    });
-    return;
-  }
-  if (rows.length < 2) return;
-
-  // Gather all cells that have data-val per column index
-  const colCells = {}; // colIdx -> [{td, val, invert}]
-  rows.forEach(tr => {
-    Array.from(tr.cells).forEach((td, ci) => {
-      if (!td.hasAttribute('data-val')) return;
-      const raw = parseFloat(td.getAttribute('data-val'));
-      if (isNaN(raw)) return;
-      if (!colCells[ci]) colCells[ci] = [];
-      colCells[ci].push({ td, val: raw, invert: td.hasAttribute('data-heat-invert') });
-    });
-  });
-
-  Object.values(colCells).forEach(cells => {
-    if (cells.length < 2) return;
-    const vals = cells.map(c => c.val);
-    const lo = Math.min(...vals), hi = Math.max(...vals);
-    if (hi === lo) return; // all same — skip
-    cells.forEach(({ td, val, invert }) => {
-      let t = (val - lo) / (hi - lo); // 0=worst 1=best
-      if (invert) t = 1 - t;
-      td.style.background = heatColor(t);
-    });
+  table.querySelectorAll('tbody td[data-pct]').forEach(td => {
+    const p = parseFloat(td.getAttribute('data-pct'));
+    if (!isNaN(p)) td.style.background = heatColor(p / 100);
   });
 }
 
@@ -361,7 +335,9 @@ function heatColor(t) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () { applyRcHeatmap('rc'); });
+// 'rc' = squad/solo session table · 'rcall' = /solo all-players table.
+// Each call is a harmless no-op on pages where that table is absent.
+document.addEventListener('DOMContentLoaded', function () { applyRcHeatmap('rc'); applyRcHeatmap('rcall'); });
 
 // ── Live add/remove games → recompute the WHOLE card (grade + all stats) ──
 const RC_ACTIVE_STRIPS = new Set();
