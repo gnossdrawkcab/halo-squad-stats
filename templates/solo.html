@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_report_card.html" import render_report_card with context %}
+{% block content %}
+
+<section class="panel" style="padding:14px 18px">
+  <div class="panel-header" style="margin:0">
+    <div class="section-label" style="margin-bottom:0">🎯 Solo Dashboard</div>
+    <span class="muted">Lone-queue play only — squad games excluded</span>
+  </div>
+</section>
+
+{% if solo_card and solo_card.rows %}
+{{ render_report_card(solo_card, 'rc', '/?stay=1', '🏠 Squad dash →', true, 'Latest Solo Session Report Card') }}
+{% else %}
+<section class="panel"><p class="muted">No solo ranked sessions recorded yet.</p></section>
+{% endif %}
+
+{% include "_solo_sessions.html" %}
+
+{% if grade_timeline and grade_timeline.players %}
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">📈 Solo Grade Trend</div>
+    <span class="muted">last {{ grade_timeline.count }} solo sessions</span>
+  </div>
+  <div class="gt-legend">
+    {% for p in grade_timeline.players %}
+    <span class="gt-legend-item">
+      <span class="player-name {{ p.cls }}">{{ p.player }}</span>
+      <span class="gt-spark">{{ p.emoji }}</span>
+      <span class="gt-trend muted">{{ p.trend }}</span>
+    </span>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

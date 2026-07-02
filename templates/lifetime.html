@@ -72,6 +72,7 @@
           <th>Avg Score</th>
           <th>Avg Obj Score</th>
           <th title="Perfect-kill medals per game (lifetime total in parentheses)">✨ Perfect/g</th>
+          <th title="Average enemy-lobby MMR faced across all their ranked games — higher = tougher competition">⚔️ MMR Faced</th>
         </tr>
       </thead>
       <tbody>
@@ -94,6 +95,7 @@
           <td class="{{ row.avg_score_heat }}">{{ row.avg_score }}</td>
           <td class="{{ row.avg_obj_score_heat }}">{{ row.avg_obj_score }}</td>
           <td class="{{ row.perfect_pg_heat }}" data-val="{{ row.perfect_pg }}">{{ row.perfect_pg }}<span class="tile-tot"> ({{ row.perfect_total }})</span></td>
+          <td class="{{ row.opp_mmr_heat }}" data-val="{{ row.opp_mmr|replace(',','') }}">{{ row.opp_mmr }}</td>
         </tr>
         {% endfor %}
         {% else %}

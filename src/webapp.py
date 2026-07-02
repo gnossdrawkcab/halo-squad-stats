@@ -2185,6 +2185,12 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
         if not squad_ids:
             return {}
         pool = ranked_df[ranked_df['match_id'].isin(squad_ids)]
+    elif mode == 'solo':
+        # Solo dashboard: matches where exactly ONE tracked player played.
+        solo_ids = set(players_per_match[players_per_match == 1].index)
+        if not solo_ids:
+            return {}
+        pool = ranked_df[ranked_df['match_id'].isin(solo_ids)]
     else:
         pool = ranked_df
 
@@ -2395,6 +2401,9 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             'score_pct': score_pct,
             'csr_delta': csr_delta,
             'current_csr': current_csr,
+            'opp_mmr': (lambda _o: round(float(_o.mean())) if len(_o) else None)(
+                pd.to_numeric(p_df.get('enemy_team_mmr'), errors='coerce').dropna()
+                if 'enemy_team_mmr' in p_df.columns else pd.Series(dtype=float)),
         })
 
     if not stat_rows:
@@ -2784,6 +2793,7 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             'obj_score':   _obj_dash(r['obj_score_pg']),
             'score_pct':   f"{r['score_pct']:.1f}%",
             'csr_delta':   format_signed(csr_d, 0) if csr_d is not None else '—',
+            'opp_mmr':     r.get('opp_mmr'),
             'current_csr': f"{r['current_csr']:.0f}" if r['current_csr'] else '—',
             'composite':   S['composite'],
             'game_grades': r.get('game_grades', []),
@@ -3010,7 +3020,12 @@ def build_grade_timeline(df: pd.DataFrame, mode: str = 'squad', max_sessions: in
     A = _rc_build_arrays(hist)
     _W = _rc_win_weights(hist)
     ppm = ranked.groupby('match_id')['player_gamertag'].nunique()
-    pool = ranked[ranked['match_id'].isin(set(ppm[ppm >= 2].index))] if mode == 'squad' else ranked
+    if mode == 'squad':
+        pool = ranked[ranked['match_id'].isin(set(ppm[ppm >= 2].index))]
+    elif mode == 'solo':
+        pool = ranked[ranked['match_id'].isin(set(ppm[ppm == 1].index))]
+    else:
+        pool = ranked
     if pool.empty:
         return {}
     mt = pool.groupby('match_id')['date'].max().sort_values(ascending=False)
@@ -4125,6 +4140,10 @@ def build_lifetime_stats(df: pd.DataFrame) -> list:
         total_perfect = numeric_series(player_df, 'medal_perfect').sum()
         perfect_pg = total_perfect / games if games else 0
 
+        _opp = (pd.to_numeric(player_df.get('enemy_team_mmr'), errors='coerce').dropna()
+                if 'enemy_team_mmr' in player_df.columns else pd.Series(dtype=float))
+        opp_mmr = round(float(_opp.mean())) if len(_opp) else None
+
         rows.append({
             'player': player,
             'matches': format_int(games),
@@ -4142,13 +4161,14 @@ def build_lifetime_stats(df: pd.DataFrame) -> list:
             'avg_obj_score': format_float(avg_obj_score, 1),
             'perfect_pg': format_float(perfect_pg, 2),
             'perfect_total': format_int(total_perfect),
+            'opp_mmr': format_int(opp_mmr) if opp_mmr is not None else '—',
         })
 
     add_heatmap_classes(rows, {
         'matches': True, 'wins': True, 'losses': False, 'win_rate': True,
         'kills': True, 'deaths': False, 'assists': True,
         'kda': True, 'accuracy': True, 'avg_score': True, 'avg_obj_score': True,
-        'perfect_pg': True
+        'perfect_pg': True, 'opp_mmr': True
     })
     # Lifetime grade = ABSOLUTE report-card overall (same fixed scale as the
     # dashboard card and the player page), so a player's overall grade reads the
@@ -9274,6 +9294,19 @@ def suggestions():
                           error=error,
                           last_update=status.get('last_update'),
                           db_row_count=count_cache.get())
+
+
+@app.route('/solo')
+def solo_dashboard():
+    """Solo dashboard: latest solo session report card + every player's most
+    recent solo grind, mirroring the squad dashboard for lone-queue play."""
+    df = cache.get()
+    payload = get_cached_page_payload('solo_page', lambda: {
+        'solo_card': build_squad_report_card(df, mode='solo'),
+        'solo_player_cards': build_player_solo_cards(df),
+        'grade_timeline': build_grade_timeline(df, mode='solo'),
+    })
+    return render_template('solo.html', app_title=APP_TITLE, **(payload or {}))
 
 
 @app.route('/lifetime')

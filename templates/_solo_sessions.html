@@ -1,0 +1,50 @@
+{% if solo_player_cards %}
+<section class="panel mobile-defer">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🎯 Latest Solo Sessions</div>
+  </div>
+  <p class="muted section-intro" style="margin-bottom:10px">Graded vs solo games only.</p>
+  <div class="table-wrap">
+    <table class="data-table cards" id="solo-sessions-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th title="Solo-session grade vs 1-year SOLO-only ranked baseline (squad games excluded)">Grade</th>
+          <th>Session</th>
+          <th>Games</th>
+          <th>Record</th>
+          <th title="kills + assists/3 − deaths">KDA</th>
+          <th>K</th>
+          <th>D</th>
+          <th>A</th>
+          <th title="Perfect-kill medals per game">✨/g</th>
+          <th title="Hill time per hill game (KOTH / Strongholds zone occupation)">⛰️ Hill/g</th>
+          <th title="CSR change across the session">CSR Δ</th>
+          <th title="Average enemy-lobby MMR faced that session (+/- vs our own rating)">⚔️ Faced</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in solo_player_cards %}
+        <tr>
+          <td><a href="{{ c.player|player_href }}" class="player-name {{ c.css }}">{{ c.player }}</a></td>
+          <td><span class="inline-grade {{ c.grade_class }}" title="{{ c.grade_tip }}">{{ c.grade }}</span></td>
+          <td class="muted">{{ c.session_date }}</td>
+          <td>{{ c.games }}</td>
+          <td>{{ c.record }}</td>
+          <td>{{ c.kda }}</td>
+          <td>{{ c.kills }}</td>
+          <td>{{ c.deaths }}</td>
+          <td>{{ c.assists }}</td>
+          <td title="{{ c.perfect_total }} perfect medals this session">{{ c.perfect_pg }}</td>
+          <td title="{{ c.hill_total }} over {{ c.hill_games }} hill game{{ 's' if c.hill_games != 1 else '' }}">{{ c.hill_pg or '—' }}</td>
+          <td>{{ c.csr_delta }}</td>
+          <td>{% if c.opp_mmr %}{{ c.opp_mmr }}{% if c.opp_gap is not none %} <span class="muted">({{ '%+d'|format(c.opp_gap) }})</span>{% endif %}{% else %}—{% endif %}</td>
+          <td>{% if c.sid %}<a href="/session/{{ c.sid }}" class="btn btn-small">Full →</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
