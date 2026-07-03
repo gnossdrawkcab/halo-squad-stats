@@ -10,6 +10,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="{{ app_title }}" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <!-- NOTE: NOT deferred — several inline chart scripts run at parse time and
          need Chart defined synchronously. preconnect above speeds the CDN fetch. -->
@@ -23,7 +25,7 @@
       <div class="header-left">
         {# stay=1 skips the streaming→/live redirect — the logo must always be a
            way OUT of the live page, never a loop back into it. #}
-        <a class="site-logo" href="/?stay=1">{{ app_title }}</a>
+        <a class="site-logo" href="/?stay=1"><img class="site-logo-mark" src="{{ url_for('static', filename='logo.svg') }}" alt="" />{{ app_title.replace('👑', '').strip() }}</a>
         <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false"><span aria-hidden="true">&#9776;</span></button>
         <div class="nav-overlay" id="navOverlay" onclick="closeNav()" aria-hidden="true"></div>
         <nav class="site-nav" id="siteNav" aria-label="Primary navigation">

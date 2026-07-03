@@ -4209,3 +4209,8 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .intel-csr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .intel-spark{flex:0 0 auto;}
 .intel-warn{color:#ffd75e;font-weight:600;}
+
+/* ── Site logo mark (blade-crown) ── */
+.site-logo{display:inline-flex;align-items:center;gap:9px;}
+.site-logo-mark{width:30px;height:30px;border-radius:7px;flex:0 0 auto;}
+@media (max-width:720px){.site-logo-mark{width:26px;height:26px;}}

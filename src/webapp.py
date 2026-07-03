@@ -13370,6 +13370,13 @@ def _build_app_icon(size):
 def app_icon(size):
     if size not in (192, 512, 180):
         size = 192
+    # Baked logo art (blade-crown + halo ring) ships in static/; the old
+    # PIL-generated square is only a fallback if the files ever go missing.
+    baked = os.path.join(app.static_folder or 'static', f'icon-{size}.png')
+    if os.path.exists(baked):
+        with open(baked, 'rb') as f:
+            return Response(f.read(), mimetype='image/png',
+                            headers={'Cache-Control': 'public, max-age=86400'})
     try:
         import io
         img = _build_app_icon(size)
@@ -13423,8 +13430,9 @@ def manifest():
         'theme_color': '#101218',
         'icons': [
             {'src': '/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
-            {'src': '/icon-512.png', 'sizes': '512x512', 'type': 'image/png',
-             'purpose': 'any maskable'},
+            {'src': '/icon-512.png', 'sizes': '512x512', 'type': 'image/png'},
+            {'src': '/static/icon-512-maskable.png', 'sizes': '512x512',
+             'type': 'image/png', 'purpose': 'maskable'},
         ],
     }
     return Response(json.dumps(data), mimetype='application/manifest+json')
