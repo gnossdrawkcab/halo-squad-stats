@@ -4184,3 +4184,9 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
   .match-why-summary{font-size:1rem;line-height:1.4;}
   .match-why-bullets li{font-size:.92rem;}
 }
+
+/* ── Game-by-game rows are fully clickable (→ match page) ── */
+.rcg-gitem{cursor:pointer;}
+.rcg-gitem:hover{background:rgba(255,122,61,.07);}
+.rcg-gitem .rcg-check,.rcg-gitem .rcg-watch{cursor:auto;}
+.rcg-gitem .rcg-watch{cursor:pointer;}

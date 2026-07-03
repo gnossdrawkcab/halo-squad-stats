@@ -488,6 +488,16 @@ document.addEventListener('click', e => {
   if (e.target.closest('.rc-grade-toggle')) setTimeout(() => RC_ACTIVE_STRIPS.forEach(s => s.__recompute && s.__recompute()), 30);
 });
 
+// ── Whole game row → match detail page ──
+// Anywhere on a game-by-game row opens /match/<id>. Exceptions: the
+// include/drop checkbox (regrade) and the 📺 rewatch link keep their jobs.
+document.addEventListener('click', function (e) {
+  const li = e.target.closest('.rcg-gitem');
+  if (!li || !li.dataset.mid) return;
+  if (e.target.closest('a, .rcg-check, input, button')) return;
+  window.location.href = '/match/' + li.dataset.mid;
+});
+
 // On DESKTOP, opening one player's game-by-game breakdown opens them all —
 // the vertical space is already committed, so show every player's games at once.
 function initGameBreakdownSync() {
