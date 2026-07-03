@@ -181,6 +181,7 @@
               <a class="rcg-gmap" href="/match/{{ g.mid }}" title="Full match details — every stat, every enemy, every medal">{{ g.map }}<span class="rcg-gmode">{{ g.mode }}</span>{% if g.watch %}<span class="rcg-note" title="Worth a rewatch — outlier performance">👀 {{ g.watch_reason }}</span>{% endif %}</a>
               <span class="rcg-gkda" title="{{ g.kills }} kills · {{ g.deaths }} deaths · {{ g.assists }} assists">{{ g.kda }} <span class="rcg-gkd">{{ g.kills }}/{{ g.deaths }}/{{ g.assists }}</span></span>
               <span class="rcg-ggrade inline-grade {{ g.grade_class }}" title="Game grade">{{ g.grade }}</span>
+              {% if g.sus_kind %}<span class="rcg-sus sus-chip{{ ' sus-hot' if g.sus_kind == 'cheat' }}" title="Cheat check — {{ g.sus_tip }}">{{ '🚨' if g.sus_kind == 'cheat' else ('🎭' if g.sus_kind == 'smurf' else '⚠️') }}</span>{% endif %}
               <a class="rcg-watch" href="/match/{{ g.mid }}" title="Full match details — every stat, every enemy, every medal" onclick="event.stopPropagation()">📊</a>
               {% if _w %}<a class="rcg-watch" href="{{ _w }}" target="_blank" rel="noopener" title="Rewatch this game (synced co-stream)" onclick="event.stopPropagation()">📺</a>{% endif %}
             </li>

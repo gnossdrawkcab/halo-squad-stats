@@ -4199,3 +4199,4 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .sus-disclaimer{font-size:.82rem;margin:0 0 8px;}
 .sus-report > ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;}
 .sus-report ul ul{margin:4px 0 0;padding-left:16px;color:var(--text-2,#9aa7bd);font-size:.88rem;display:flex;flex-direction:column;gap:3px;}
+.rcg-sus{font-size:.7rem;padding:0 6px;flex:0 0 auto;}

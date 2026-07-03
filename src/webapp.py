@@ -2260,6 +2260,14 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
     _sess_game_num = {mid: i for i, mid in enumerate(
         session_df.sort_values('date').drop_duplicates('match_id')['match_id'].astype(str), 1)}
 
+    # Automatic cheat-check for every game of the session — flags land on the
+    # game-by-game breakdown without opening each match page.
+    try:
+        _sess_sus = _sus_flags_for_matches(ENGINE, list(_sess_game_num.keys()))
+    except Exception as _sus_exc:
+        logger.warning('session sus flags failed: %s', _sus_exc)
+        _sess_sus = {}
+
     # ── Per-player stats ─────────────────────────────────────────
     stat_rows: list[dict] = []
     for player in session_players:
@@ -2373,6 +2381,8 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
                 'kills': int(_gk), 'deaths': int(_gd), 'assists': int(_ga),
                 'watch': bool(_reasons),
                 'watch_reason': ' · '.join(_reasons[:2]),
+                'sus_kind': _sess_sus.get(str(grow.get('match_id', '')), {}).get('kind', ''),
+                'sus_tip': _sess_sus.get(str(grow.get('match_id', '')), {}).get('tip', ''),
                 'mid': str(grow.get('match_id', '')),  # for the live add/remove regrade
             })
         _gscores = [g['score'] for g in game_grades if g.get('score') is not None]
@@ -13908,10 +13918,17 @@ def _sus_thresholds(engine):
     sql = """
         SELECT
           percentile_cont(0.995) WITHIN GROUP (ORDER BY kda) AS kda_p999,
+          percentile_cont(0.99)  WITHIN GROUP (ORDER BY kda) AS kda_p99,
           percentile_cont(0.95)  WITHIN GROUP (ORDER BY kda) AS kda_p95,
           percentile_cont(0.995) WITHIN GROUP (ORDER BY
             CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END) AS acc_p999,
+          percentile_cont(0.99)  WITHIN GROUP (ORDER BY
+            CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END) AS acc_p99,
           percentile_cont(0.995) WITHIN GROUP (ORDER BY damage_dealt) AS dmg_p999,
+          percentile_cont(0.99)  WITHIN GROUP (ORDER BY damage_dealt) AS dmg_p99,
+          percentile_cont(0.95)  WITHIN GROUP (ORDER BY damage_dealt) AS dmg_p95,
+          percentile_cont(0.95)  WITHIN GROUP (ORDER BY
+            CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END) AS acc_p95,
           COUNT(*) AS n
         FROM halo_match_players
         WHERE COALESCE(is_bot, FALSE) = FALSE AND kda IS NOT NULL
@@ -13939,9 +13956,14 @@ def _sus_thresholds(engine):
         data = {
             'n': safe_int(row.get('n')),
             'kda_p999': safe_float(row.get('kda_p999')),
+            'kda_p99': safe_float(row.get('kda_p99')),
             'kda_p95': safe_float(row.get('kda_p95')),
             'acc_p999': safe_float(row.get('acc_p999')),
+            'acc_p99': safe_float(row.get('acc_p99')),
             'dmg_p999': safe_float(row.get('dmg_p999')),
+            'dmg_p99': safe_float(row.get('dmg_p99')),
+            'dmg_p95': safe_float(row.get('dmg_p95')),
+            'acc_p95': safe_float(row.get('acc_p95')),
             'ckda_p999': safe_float(crow.get('ckda_p999')),
             'ckda_p99': safe_float(crow.get('ckda_p99')),
             'cacc_p999': safe_float(crow.get('cacc_p999')),
@@ -14014,6 +14036,25 @@ def _sus_eval(r, acc_pct, th, career, lobby_avg_csr):
         signals.append(f"{format_int(dmg)} damage — top 0.5% of any player-game "
                        "we've captured")
 
+    # JOINT outlier: ~top-1% on several stats AT ONCE. Each alone slips
+    # under the single-stat bars, but together the odds multiply — this is
+    # what catches the "39 kills, 67% acc, 10k damage, nothing flagged" game.
+    strong, soft = 0, []
+    if th.get('kda_p95') and kda >= max(th['kda_p95'], 6):
+        soft.append(f"{kda:.1f} KDA")
+        strong += bool(th.get('kda_p99')) and kda >= th['kda_p99']
+    if th.get('acc_p95') and acc_pct >= max(th['acc_p95'], 58):
+        soft.append(f"{acc_pct:.0f}% accuracy")
+        strong += bool(th.get('acc_p99')) and acc_pct >= th['acc_p99']
+    if th.get('dmg_p95') and dmg >= th['dmg_p95'] and dmg > 0:
+        soft.append(f"{format_int(dmg)} damage")
+        strong += bool(th.get('dmg_p99')) and dmg >= th['dmg_p99']
+    if strong >= 2 or len(soft) == 3 or (strong >= 1 and len(soft) >= 2):
+        hard += 1 + (strong >= 2)
+        signals.append(f"elite on {len(soft)} fronts at once — {' + '.join(soft)} — "
+                       "each alone is top 1-5% of every ranked player-game we've "
+                       "captured; hitting them together is far rarer")
+
     # Smurf pattern: elite output far below the lobby's rating
     smurf = (csr > 0 and lobby_avg_csr and lobby_avg_csr - csr >= 150
              and th.get('kda_p95') and kda >= th['kda_p95'])
@@ -14021,6 +14062,15 @@ def _sus_eval(r, acc_pct, th, career, lobby_avg_csr):
         signals.append(f"crushing the lobby at {format_int(csr)} CSR "
                        f"({format_int(lobby_avg_csr - csr)} below the lobby average) "
                        "— smurf / alt-account pattern")
+
+    # Ringer context (mitigating): far ABOVE the lobby's rating — a monster
+    # game from a much higher-ranked player is expected, not suspicious.
+    notes = []
+    if (csr > 0 and lobby_avg_csr and csr - lobby_avg_csr >= 150
+            and th.get('kda_p95') and kda >= th['kda_p95']):
+        notes.append(f"context: rated {format_int(csr)} CSR, "
+                       f"{format_int(csr - lobby_avg_csr)} ABOVE the lobby average — "
+                       "could simply be a much higher-ranked player in this lobby")
 
     # Career across every game of theirs we've captured
     c = career or {}
@@ -14065,7 +14115,84 @@ def _sus_eval(r, acc_pct, th, career, lobby_avg_csr):
         kind = 'sus'
     else:
         kind = ''
-    return signals, kind
+    return (signals + notes) if kind else [], kind
+
+
+_SUS_KIND_RANK = {'cheat': 3, 'smurf': 2, 'sus': 1, '': 0}
+
+
+def _sus_flags_for_matches(engine, match_ids):
+    """Automatic cheat-check across MANY matches at once (one rows query +
+    one careers query total) — powers the ⚠️ flags on the dashboards'
+    game-by-game breakdown without opening each match page. Returns
+    {match_id: {'kind': worst verdict, 'names': [...], 'tip': ...}}."""
+    match_ids = [str(m) for m in match_ids if m]
+    th = _sus_thresholds(engine)
+    if not th or not match_ids:
+        return {}
+    sql = text("""
+        SELECT match_id, gamertag, player_xuid, is_tracked, kda, accuracy,
+               damage_dealt, csr
+        FROM halo_match_players WHERE match_id IN :mids
+    """).bindparams(bindparam('mids', expanding=True))
+    try:
+        with engine.connect() as conn:
+            rows = [dict(r._mapping) for r in conn.execute(sql, {'mids': match_ids})]
+    except SQLAlchemyError:
+        return {}
+    if not rows:
+        return {}
+    # Careers for every player seen across these matches, one query
+    career_sql = text("""
+        SELECT player_xuid, match_date, kda,
+               CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END AS acc
+        FROM halo_match_players
+        WHERE COALESCE(is_bot, FALSE) = FALSE AND kda IS NOT NULL
+          AND playlist ILIKE :pl
+          AND player_xuid IN :xuids
+        ORDER BY player_xuid, match_date
+    """).bindparams(bindparam('xuids', expanding=True))
+    xuids = sorted({str(r['player_xuid']) for r in rows if r.get('player_xuid')})
+    careers = {}
+    try:
+        with engine.connect() as conn:
+            for r in conn.execute(career_sql, {'pl': '%rank%', 'xuids': xuids}):
+                m = r._mapping
+                e = careers.setdefault(str(m['player_xuid']),
+                                       {'n': 0, 'kdas': [], 'accs': []})
+                e['n'] += 1
+                e['kdas'].append(safe_float(m['kda']))
+                if m['acc'] is not None:
+                    e['accs'].append(safe_float(m['acc']))
+    except SQLAlchemyError:
+        careers = {}
+    for e in careers.values():
+        e['avg_kda'] = sum(e['kdas']) / e['n'] if e['n'] else 0.0
+        e['avg_acc'] = sum(e['accs']) / len(e['accs']) if e['accs'] else 0.0
+
+    by_match: dict = {}
+    for r in rows:
+        by_match.setdefault(str(r['match_id']), []).append(r)
+    out = {}
+    for mid, mrows in by_match.items():
+        csrs = [safe_float(r.get('csr')) for r in mrows if safe_float(r.get('csr')) > 0]
+        lobby_avg = sum(csrs) / len(csrs) if csrs else 0
+        worst, names, tips = '', [], []
+        for r in mrows:
+            if r.get('is_tracked'):
+                continue
+            acc = safe_float(r.get('accuracy'))
+            if acc <= 1.0:
+                acc *= 100
+            sigs, kind = _sus_eval(r, acc, th, careers.get(str(r.get('player_xuid'))), lobby_avg)
+            if kind:
+                names.append(r.get('gamertag') or '?')
+                tips.append(f"{r.get('gamertag')}: {sigs[0] if sigs else kind}")
+                if _SUS_KIND_RANK[kind] > _SUS_KIND_RANK[worst]:
+                    worst = kind
+        if worst:
+            out[mid] = {'kind': worst, 'names': names, 'tip': ' · '.join(tips)}
+    return out
 
 
 def build_full_scoreboard(engine, match_id):
