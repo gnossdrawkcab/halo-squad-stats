@@ -10981,6 +10981,12 @@ def watch_short(token):
     return redirect(url if url else f'/match/{mid}')
 
 
+@app.route('/api/sus-thresholds')
+def sus_thresholds_debug():
+    """Read-only: the live cheat-check outlier thresholds (for tuning)."""
+    return jsonify(_sus_thresholds(ENGINE) or {})
+
+
 # ---------------------------------------------------------------------------
 # Roster routes
 # ---------------------------------------------------------------------------
@@ -13885,11 +13891,188 @@ def build_match_page(df: pd.DataFrame, match_id: str):
     return {'meta': meta, 'players': players, 'team_rows': team_rows, 'why': why}
 
 
+# ── "Might be cheating" check for lobby players ──
+# Compares each (non-tracked) player's game and career numbers against the
+# distribution of EVERY lobby player-game this site has ever captured
+# (halo_match_players, bots excluded). Flags are framed as statistical
+# outliers, not proof: 1 signal = ⚠️ sus, 2+ = 🚨 might be cheating.
+_SUS_THRESH_TTL = 3600
+_SUS_THRESH_CACHE = {'ts': 0.0, 'data': None}
+
+
+def _sus_thresholds(engine):
+    """Global outlier thresholds from all captured lobby player-games (cached)."""
+    now = time.time()
+    if _SUS_THRESH_CACHE['data'] is not None and now - _SUS_THRESH_CACHE['ts'] < _SUS_THRESH_TTL:
+        return _SUS_THRESH_CACHE['data']
+    sql = """
+        SELECT
+          percentile_cont(0.995) WITHIN GROUP (ORDER BY kda) AS kda_p999,
+          percentile_cont(0.95)  WITHIN GROUP (ORDER BY kda) AS kda_p95,
+          percentile_cont(0.995) WITHIN GROUP (ORDER BY
+            CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END) AS acc_p999,
+          percentile_cont(0.995) WITHIN GROUP (ORDER BY damage_dealt) AS dmg_p999,
+          COUNT(*) AS n
+        FROM halo_match_players
+        WHERE COALESCE(is_bot, FALSE) = FALSE AND kda IS NOT NULL
+          AND playlist ILIKE :pl
+    """
+    career_sql = """
+        SELECT
+          percentile_cont(0.999) WITHIN GROUP (ORDER BY avg_kda) AS ckda_p999,
+          percentile_cont(0.99)  WITHIN GROUP (ORDER BY avg_kda) AS ckda_p99,
+          percentile_cont(0.999) WITHIN GROUP (ORDER BY avg_acc) AS cacc_p999,
+          percentile_cont(0.99)  WITHIN GROUP (ORDER BY avg_acc) AS cacc_p99
+        FROM (
+          SELECT AVG(kda) AS avg_kda,
+                 AVG(CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END) AS avg_acc
+          FROM halo_match_players
+          WHERE COALESCE(is_bot, FALSE) = FALSE AND kda IS NOT NULL
+            AND playlist ILIKE :pl
+          GROUP BY player_xuid HAVING COUNT(*) >= 3
+        ) t
+    """
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(text(sql), {'pl': '%rank%'}).mappings().first() or {}
+            crow = conn.execute(text(career_sql), {'pl': '%rank%'}).mappings().first() or {}
+        data = {
+            'n': safe_int(row.get('n')),
+            'kda_p999': safe_float(row.get('kda_p999')),
+            'kda_p95': safe_float(row.get('kda_p95')),
+            'acc_p999': safe_float(row.get('acc_p999')),
+            'dmg_p999': safe_float(row.get('dmg_p999')),
+            'ckda_p999': safe_float(crow.get('ckda_p999')),
+            'ckda_p99': safe_float(crow.get('ckda_p99')),
+            'cacc_p999': safe_float(crow.get('cacc_p999')),
+            'cacc_p99': safe_float(crow.get('cacc_p99')),
+        }
+    except SQLAlchemyError:
+        data = None
+    _SUS_THRESH_CACHE['ts'] = now
+    _SUS_THRESH_CACHE['data'] = data
+    return data
+
+
+def _sus_careers(engine, match_id):
+    """Career history (every game in OUR captured lobbies, chronological) for
+    the players in this match — powers the repeat-offender, smurf, and
+    suddenly-got-good signals."""
+    sql = """
+        SELECT player_xuid, match_date, kda,
+               CASE WHEN accuracy <= 1 THEN accuracy * 100 ELSE accuracy END AS acc,
+               csr
+        FROM halo_match_players
+        WHERE COALESCE(is_bot, FALSE) = FALSE AND kda IS NOT NULL
+          AND playlist ILIKE :pl
+          AND player_xuid IN (
+            SELECT player_xuid FROM halo_match_players WHERE match_id = :mid)
+        ORDER BY player_xuid, match_date
+    """
+    out = {}
+    try:
+        with engine.connect() as conn:
+            for r in conn.execute(text(sql), {'mid': match_id, 'pl': '%rank%'}):
+                m = r._mapping
+                e = out.setdefault(str(m['player_xuid']),
+                                   {'n': 0, 'kdas': [], 'accs': []})
+                e['n'] += 1
+                e['kdas'].append(safe_float(m['kda']))
+                if m['acc'] is not None:
+                    e['accs'].append(safe_float(m['acc']))
+    except SQLAlchemyError:
+        return {}
+    for e in out.values():
+        e['avg_kda'] = sum(e['kdas']) / e['n'] if e['n'] else 0.0
+        e['avg_acc'] = sum(e['accs']) / len(e['accs']) if e['accs'] else 0.0
+    return out
+
+
+def _sus_eval(r, acc_pct, th, career, lobby_avg_csr):
+    """Evaluate one (non-tracked) lobby player. Returns (signals, kind):
+    signals = human-readable outlier findings; kind = 'cheat' | 'smurf' |
+    'sus' | '' (chip severity). History across our lobbies separates
+    'suddenly got good' (fits new cheats) from 'always been this good'
+    (fits a smurf or a genuinely strong player)."""
+    signals = []
+    kda = safe_float(r.get('kda'))
+    dmg = safe_float(r.get('damage_dealt'))
+    csr = safe_float(r.get('csr'))
+    n_all = th.get('n') or 0
+    hard = 0  # this-game statistical outliers
+
+    if th.get('acc_p999') and acc_pct >= max(th['acc_p999'], 65):
+        hard += 1
+        signals.append(f"{acc_pct:.0f}% accuracy this game — above the top 0.5% "
+                       f"of all {format_int(n_all)} player-games we've captured (top 0.5%)")
+    if th.get('kda_p999') and kda >= max(th['kda_p999'], 8):
+        hard += 1
+        signals.append(f"{kda:.1f} KDA this game — top 0.5% outlier across every "
+                       "lobby we've recorded")
+    if th.get('dmg_p999') and dmg >= th['dmg_p999'] and dmg > 0:
+        hard += 1
+        signals.append(f"{format_int(dmg)} damage — top 0.5% of any player-game "
+                       "we've captured")
+
+    # Smurf pattern: elite output far below the lobby's rating
+    smurf = (csr > 0 and lobby_avg_csr and lobby_avg_csr - csr >= 150
+             and th.get('kda_p95') and kda >= th['kda_p95'])
+    if smurf:
+        signals.append(f"crushing the lobby at {format_int(csr)} CSR "
+                       f"({format_int(lobby_avg_csr - csr)} below the lobby average) "
+                       "— smurf / alt-account pattern")
+
+    # Career across every game of theirs we've captured
+    c = career or {}
+    cn = safe_int(c.get('n'))
+    always_good = False
+    spike = False
+    if cn >= 3:
+        cavg_kda = safe_float(c.get('avg_kda'))
+        cavg_acc = safe_float(c.get('avg_acc'))
+        if th.get('ckda_p99') and cavg_kda >= th['ckda_p99']:
+            hard += 1
+            signals.append(f"averages {cavg_kda:.1f} KDA over {cn} games in our "
+                           "lobbies — top 1% of every player we've ever faced")
+        if th.get('cacc_p99') and cavg_acc >= max(th['cacc_p99'], 58):
+            hard += 1
+            signals.append(f"averages {cavg_acc:.0f}% accuracy over {cn} games vs us "
+                           "— top 1% of everyone we've faced")
+        always_good = bool(th.get('ckda_p99')) and cavg_kda >= th['ckda_p99']
+    # History trend: did they SUDDENLY get good, or were they always good?
+    kdas = c.get('kdas') or []
+    if len(kdas) >= 6:
+        half = len(kdas) // 2
+        early = sum(kdas[:half]) / half
+        late = sum(kdas[half:]) / (len(kdas) - half)
+        if late >= max(early, 0.5) * 1.75 and late >= 4:
+            spike = True
+            signals.append(f"📈 suddenly got good: averaged {early:.1f} KDA over their "
+                           f"first {half} games vs us, {late:.1f} over their last "
+                           f"{len(kdas) - half} — a jump like that fits new cheats "
+                           "or account sharing")
+        elif always_good:
+            signals.append(f"has played at this level in all {cn} games we've seen "
+                           "— long-term smurf or just a genuinely strong player, "
+                           "less likely new cheats")
+
+    # Verdict chip
+    if smurf and hard < 2 and not spike:
+        kind = 'smurf'
+    elif hard >= 2 or (spike and (hard or smurf)):
+        kind = 'cheat'
+    elif signals:
+        kind = 'sus'
+    else:
+        kind = ''
+    return signals, kind
+
+
 def build_full_scoreboard(engine, match_id):
     """Two-team scoreboard for a match from halo_match_players, if captured."""
     sql = """
-        SELECT gamertag, team_id, outcome, is_tracked, kills, deaths, assists,
-               kda, accuracy, damage_dealt, csr, playlist, map, match_date
+        SELECT gamertag, player_xuid, team_id, outcome, is_tracked, kills, deaths,
+               assists, kda, accuracy, damage_dealt, csr, playlist, map, match_date
         FROM halo_match_players WHERE match_id = :mid
         ORDER BY team_id, kda DESC NULLS LAST
     """
@@ -13912,6 +14095,13 @@ def build_full_scoreboard(engine, match_id):
     for pos, i in enumerate(sorted(range(n), key=lambda i: kdas[i], reverse=True), 1):
         rank_of[i] = pos
 
+    # Cheat-suspicion context: global outlier thresholds + careers of this
+    # lobby's players (both cheap: thresholds cached 1h, careers one query).
+    sus_th = _sus_thresholds(engine)
+    sus_careers = _sus_careers(engine, match_id) if sus_th else {}
+    _csrs = [safe_float(r.get('csr')) for r in rows if safe_float(r.get('csr')) > 0]
+    lobby_avg_csr = sum(_csrs) / len(_csrs) if _csrs else 0
+
     teams = {}
     team_tot = {}
     meta = {'map': '', 'playlist': '', 'date': ''}
@@ -13929,9 +14119,18 @@ def build_full_scoreboard(engine, match_id):
         ) or {}
         tid = int(r.get('team_id') or 0)
         k, d, a = safe_int(r.get('kills')), safe_int(r.get('deaths')), safe_int(r.get('assists'))
+        # Cheat check — enemies / randoms only, never the tracked squad
+        sus, sus_kind = [], ''
+        if sus_th and not r.get('is_tracked'):
+            sus, sus_kind = _sus_eval(r, acc, sus_th,
+                                      sus_careers.get(str(r.get('player_xuid'))),
+                                      lobby_avg_csr)
         teams.setdefault(tid, []).append({
             'player': r.get('gamertag') or '',
             'is_tracked': r.get('is_tracked'),
+            'sus_kind': sus_kind,
+            'sus_signals': sus,
+            'sus_tip': ' · '.join(sus),
             'outcome': str(r.get('outcome') or '').title(),
             'outcome_class': outcome_class(r.get('outcome')),
             'kills': format_int(r.get('kills')),

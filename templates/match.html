@@ -61,7 +61,7 @@
       <tbody>
         {% for p in team.players %}
         <tr class="{{ 'tracked-row' if p.is_tracked }}">
-          <td>{% if p.is_tracked %}<a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>{% else %}{{ p.player }}{% endif %}</td>
+          <td>{% if p.is_tracked %}<a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>{% else %}{{ p.player }}{% endif %}{% if p.sus_kind %} <span class="sus-chip{{ ' sus-hot' if p.sus_kind == 'cheat' }}" title="{{ p.sus_tip }}">{{ '🚨' if p.sus_kind == 'cheat' else ('🎭' if p.sus_kind == 'smurf' else '⚠️') }}</span>{% endif %}</td>
           <td><span class="inline-grade {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span></td>
           <td>{{ p.kills }}</td>
           <td>{{ p.deaths }}</td>
@@ -77,6 +77,21 @@
     </table>
   </div>
   {% endfor %}
+  {% set sus_players = [] %}
+  {%- for team in full_scoreboard.teams %}{%- for p in team.players %}{% if p.sus_kind %}{% set _ = sus_players.append(p) %}{% endif %}{%- endfor %}{%- endfor %}
+  {% if sus_players %}
+  <div class="sus-report">
+    <h3>🕵️ Cheat check</h3>
+    <p class="muted sus-disclaimer">Statistical outliers vs every lobby player-game this site has captured, plus each player's history across all our lobbies — suspicious, not proof.</p>
+    <ul>
+      {% for p in sus_players %}
+      <li><strong>{{ p.player }}</strong> <span class="sus-chip{{ ' sus-hot' if p.sus_kind == 'cheat' }}">{{ '🚨 might be cheating' if p.sus_kind == 'cheat' else ('🎭 likely smurf' if p.sus_kind == 'smurf' else '⚠️ sus') }}</span>
+        <ul>{% for s in p.sus_signals %}<li>{{ s }}</li>{% endfor %}</ul>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 

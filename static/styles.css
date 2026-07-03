@@ -4190,3 +4190,12 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .rcg-gitem:hover{background:rgba(255,122,61,.07);}
 .rcg-gitem .rcg-check,.rcg-gitem .rcg-watch{cursor:auto;}
 .rcg-gitem .rcg-watch{cursor:pointer;}
+
+/* ── Cheat-suspicion flags on lobby players ── */
+.sus-chip{display:inline-block;font-size:.78rem;padding:1px 7px;border-radius:999px;background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.45);color:#ffd75e;white-space:nowrap;}
+.sus-chip.sus-hot{background:rgba(220,60,60,.14);border-color:rgba(220,60,60,.55);color:#ff8d7a;}
+.sus-report{margin-top:14px;padding:12px 14px;border:1px dashed rgba(255,196,0,.35);border-radius:10px;}
+.sus-report h3{margin:0 0 4px;}
+.sus-disclaimer{font-size:.82rem;margin:0 0 8px;}
+.sus-report > ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;}
+.sus-report ul ul{margin:4px 0 0;padding-left:16px;color:var(--text-2,#9aa7bd);font-size:.88rem;display:flex;flex-direction:column;gap:3px;}
