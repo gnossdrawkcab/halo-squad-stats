@@ -2254,6 +2254,12 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
     # Anchor sid = the latest match in the session (for "view full session" link).
     session_sid = str(session_df.sort_values('date')['match_id'].iloc[-1])
 
+    # Session-wide game numbering: every player's G-numbers refer to the same
+    # chronological session order, so a late joiner's first game reads "G6"
+    # (the squad's 6th game of the night), not "G1".
+    _sess_game_num = {mid: i for i, mid in enumerate(
+        session_df.sort_values('date').drop_duplicates('match_id')['match_id'].astype(str), 1)}
+
     # ── Per-player stats ─────────────────────────────────────────
     stat_rows: list[dict] = []
     for player in session_players:
@@ -2351,7 +2357,9 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             if _gbase in ('S', 'A+') and not _reasons:
                 _reasons.append(f"⭐ {_gbase} game")
             game_grades.append({
-                'num': _gi,
+                # Session-wide game number (shared across players), falling
+                # back to the per-player sequence if the map misses.
+                'num': _sess_game_num.get(str(grow.get('match_id', '')), _gi),
                 'grade': _gbase,
                 'grade_class': gg.get('grade_class', ''),
                 'score': gg.get('grade_score', 0),
@@ -10935,6 +10943,11 @@ def match(match_id):
     df = medal_df()
     match_rows = build_match_details(df, match_id)
     try:
+        detail = build_match_page(df, match_id)
+    except Exception as exc:
+        logger.warning('match detail failed for %s: %s', match_id, exc)
+        detail = None
+    try:
         full_scoreboard = build_full_scoreboard(ENGINE, match_id)
     except Exception as exc:
         logger.warning('full scoreboard failed for %s: %s', match_id, exc)
@@ -10942,9 +10955,30 @@ def match(match_id):
     return render_template('match.html',
                           app_title=APP_TITLE,
                           match_rows=match_rows,
+                          detail=detail,
                           full_scoreboard=full_scoreboard,
                           match_id=match_id,
                           db_row_count=count_cache.get())
+
+
+@app.route('/w/<token>')
+def watch_short(token):
+    """Tiny share link for a game's synced rewatch: /w/<first 8 chars of the
+    match id> 302s to the full MultiTwitch watch URL. Falls back to the match
+    detail page when no rewatch exists for that game."""
+    token = str(token).strip().lower()
+    if not (4 <= len(token) <= 40) or not all(c in '0123456789abcdef-' for c in token):
+        return Response('Not found', status=404)
+    df = medal_df()
+    if df.empty or 'match_id' not in df.columns:
+        return Response('Not found', status=404)
+    mids = df['match_id'].astype(str)
+    hit = df[mids.str.lower().str.startswith(token)]
+    if hit.empty:
+        return Response('Not found', status=404)
+    mid = str(hit.iloc[0]['match_id'])
+    url = watch_url_for(mid)
+    return redirect(url if url else f'/match/{mid}')
 
 
 # ---------------------------------------------------------------------------
@@ -13454,11 +13488,408 @@ def nemesis():
                            db_row_count=count_cache.get())
 
 
+# ── Full match-detail page: every stat + every medal we captured ──
+# Per tracked player, halo_match_stats holds the COMPLETE per-match stat row
+# (combat, shooting, damage, survival, per-mode objective stats, CSR/MMR
+# context) plus one column per medal earned. The match page renders all of it,
+# organized into labeled groups; groups render only the rows that exist and
+# mode groups only when that player actually has mode activity (no zero-walls
+# of CTF stats on a Slayer game).
+_MP_STAT_GROUPS = [
+    ('⚔️ Combat', [
+        ('Kills', 'kills', 'int'), ('Deaths', 'deaths', 'int'),
+        ('Assists', 'assists', 'int'), ('KDA', 'kda', 'f2'),
+        ('Max killing spree', 'max_killing_spree', 'int'),
+        ('Headshot kills', 'headshot_kills', 'int'),
+        ('Melee kills', 'melee_kills', 'int'),
+        ('Grenade kills', 'grenade_kills', 'int'),
+        ('Power weapon kills', 'power_weapon_kills', 'int'),
+        ('Hijacks', 'hijacks', 'int'), ('Vehicle destroys', 'vehicle_destroys', 'int'),
+        ('Betrayals', 'betrayals', 'int'), ('Suicides', 'suicides', 'int'),
+    ]),
+    ('🎯 Shooting', [
+        ('Accuracy', 'accuracy', 'pct'),
+        ('Shots fired', 'shots_fired', 'int'), ('Shots hit', 'shots_hit', 'int'),
+    ]),
+    ('💥 Damage', [
+        ('Damage dealt', 'damage_dealt', 'int'), ('Damage taken', 'damage_taken', 'int'),
+        ('Damage diff', 'dmg_difference', 'signed'), ('Dmg / min', 'dmg/min', 'f1'),
+        ('Dmg / kill+assist', 'dmg/ka', 'f1'), ('Dmg / death', 'dmg/death', 'f1'),
+    ]),
+    ('🛡️ Survival & score', [
+        ('Avg life', 'average_life_duration', 'secs'), ('Spawns', 'spawns', 'int'),
+        ('Score', 'score', 'int'), ('Personal score', 'personal_score', 'int'),
+        ('Objectives completed', 'objectives_completed', 'int'),
+        ('Callout assists', 'callout_assists', 'int'),
+        ('Driver assists', 'driver_assists', 'int'), ('EMP assists', 'emp_assists', 'int'),
+        ('Rounds won', 'rounds_won', 'int'), ('Rounds lost', 'rounds_lost', 'int'),
+        ('Rounds tied', 'rounds_tied', 'int'),
+    ]),
+    ('📈 Skill context', [
+        ('CSR before', 'pre_match_csr', 'int'), ('CSR after', 'post_match_csr', 'int'),
+        ('Expected kills', 'expected_kills', 'f1'),
+        ('Expected deaths', 'expected_deaths', 'f1'),
+    ]),
+]
+_MP_MODE_GROUPS = [
+    ('🚩 Capture the Flag', 'capture_the_flag_stats_', [
+        ('flag_captures', 'Flag captures', 'int'),
+        ('flag_capture_assists', 'Capture assists', 'int'),
+        ('flag_grabs', 'Flag grabs', 'int'), ('flag_steals', 'Flag steals', 'int'),
+        ('flag_returns', 'Flag returns', 'int'), ('flag_secures', 'Flag secures', 'int'),
+        ('flag_carriers_killed', 'Carriers killed', 'int'),
+        ('flag_returners_killed', 'Returners killed', 'int'),
+        ('kills_as_flag_carrier', 'Kills as carrier', 'int'),
+        ('kills_as_flag_returner', 'Kills as returner', 'int'),
+        ('time_as_flag_carrier', 'Time as carrier', 'mmss'),
+    ]),
+    ('💀 Oddball', 'oddball_stats_', [
+        ('time_as_skull_carrier', 'Time with ball', 'mmss'),
+        ('longest_time_as_skull_carrier', 'Longest hold', 'mmss'),
+        ('skull_grabs', 'Ball grabs', 'int'),
+        ('skull_scoring_ticks', 'Scoring ticks', 'int'),
+        ('skull_carriers_killed', 'Carriers killed', 'int'),
+        ('kills_as_skull_carrier', 'Kills as carrier', 'int'),
+    ]),
+    ('⛰️ Strongholds / KOTH', 'zones_stats_', [
+        ('stronghold_occupation_time', 'Zone time', 'mmss'),
+        ('stronghold_captures', 'Zone captures', 'int'),
+        ('stronghold_secures', 'Zone secures', 'int'),
+        ('stronghold_offensive_kills', 'Offensive kills', 'int'),
+        ('stronghold_defensive_kills', 'Defensive kills', 'int'),
+        ('stronghold_scoring_ticks', 'Scoring ticks', 'int'),
+    ]),
+    ('⛏️ Extraction', 'extraction_stats_', [
+        ('successful_extractions', 'Extractions', 'int'),
+        ('extraction_initiations_completed', 'Initiations', 'int'),
+        ('extraction_initiations_denied', 'Initiations denied', 'int'),
+        ('extraction_conversions_completed', 'Conversions', 'int'),
+        ('extraction_conversions_denied', 'Conversions denied', 'int'),
+    ]),
+]
+# Team-vs-team aggregate rows: (label, stat suffix, kind, lower_is_better)
+_MP_TEAM_ROWS = [
+    ('Kills', 'kills', 'int', False), ('Deaths', 'deaths', 'int', True),
+    ('Assists', 'assists', 'int', False), ('KDA', 'kda', 'f2', False),
+    ('Damage dealt', 'damage_dealt', 'int', False),
+    ('Damage taken', 'damage_taken', 'int', True),
+    ('Accuracy', 'accuracy', 'pct', False),
+    ('Avg life', 'average_life_duration', 'secs', False),
+    ('Headshot kills', 'headshot_kills', 'int', False),
+    ('Melee kills', 'melee_kills', 'int', False),
+    ('Grenade kills', 'grenade_kills', 'int', False),
+    ('Power weapon kills', 'power_weapon_kills', 'int', False),
+    ('Max killing spree', 'max_killing_spree', 'int', False),
+    ('Medals', 'medal_count', 'int', False),
+    ('Personal score', 'personal_score', 'int', False),
+    ('Team MMR', 'mmr', 'int', False),
+]
+
+
+def _mp_fmt(v, kind):
+    """Format one stat value; None when the value is missing (row omitted)."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    f = safe_float(v)
+    if kind == 'int':
+        return format_int(f)
+    if kind == 'f1':
+        return format_float(f, 1)
+    if kind == 'f2':
+        return format_float(f, 2)
+    if kind == 'pct':
+        return f"{f * 100:.1f}%" if 0 < f <= 1.0 else f"{f:.1f}%"
+    if kind == 'secs':
+        return f"{f:.1f}s"
+    if kind == 'mmss':
+        s = int(round(f))
+        return f"{s // 60}:{s % 60:02d}"
+    if kind == 'signed':
+        return f"{f:+,.0f}"
+    return str(v)
+
+
+def _mp_medal_name(col: str) -> str:
+    """medal_Back_Smack → 'Back Smack'; medal_Odin_s_Raven → \"Odin's Raven\";
+    medal_id_123 → 'Medal #123' (metadata name was unavailable at scrape time)."""
+    if col.startswith('medal_id_'):
+        return f"Medal #{col[len('medal_id_'):]}"
+    return col[len('medal_'):].replace('_s_', "'s_").replace('_', ' ').strip()
+
+
+def _mp_why(info, mdf, meta):
+    """Why we won / why we lost: split the game into the DECISIVE stats (what
+    actually scores in this mode — hill ticks, flag caps, ball time, kills in
+    Slayer) vs the gunfight stats, and say which one swung the result. Built
+    because good stat lines kept coexisting with losses — the answer is almost
+    always 'won the fight, lost the scoreboard'."""
+    oc = str(info.get('outcome', '')).lower()
+    if oc not in ('win', 'loss'):
+        return None
+    won = oc == 'win'
+
+    def g(col):
+        v = info.get(col)
+        try:
+            if v is None or pd.isna(v):
+                return None
+        except (TypeError, ValueError):
+            return None
+        return safe_float(v)
+
+    mode = (clean_mode(info.get('game_type')) or '').lower()
+    bullets = []
+
+    # ── The decisive exchange: what scores in this mode ──
+    decisive_good = None
+    def decide(us, them, desc, fmt='int'):
+        nonlocal decisive_good
+        if us is None or them is None or (us == 0 and them == 0):
+            return
+        decisive_good = us > them
+        u, t = _mp_fmt(us, fmt), _mp_fmt(them, fmt)
+        if us > them:
+            bullets.append(f"🎯 Scoreboard: we took the {desc} {u}–{t} — that's what decides this mode")
+        elif us < them:
+            bullets.append(f"🎯 Scoreboard: they took the {desc} {t}–{u} — that's what decides this mode")
+        else:
+            bullets.append(f"🎯 Scoreboard: dead even on {desc} ({u}–{t}) — this one came down to moments")
+            decisive_good = None
+    if 'slayer' in mode:
+        decide(g('team_kills'), g('enemy_team_kills'), 'kill race')
+    elif 'flag' in mode or 'ctf' in mode:
+        decide(g('team_capture_the_flag_stats_flag_captures'),
+               g('enemy_team_capture_the_flag_stats_flag_captures'), 'flag captures')
+    elif 'oddball' in mode or 'ball' in mode:
+        decide(g('team_oddball_stats_skull_scoring_ticks'),
+               g('enemy_team_oddball_stats_skull_scoring_ticks'), 'ball-time ticks')
+    elif 'hill' in mode or 'strongholds' in mode or 'king' in mode or 'zone' in mode:
+        decide(g('team_zones_stats_stronghold_scoring_ticks'),
+               g('enemy_team_zones_stats_stronghold_scoring_ticks'), 'zone-control ticks')
+    elif 'extraction' in mode:
+        decide(g('team_extraction_stats_successful_extractions'),
+               g('enemy_team_extraction_stats_successful_extractions'), 'extractions')
+
+    # ── The gunfight: did we win the combat exchange? ──
+    fight_pts = []
+    fight_score = 0
+    tk, ek = g('team_kills'), g('enemy_team_kills')
+    if tk is not None and ek is not None and 'slayer' not in mode:
+        fight_score += (tk > ek) - (tk < ek)
+        fight_pts.append(f"kills {format_int(tk)}–{format_int(ek)}")
+    td, ed = g('team_damage_dealt'), g('enemy_team_damage_dealt')
+    if td is not None and ed is not None and (td or ed):
+        fight_score += (td > ed) - (td < ed)
+        fight_pts.append(f"damage {_mp_fmt(td - ed, 'signed')}")
+    ta, ea = g('team_accuracy'), g('enemy_team_accuracy')
+    if ta and ea:
+        fight_score += (ta > ea) - (ta < ea)
+        fight_pts.append(f"accuracy {_mp_fmt(ta, 'pct')} vs {_mp_fmt(ea, 'pct')}")
+    tl, el = g('team_average_life_duration'), g('enemy_team_average_life_duration')
+    if tl and el:
+        fight_score += (tl > el) - (tl < el)
+    if fight_pts:
+        if fight_score > 0:
+            bullets.append(f"🔫 Gunfight: we won the fight — {' · '.join(fight_pts)}")
+        elif fight_score < 0:
+            bullets.append(f"🔫 Gunfight: they won the fight — {' · '.join(fight_pts)}")
+        else:
+            bullets.append(f"🔫 Gunfight: even fight — {' · '.join(fight_pts)}")
+
+    # ── Advanced reads: tactical patterns behind the score, per mode ──
+    # (e.g. over-rotating on Strongholds: winning zone fights, then leaving —
+    # captures even or better but far fewer scoring ticks.)
+    adv = []
+    if 'strongholds' in mode or 'hill' in mode or 'king' in mode or 'zone' in mode:
+        caps_u, caps_t = g('team_zones_stats_stronghold_captures'), g('enemy_team_zones_stats_stronghold_captures')
+        tick_u, tick_t = g('team_zones_stats_stronghold_scoring_ticks'), g('enemy_team_zones_stats_stronghold_scoring_ticks')
+        dk_u, ok_u = g('team_zones_stats_stronghold_defensive_kills'), g('team_zones_stats_stronghold_offensive_kills')
+        if caps_u and caps_t and tick_u is not None and tick_t and tick_u < tick_t and caps_u >= caps_t * 0.9:
+            adv.append(f"🌀 Over-rotating: we captured zones as often as them ({format_int(caps_u)} vs {format_int(caps_t)}) "
+                       f"but held for fewer ticks ({format_int(tick_u)} vs {format_int(tick_t)}) — "
+                       "winning the zone fight, then leaving it. Hold two, don't chase three.")
+        elif dk_u is not None and ok_u and ok_u > 2 * max(dk_u, 1) and tick_t and tick_u is not None and tick_u < tick_t:
+            adv.append(f"🌀 Fighting at THEIR zones: {format_int(ok_u)} offensive vs {format_int(dk_u)} defensive kills "
+                       "while losing the tick race — nobody stayed home to hold what we took.")
+    if 'flag' in mode or 'ctf' in mode:
+        grabs_u, caps_u2 = g('team_capture_the_flag_stats_flag_grabs'), g('team_capture_the_flag_stats_flag_captures')
+        grabs_t, caps_t2 = g('enemy_team_capture_the_flag_stats_flag_grabs'), g('enemy_team_capture_the_flag_stats_flag_captures')
+        ret_u = g('team_capture_the_flag_stats_flag_returns')
+        carrier_time_t = g('enemy_team_capture_the_flag_stats_time_as_flag_carrier')
+        if grabs_u and grabs_u >= 3 and (caps_u2 or 0) / grabs_u < 0.34 and grabs_t and (caps_t2 or 0) / grabs_t > (caps_u2 or 0) / grabs_u:
+            adv.append(f"🏃 Dying runs: {format_int(grabs_u)} flag grabs but only {format_int(caps_u2 or 0)} caps — "
+                       "runs die mid-map. Escort the carrier instead of starting new fights.")
+        if carrier_time_t and carrier_time_t >= 60 and (ret_u or 0) <= 2:
+            adv.append(f"🚩 Slow returns: their carriers held our flag {_mp_fmt(carrier_time_t, 'mmss')} "
+                       f"with only {format_int(ret_u or 0)} returns — punish the carrier first, then fight.")
+    if 'oddball' in mode or 'ball' in mode:
+        grabs_u = g('team_oddball_stats_skull_grabs')
+        time_u, time_t = g('team_oddball_stats_time_as_skull_carrier'), g('enemy_team_oddball_stats_time_as_skull_carrier')
+        long_u, long_t = g('team_oddball_stats_longest_time_as_skull_carrier'), g('enemy_team_oddball_stats_longest_time_as_skull_carrier')
+        if grabs_u and time_u is not None and time_t and grabs_u >= 4:
+            hold_u = time_u / grabs_u
+            if hold_u < 15 and time_u < time_t:
+                adv.append(f"⏳ Dropping the ball fast: avg hold {hold_u:.0f}s per grab "
+                           f"({format_int(grabs_u)} grabs) — set up around the carrier BEFORE picking it up.")
+        if long_u is not None and long_t and long_t >= 45 and long_t > 2 * max(long_u or 1, 1):
+            adv.append(f"🛑 They got a monster hold: longest {_mp_fmt(long_t, 'mmss')} vs our {_mp_fmt(long_u, 'mmss')} — "
+                       "break setups earlier, don't feed one at a time into a held position.")
+    pw_u, pw_t = g('team_power_weapon_kills'), g('enemy_team_power_weapon_kills')
+    if pw_u is not None and pw_t and pw_t >= pw_u + 4:
+        adv.append(f"🔋 Power-weapon control lost {format_int(pw_u)}–{format_int(pw_t)} — "
+                   "time the spawns; those kills are the margin.")
+    tdths, edths = g('team_deaths'), g('enemy_team_deaths')
+    if (tl and el and tl < el * 0.8) and tdths and edths and tdths > edths and not won:
+        adv.append(f"⚰️ Trading too aggressively: shorter lives ({_mp_fmt(tl, 'secs')} vs {_mp_fmt(el, 'secs')}) "
+                   f"and more deaths ({format_int(tdths)} vs {format_int(edths)}) — take fights with backup, not solo.")
+    bullets.extend(adv[:3])
+
+    # ── Lobby strength context ──
+    tm, em = g('team_mmr'), g('enemy_team_mmr')
+    if tm and em and abs(tm - em) >= 15:
+        gap = int(round(em - tm))
+        bullets.append(f"🧠 Ratings: their side was {abs(gap)} MMR {'stronger' if gap > 0 else 'weaker'} on paper")
+
+    # ── Swing player among tracked players ──
+    if len(mdf) > 1 and 'dmg_difference' in mdf.columns:
+        dd = pd.to_numeric(mdf['dmg_difference'], errors='coerce')
+        if dd.notna().any():
+            hi, lo = dd.idxmax(), dd.idxmin()
+            if won and safe_float(dd.loc[hi]) > 0:
+                bullets.append(f"📌 Biggest lift: {mdf.loc[hi, 'player_gamertag']} "
+                               f"({_mp_fmt(dd.loc[hi], 'signed')} damage diff)")
+            elif not won and safe_float(dd.loc[lo]) < 0:
+                bullets.append(f"📌 Toughest game: {mdf.loc[lo, 'player_gamertag']} "
+                               f"({_mp_fmt(dd.loc[lo], 'signed')} damage diff)")
+
+    # ── Headline: reconcile the fight with the scoreboard ──
+    if won:
+        if fight_score < 0:
+            summary = "Stole it — lost the gunfight but won where it scores."
+        elif decisive_good is False:
+            summary = "Won ugly — the decisive stat went their way but we closed it out."
+        else:
+            summary = "Clean win — took the fight and the scoreboard."
+    else:
+        if fight_score > 0 and decisive_good is False:
+            summary = ("Won the gunfight, lost the game — the slaying was there, "
+                       "but they beat us where this mode actually scores.")
+        elif fight_score > 0:
+            summary = "Lost despite winning the fight — this one slipped away in the clutch moments."
+        elif fight_score == 0:
+            summary = "Coin-flip game that fell their way."
+        else:
+            summary = "Beaten straight up — outgunned and outscored."
+    return {'title': 'Why we won' if won else 'Why we lost',
+            'summary': summary, 'bullets': bullets}
+
+
+def build_match_page(df: pd.DataFrame, match_id: str):
+    """Everything captured about one match: header meta, per tracked player
+    EVERY stat organized into groups plus EVERY medal, and a team-vs-team
+    aggregate comparison. The lobby-wide (enemies included) scoreboard comes
+    from build_full_scoreboard; this covers the deep per-player detail."""
+    if df.empty or 'match_id' not in df.columns:
+        return None
+    mdf = df[df['match_id'].astype(str) == str(match_id)]
+    if mdf.empty:
+        return None
+    info = mdf.iloc[0]
+
+    dur = safe_float(info.get('duration'))
+    meta = {
+        'map': normalize_map_name(info.get('map')) or '—',
+        'mode': clean_mode(info.get('game_type')) or '—',
+        'playlist': info.get('playlist') or '',
+        'date': format_date(info.get('date')),
+        'duration': _mp_fmt(dur, 'mmss') if dur else '',
+        'outcome': str(info.get('outcome') or '').title(),
+        'outcome_class': outcome_class(info.get('outcome')),
+        'team_score': _mp_fmt(info.get('team_score'), 'int'),
+        'enemy_score': _mp_fmt(info.get('enemy_team_score'), 'int'),
+        'team_mmr': _mp_fmt(info.get('team_mmr'), 'int'),
+        'enemy_mmr': _mp_fmt(info.get('enemy_team_mmr'), 'int'),
+    }
+
+    medal_cols = [c for c in mdf.columns
+                  if str(c).startswith('medal_') and c != 'medal_count']
+
+    players = []
+    for _, row in mdf.sort_values('kda', ascending=False).iterrows():
+        grade = _match_grade_for_row(row) or {}
+        groups = []
+        for title, spec in _MP_STAT_GROUPS:
+            rows = []
+            for label, col, kind in spec:
+                if col not in mdf.columns:
+                    continue
+                val = _mp_fmt(row.get(col), kind)
+                if val is not None:
+                    rows.append({'label': label, 'value': val})
+            if rows:
+                groups.append({'title': title, 'rows': rows})
+        for title, prefix, spec in _MP_MODE_GROUPS:
+            vals = [(label, safe_float(row.get(prefix + suffix, 0) or 0), kind)
+                    for suffix, label, kind in spec if (prefix + suffix) in mdf.columns]
+            if not any(v > 0 for _, v, _ in vals):
+                continue  # player had no activity in this mode this game
+            groups.append({'title': title, 'rows': [
+                {'label': label, 'value': _mp_fmt(v, kind)} for label, v, kind in vals
+            ]})
+        medals = []
+        for c in medal_cols:
+            n = safe_int(row.get(c) or 0)
+            if n > 0:
+                medals.append({'name': _mp_medal_name(str(c)), 'count': n})
+        medals.sort(key=lambda m: (-m['count'], m['name']))
+        players.append({
+            'player': row.get('player_gamertag'),
+            'grade': grade.get('grade', ''),
+            'grade_class': grade.get('grade_class', ''),
+            'grade_tip': grade.get('grade_tip', ''),
+            'outcome': str(row.get('outcome') or '').title(),
+            'outcome_class': outcome_class(row.get('outcome')),
+            'kda_line': (f"{format_int(row.get('kills'))}/{format_int(row.get('deaths'))}"
+                         f"/{format_int(row.get('assists'))}"),
+            'medal_total': format_int(row.get('medal_count')),
+            'groups': groups,
+            'medals': medals,
+        })
+
+    team_rows = []
+    for label, suffix, kind, lower_better in _MP_TEAM_ROWS:
+        tcol, ecol = f'team_{suffix}', f'enemy_team_{suffix}'
+        if tcol not in mdf.columns or ecol not in mdf.columns:
+            continue
+        us_v, them_v = safe_float(info.get(tcol)), safe_float(info.get(ecol))
+        us, them = _mp_fmt(info.get(tcol), kind), _mp_fmt(info.get(ecol), kind)
+        if us is None and them is None:
+            continue
+        better = None
+        if us is not None and them is not None and us_v != them_v:
+            better = 'us' if ((us_v < them_v) if lower_better else (us_v > them_v)) else 'them'
+        team_rows.append({'label': label, 'us': us or '—', 'them': them or '—',
+                          'better': better})
+
+    try:
+        why = _mp_why(info, mdf, meta)
+    except Exception as exc:
+        logger.warning('match why-verdict failed for %s: %s', match_id, exc)
+        why = None
+
+    return {'meta': meta, 'players': players, 'team_rows': team_rows, 'why': why}
+
+
 def build_full_scoreboard(engine, match_id):
     """Two-team scoreboard for a match from halo_match_players, if captured."""
     sql = """
         SELECT gamertag, team_id, outcome, is_tracked, kills, deaths, assists,
-               kda, accuracy, damage_dealt, playlist, map, match_date
+               kda, accuracy, damage_dealt, csr, playlist, map, match_date
         FROM halo_match_players WHERE match_id = :mid
         ORDER BY team_id, kda DESC NULLS LAST
     """
@@ -13509,6 +13940,7 @@ def build_full_scoreboard(engine, match_id):
             'kda': format_float(r.get('kda'), 2),
             'accuracy': f'{acc:.0f}%',
             'damage': format_int(r.get('damage_dealt')),
+            'csr': format_int(r.get('csr')) if safe_float(r.get('csr')) > 0 else '',
             'grade': grade.get('grade', ''),
             'grade_class': grade.get('grade_class', ''),
             'grade_tip': grade.get('grade_tip', ''),

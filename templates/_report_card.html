@@ -173,14 +173,16 @@
           <summary><span class="rcg-games-label">Game-by-game</span><span class="rcg-games-hint">every game · tap ✓ to include / drop</span></summary>
           <ul class="rcg-list">
             {% for g in row.game_grades %}
-            <li class="rcg-gitem{{ ' rcg-notable' if g.watch }}" data-mid="{{ g.mid }}" data-num="{{ g.num }}" data-grade="{{ g.grade }}" data-score="{{ g.score if g.score is not none else '' }}" data-result="{{ g.result }}" data-map="{{ g.map }}" data-mode="{{ g.mode }}" data-k="{{ g.kills }}" data-d="{{ g.deaths }}" data-a="{{ g.assists }}" data-watch="{{ g.watch_reason }}">
+            {% set _w = watch_url(g.mid) %}
+            <li class="rcg-gitem{{ ' rcg-notable' if g.watch }}" data-mid="{{ g.mid }}" data-num="{{ g.num }}" data-grade="{{ g.grade }}" data-score="{{ g.score if g.score is not none else '' }}" data-result="{{ g.result }}" data-map="{{ g.map }}" data-mode="{{ g.mode }}" data-k="{{ g.kills }}" data-d="{{ g.deaths }}" data-a="{{ g.assists }}" data-watch="{{ g.watch_reason }}" data-wlink="{{ ('/w/' ~ (g.mid|string)[:8]) if _w else '' }}">
               <label class="rcg-check" title="Include this game in the grade"><input type="checkbox" checked></label>
               <span class="rcg-gnum">G{{ g.num }}</span>
               <span class="rcg-gres {{ g.result_class }}">{{ g.result }}</span>
-              <span class="rcg-gmap">{{ g.map }}<span class="rcg-gmode">{{ g.mode }}</span>{% if g.watch %}<span class="rcg-note" title="Worth a rewatch — outlier performance">👀 {{ g.watch_reason }}</span>{% endif %}</span>
+              <a class="rcg-gmap" href="/match/{{ g.mid }}" title="Full match details — every stat, every enemy, every medal">{{ g.map }}<span class="rcg-gmode">{{ g.mode }}</span>{% if g.watch %}<span class="rcg-note" title="Worth a rewatch — outlier performance">👀 {{ g.watch_reason }}</span>{% endif %}</a>
               <span class="rcg-gkda" title="{{ g.kills }} kills · {{ g.deaths }} deaths · {{ g.assists }} assists">{{ g.kda }} <span class="rcg-gkd">{{ g.kills }}/{{ g.deaths }}/{{ g.assists }}</span></span>
               <span class="rcg-ggrade inline-grade {{ g.grade_class }}" title="Game grade">{{ g.grade }}</span>
-              {% set _w = watch_url(g.mid) %}{% if _w %}<a class="rcg-watch" href="{{ _w }}" target="_blank" rel="noopener" title="Rewatch this game (synced co-stream)" onclick="event.stopPropagation()">📺</a>{% endif %}
+              <a class="rcg-watch" href="/match/{{ g.mid }}" title="Full match details — every stat, every enemy, every medal" onclick="event.stopPropagation()">📊</a>
+              {% if _w %}<a class="rcg-watch" href="{{ _w }}" target="_blank" rel="noopener" title="Rewatch this game (synced co-stream)" onclick="event.stopPropagation()">📺</a>{% endif %}
             </li>
             {% endfor %}
           </ul>

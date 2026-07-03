@@ -4128,3 +4128,33 @@ body.live-watch-mode .sl-streams-panel{animation:none;transform:none;}
    drawers (same trap as the fadeIn transform). Watch mode sits on a black
    stage — the frosted blur is invisible there anyway. */
 body.live-watch-mode .sl-streams-panel{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
+
+/* ── Match detail page: hero, why-we-won/lost, per-player stat groups, medals ── */
+a.rcg-gmap{text-decoration:none;}
+a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
+.match-hero-line{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:6px;}
+.match-hero-outcome{font-size:1.15rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
+.match-hero-score{font-size:1.3rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.match-hero-mmr{color:var(--text-2,#9aa7bd);font-size:.9rem;}
+.match-why-summary{font-size:1.05rem;font-weight:700;margin:2px 0 10px;}
+.match-why-bullets{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:7px;}
+.match-why-bullets li{line-height:1.45;}
+.match-why-win{border-left:3px solid rgba(22,163,74,.8);}
+.match-why-loss{border-left:3px solid rgba(220,60,60,.8);}
+.match-player-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.match-player-head .player-name{font-size:1.1rem;}
+.match-stat-groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:8px;}
+.match-stat-group h4{margin:0 0 6px;font-size:.82rem;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2,#9aa7bd);}
+.match-stat-group dl{margin:0;display:flex;flex-direction:column;gap:3px;}
+.match-stat-row{display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dashed rgba(255,255,255,.06);}
+.match-stat-row dt{color:var(--text-2,#9aa7bd);font-size:.85rem;}
+.match-stat-row dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;font-size:.85rem;}
+.match-medal-group{grid-column:1 / -1;}
+.match-medals{display:flex;flex-wrap:wrap;gap:6px;}
+.match-medal-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:3px 10px;font-size:.8rem;white-space:nowrap;}
+.match-medal-chip b{color:var(--accent,#ff7a3d);}
+.match-teamcmp td{font-variant-numeric:tabular-nums;}
+@media (max-width:720px){
+  .match-stat-groups{grid-template-columns:1fr 1fr;}
+  .match-medal-group{grid-column:1 / -1;}
+}

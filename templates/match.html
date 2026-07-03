@@ -3,14 +3,48 @@
 {% block title %}{{ app_title }} - Match{% endblock %}
 
 {% block content %}
+
+{# ── Match header: everything about the game itself ── #}
+{% if detail %}
+<section class="panel match-hero">
+  <div class="panel-header">
+    <div>
+      <h2>{{ detail.meta.mode }} on {{ detail.meta.map }}</h2>
+      <p class="muted">{{ detail.meta.playlist }} · {{ detail.meta.date }}{% if detail.meta.duration %} · ⏱️ {{ detail.meta.duration }}{% endif %}</p>
+    </div>
+    {% set _w = watch_url(match_id) %}{% if _w %}<a class="btn btn-small watch-rewatch-btn" href="{{ _w }}" target="_blank" rel="noopener" title="Open the synced co-stream rewatch at this game's start time (MultiTwitch)">📺 Watch the rewatch</a>{% endif %}
+  </div>
+  <div class="match-hero-line">
+    <span class="match-hero-outcome {{ detail.meta.outcome_class }}">{{ detail.meta.outcome or '—' }}</span>
+    {% if detail.meta.team_score and detail.meta.enemy_score %}
+    <span class="match-hero-score">{{ detail.meta.team_score }} – {{ detail.meta.enemy_score }}</span>
+    {% endif %}
+    {% if detail.meta.team_mmr and detail.meta.enemy_mmr %}
+    <span class="match-hero-mmr" title="Team MMR vs enemy team MMR">🧠 {{ detail.meta.team_mmr }} vs ⚔️ {{ detail.meta.enemy_mmr }} MMR</span>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# ── Why we won / why we lost ── #}
+{% if detail and detail.why %}
+<section class="panel match-why {{ 'match-why-win' if detail.meta.outcome_class == 'outcome-win' else 'match-why-loss' }}">
+  <div class="panel-header"><h2>🧾 {{ detail.why.title }}</h2></div>
+  <p class="match-why-summary">{{ detail.why.summary }}</p>
+  <ul class="match-why-bullets">
+    {% for b in detail.why.bullets %}<li>{{ b }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{# ── Full lobby scoreboard — every player in the game, enemies included ── #}
 {% if full_scoreboard %}
 <section class="panel">
   <div class="panel-header">
     <div>
-      <h2>Match Scoreboard</h2>
-      <p class="muted">{{ full_scoreboard.meta.map }} · {{ full_scoreboard.meta.playlist }} · {{ full_scoreboard.meta.date }}</p>
+      <h2>Lobby Scoreboard</h2>
+      <p class="muted">every player in the lobby{% if not detail %} · {{ full_scoreboard.meta.map }} · {{ full_scoreboard.meta.playlist }} · {{ full_scoreboard.meta.date }}{% endif %}</p>
     </div>
-    {% set _w = watch_url(match_id) %}{% if _w %}<a class="btn btn-small watch-rewatch-btn" href="{{ _w }}" target="_blank" rel="noopener" title="Open the synced co-stream rewatch at this game's start time (MultiTwitch)">📺 Watch the rewatch</a>{% endif %}
   </div>
   {% for team in full_scoreboard.teams %}
   <h3 class="{{ 'heat-excellent' if team.won else 'heat-poor' }}">
@@ -20,7 +54,7 @@
   <div class="table-wrap">
     <table class="data-table">
       <thead>
-        <tr><th>Player</th><th title="Absolute single-game grade">Grade</th><th>K</th><th>D</th><th>A</th><th title="kills + assists/3 − deaths">KDA</th><th>Acc</th><th>Damage</th><th title="Rank by KDA among all 8 players in the lobby">Lobby</th></tr>
+        <tr><th>Player</th><th title="Absolute single-game grade">Grade</th><th>K</th><th>D</th><th>A</th><th title="kills + assists/3 − deaths">KDA</th><th>Acc</th><th>Damage</th><th title="Post-match CSR (ranked)">CSR</th><th title="Rank by KDA among all 8 players in the lobby">Lobby</th></tr>
       </thead>
       <tbody>
         {% for p in team.players %}
@@ -33,6 +67,7 @@
           <td>{{ p.kda }}</td>
           <td>{{ p.accuracy }}</td>
           <td>{{ p.damage }}</td>
+          <td>{{ p.csr if p.csr else '—' }}</td>
           <td class="match-lobby{% if p.lobby_rank == 1 %} match-lobby-top{% endif %}" title="{{ p.lobby_pct }}th percentile in the lobby">#{{ p.lobby_rank }}<span class="muted">/{{ p.lobby_n }}</span></td>
         </tr>
         {% endfor %}
@@ -40,23 +75,71 @@
     </table>
   </div>
   {% endfor %}
+</section>
+{% endif %}
 
-  {% if match_rows and match_rows.medals %}
-  <h3>Your Medals</h3>
+{# ── Team vs Team aggregates ── #}
+{% if detail and detail.team_rows %}
+<section class="panel">
+  <div class="panel-header"><h2>Team vs Team</h2>
+    <span class="muted">our team's totals vs the enemy team's</span></div>
   <div class="table-wrap">
-    <table class="data-table cards">
-      <thead><tr><th>Medal</th><th>Count</th></tr></thead>
+    <table class="data-table match-teamcmp">
+      <thead><tr><th style="text-align:right">Us</th><th style="text-align:center">Stat</th><th>Them</th></tr></thead>
       <tbody>
-        {% for row in match_rows.medals %}
-        <tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>
+        {% for r in detail.team_rows %}
+        <tr>
+          <td style="text-align:right" class="{{ 'heat-excellent' if r.better == 'us' }}">{{ r.us }}</td>
+          <td style="text-align:center" class="muted">{{ r.label }}</td>
+          <td class="{{ 'heat-excellent' if r.better == 'them' }}">{{ r.them }}</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% endif %}
 </section>
-{% else %}
-{# Fallback: older matches with no captured lobby — show tracked players only. #}
+{% endif %}
+
+{# ── Per tracked player: EVERY stat + EVERY medal we captured ── #}
+{% if detail %}
+{% for pl in detail.players %}
+<section class="panel match-player-panel">
+  <div class="panel-header">
+    <div class="match-player-head">
+      <span class="inline-grade {{ pl.grade_class }}" title="{{ pl.grade_tip }}">{{ pl.grade }}</span>
+      <a href="{{ pl.player|player_href }}" class="player-name {{ pl.player|player_class }}"><strong>{{ pl.player }}</strong></a>
+      <span class="{{ pl.outcome_class }}">{{ pl.outcome }}</span>
+      <span class="muted">{{ pl.kda_line }} K/D/A · {{ pl.medal_total }} medals</span>
+    </div>
+  </div>
+  <div class="match-stat-groups">
+    {% for grp in pl.groups %}
+    <div class="match-stat-group">
+      <h4>{{ grp.title }}</h4>
+      <dl>
+        {% for r in grp.rows %}
+        <div class="match-stat-row"><dt>{{ r.label }}</dt><dd>{{ r.value }}</dd></div>
+        {% endfor %}
+      </dl>
+    </div>
+    {% endfor %}
+    {% if pl.medals %}
+    <div class="match-stat-group match-medal-group">
+      <h4>🎖️ Medals ({{ pl.medal_total }})</h4>
+      <div class="match-medals">
+        {% for m in pl.medals %}
+        <span class="match-medal-chip">{{ m.name }}{% if m.count > 1 %} <b>×{{ m.count }}</b>{% endif %}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+
+{# ── Fallback: matches with no tracked stats at all ── #}
+{% if not detail and not full_scoreboard %}
 <section class="panel">
   <div class="panel-header"><h2>Tracked Players</h2></div>
   {% if not match_rows %}

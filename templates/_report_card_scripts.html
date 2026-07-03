@@ -173,15 +173,17 @@ function copyReportCard(pfx) {
       score: parseFloat(li.dataset.score ?? ''), result: li.dataset.result || '',
       map: li.dataset.map || '', mode: li.dataset.mode || '',
       k: li.dataset.k || '', d: li.dataset.d || '', a: li.dataset.a || '',
-      watch: li.dataset.watch || '',
+      watch: li.dataset.watch || '', wlink: li.dataset.wlink || '',
     }));
+    // Tiny share link to the synced rewatch (/w/<short-id> redirect)
+    const wl = g => g.wlink ? `\n   📺 ${location.origin}${g.wlink}` : '';
     const fmtGame = g => `G${g.num} ${g.result} · ${g.mode} on ${g.map} · ${g.k}/${g.d}/${g.a}`;
     const starGames = gitems.filter(g => g.watch)
       .sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 2)
-      .map(g => `⭐ ${fmtGame(g)} — ${g.watch}`);
+      .map(g => `⭐ ${fmtGame(g)} — ${g.watch}${wl(g)}`);
     const roughGames = gitems.filter(g => /^[DF]/.test(g.grade) && !g.watch)
       .sort((a, b) => (a.score || 0) - (b.score || 0)).slice(0, 1)
-      .map(g => `💀 ${fmtGame(g)} — rough one (${g.grade})`);
+      .map(g => `💀 ${fmtGame(g)} — rough one (${g.grade})${wl(g)}`);
 
     // ━━ name · grade ━━ header, then vibe + personal form on line 2
     const p = Math.round(compPct);
