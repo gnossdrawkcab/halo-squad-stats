@@ -404,11 +404,24 @@
       flex-wrap: wrap;
     }
 
-    /* Single column cards on phone */
+    /* Single column cards on phone. minmax(0,1fr) lets the track shrink
+       below its content's min-width — plain 1fr floors at min-content, which
+       made the whole card overflow the panel once the game-by-game rows grew
+       (KDA split + grade + sus/📊/📺 chips ≈ 368px min). */
     .rc-cards {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
     }
+    .rc-card { min-width: 0; max-width: 100%; }
+
+    /* Slim the game rows so they FIT instead of forcing width: drop the
+       K/D/A split + hint labels (tooltips keep them), wrap the 👀 note. */
+    .rcg-gkd { display: none; }
+    .rcg-hint, .rcg-games-hint { display: none; }
+    .rcg-note { white-space: normal; }
+    .rcg-gmap { min-width: 0; }
+    .rcg-head, .rcg-result { flex-wrap: wrap; }
+    .rcg-gitem { flex-wrap: wrap; row-gap: 2px; }
 
     /* Larger stat rows for thumb-friendliness */
     .rc-stat {
