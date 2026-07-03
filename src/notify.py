@@ -469,12 +469,114 @@ def _stream_alert(state: dict) -> dict:
     return state
 
 
+def _compose_game_summary(mrows, record, game_no) -> tuple[str, str]:
+    """(title, body) for one finished game. mrows = halo_match_stats rows for
+    every tracked player in that match. Pure — unit-testable."""
+    first = mrows[0]
+    oc = str(first.get("outcome") or "").lower()
+    icon, word = ("✅", "WIN") if oc == "win" else (("🤝", "TIE") if oc == "tie" else ("❌", "LOSS"))
+    mode = str(first.get("game_type") or "").split(":")[0].strip() or "Ranked"
+    title = f"{icon} {word} · {mode} on {first.get('map') or '?'}"
+    lines = []
+    for r in sorted(mrows, key=lambda x: _to_float(x.get("kda")) or 0, reverse=True):
+        k, d, a = int(_to_float(r.get("kills")) or 0), int(_to_float(r.get("deaths")) or 0), int(_to_float(r.get("assists")) or 0)
+        bits = [f"{k}/{d}/{a}"]
+        acc = _to_float(r.get("accuracy"))
+        if acc:
+            bits.append(f"{acc * 100 if acc <= 1 else acc:.0f}% acc")
+        dd = _to_float(r.get("dmg_difference"))
+        if dd is not None:
+            bits.append(f"{dd:+,.0f} dmg")
+        pre, post = _to_float(r.get("pre_match_csr")), _to_float(r.get("post_match_csr"))
+        if post and post > 0:
+            delta = f" ({post - pre:+.0f})" if pre and pre > 0 else ""
+            bits.append(f"CSR {post:.0f}{delta}")
+        lines.append(f"{r.get('player_gamertag')}: {' · '.join(bits)}")
+    if record:
+        lines.append(f"Tonight: {record}" + (f" · game {game_no}" if game_no else ""))
+    return title, "\n".join(lines)
+
+
+def _game_summaries(engine, state) -> dict:
+    """Live look: one push after EACH new ranked game with every tracked
+    player's line + the session record so far. Freshness-gated (45 min) so
+    backfills and long-downtime restarts never replay a flood."""
+    if os.getenv("HALO_GAME_NOTIFY", "1").lower() in ("0", "false", "no"):
+        return state
+    sql = text(
+        """
+        SELECT player_gamertag, match_id, date, map, game_type, outcome,
+               kills, deaths, assists, kda, accuracy, dmg_difference,
+               pre_match_csr, post_match_csr
+        FROM halo_match_stats
+        WHERE playlist ILIKE '%%ranked%%' AND date IS NOT NULL
+          AND date > NOW() - INTERVAL '45 minutes'
+        ORDER BY date
+        """
+    )
+    with engine.connect() as conn:
+        fresh = [dict(r._mapping) for r in conn.execute(sql)]
+    if not fresh:
+        return state
+    seen = [str(x) for x in (state.get("_game_notified") or [])]
+    by_mid: dict = {}
+    for r in fresh:
+        by_mid.setdefault(str(r["match_id"]), []).append(r)
+    new_mids = [m for m in by_mid if m not in seen]
+    if not new_mids:
+        return state
+
+    # Session-so-far record: walk today's games back over the session gap.
+    gap = _session_gap_minutes()
+    sql_rec = text(
+        """
+        SELECT DISTINCT ON (match_id) match_id, date, outcome
+        FROM halo_match_stats
+        WHERE playlist ILIKE '%%ranked%%' AND date IS NOT NULL
+          AND date > NOW() - INTERVAL '18 hours'
+        ORDER BY match_id, date DESC
+        """
+    )
+    with engine.connect() as conn:
+        rec_rows = sorted((dict(r._mapping) for r in conn.execute(sql_rec)),
+                          key=lambda r: r["date"], reverse=True)
+    session_rows, prev = [], None
+    for r in rec_rows:
+        if prev is not None and (prev - r["date"]).total_seconds() / 60 > gap:
+            break
+        session_rows.append(r)
+        prev = r["date"]
+    wins = sum(1 for r in session_rows if str(r.get("outcome") or "").lower() == "win")
+    losses = sum(1 for r in session_rows if str(r.get("outcome") or "").lower() == "loss")
+    record = f"{wins}-{losses}" if session_rows else ""
+    game_no = len(session_rows)
+
+    for mid in sorted(new_mids, key=lambda m: by_mid[m][0]["date"]):
+        try:
+            title, body = _compose_game_summary(by_mid[mid], record, game_no)
+            _publish(body, title=title, tags="video_game",
+                     priority="default")
+            try:
+                import push
+                push.send_push(title, body, f"/match/{mid}", tag="halo-game")
+            except Exception as e:
+                logger.warning("webpush_game_failed error=%s", e)
+        except Exception as e:
+            logger.warning("notify_game_compose_failed match=%s error=%s", mid, e)
+    state["_game_notified"] = (seen + new_mids)[-300:]
+    return state
+
+
 def process_notifications(engine, players) -> None:
     """Entry point called by the scraper after each run. Never raises."""
     if not _enabled():
         return
     try:
         state = _load_state()
+        try:
+            state = _game_summaries(engine, state)
+        except Exception as e:
+            logger.warning("notify_game_summary_failed error=%s", e)
         for player in players:
             try:
                 state[player["gamertag"]] = _player_events(engine, player, state)
