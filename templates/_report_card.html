@@ -173,7 +173,7 @@
           <summary><span class="rcg-games-label">Game-by-game</span><span class="rcg-games-hint">every game · tap ✓ to include / drop</span></summary>
           <ul class="rcg-list">
             {% for g in row.game_grades %}
-            <li class="rcg-gitem{{ ' rcg-notable' if g.watch }}" data-mid="{{ g.mid }}">
+            <li class="rcg-gitem{{ ' rcg-notable' if g.watch }}" data-mid="{{ g.mid }}" data-num="{{ g.num }}" data-grade="{{ g.grade }}" data-score="{{ g.score if g.score is not none else '' }}" data-result="{{ g.result }}" data-map="{{ g.map }}" data-mode="{{ g.mode }}" data-k="{{ g.kills }}" data-d="{{ g.deaths }}" data-a="{{ g.assists }}" data-watch="{{ g.watch_reason }}">
               <label class="rcg-check" title="Include this game in the grade"><input type="checkbox" checked></label>
               <span class="rcg-gnum">G{{ g.num }}</span>
               <span class="rcg-gres {{ g.result_class }}">{{ g.result }}</span>

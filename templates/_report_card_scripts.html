@@ -4,8 +4,12 @@
    index.html — edit HERE, not per-page. #}
 <script>
 // ── Report card copy-to-clipboard ────────────────────────────
+// One block per player: ━━ name · grade ━━ header, then fixed line roles
+// (vibe/form → record → game squares → 🔫 gunfight → 💥 damage/survival →
+// 🎯 objective → 🔥/🚨 stat outliers → ⭐/💀 outlier GAMES). Values first,
+// letter grades in parens, no squad-average clutter.
 // Verbal performance tiers from the squad-relative composite percentile
-// (0-100, 50 = squad's historical median). No letter grades in copy text.
+// (0-100, 50 = squad's historical median).
 // MID is centered on 50 (average play IS mid); below ~42 reads as bad.
 const PERF_TIERS = [
   [90, '🔥 GODLIKE'], [75, '😤 COOKING'], [60, '💪 STRONG'],
@@ -18,6 +22,7 @@ function perfTier(p) {
 // Colored-square sparkline for grades (session trend + per-game).
 const GRADE_SQ = { S: '🟩', A: '🟩', B: '🟨', C: '🟧', D: '🟥', F: '🟥' };
 const sqOf = (g) => GRADE_SQ[(g || '').replace(/[+\-]$/, '')] || '⬜';
+const ord = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 
 // Build the grade-over-time sparkline block (shared by both copy buttons).
 function gradeTrendLines() {
@@ -99,14 +104,13 @@ function copyReportCard(pfx) {
     const formPct = parseFloat(card.getAttribute('data-form') ?? '');
     const usual = parseFloat(card.getAttribute('data-usual') ?? '');
 
-    // All graded stats: squad letter grade + value + squad 365d average
+    // All graded stats: value + squad letter grade + squad percentile
     const statInfo = {};
     card.querySelectorAll('.rc-stat').forEach(s => {
       const label = (s.querySelector('.rc-stat-label')?.innerText.trim() ?? '').toUpperCase();
       const sg = s.querySelector('.sub-grade');
       const pct = parseFloat(sg?.getAttribute('data-pct') ?? '');
       const grade = sg?.getAttribute('data-grade-squad') ?? '';
-      const avg = String(s.getAttribute('data-avg') ?? '').replace(/\.0$/, '');
       const valNode = s.querySelector('.rc-stat-val');
       let val = '';
       if (valNode) {
@@ -116,71 +120,92 @@ function copyReportCard(pfx) {
         });
         val = val.replace(/\s+/g, ' ').trim();
       }
-      statInfo[label] = { pct, val, grade, avg };
+      statInfo[label] = { pct, val, grade };
     });
-    const st = (label, show, suffix = '') => {
+    // "<value> <name> (<grade>)" — value first, letter in parens
+    const st = (label, show) => {
       const s = statInfo[label];
       if (!s || !s.val || s.val === '—') return '';
-      const grade = s.grade ? ` ${s.grade}` : '';
-      const avg = s.avg ? ` (${s.avg} avg)` : '';
-      return `${show}${grade} ${s.val}${suffix}${avg}`;
+      return `${s.val} ${show}${s.grade ? ` (${s.grade})` : ''}`;
     };
 
     // Acc + K/D/A from the card footer
     const footerSpans = Array.from(card.querySelectorAll('.rc-card-footer span'));
-    const acc = footerSpans.find(s => s.innerText.startsWith('Acc'))?.innerText.trim() ?? '';
+    const accVal = (footerSpans.find(s => s.innerText.startsWith('Acc'))?.innerText.trim() ?? '')
+      .replace(/^Acc\s*/, '');
     const kdaSplit = (footerSpans.find(s => /^K\s/.test(s.innerText))?.innerText ?? '')
       .replace(/[KDA]\s*/g, '').split('·').map(x => x.trim()).filter(Boolean).join('/');
 
-    const statLine1 = [st('KDA', 'KDA'), st('DMG±/G', 'Dmg±', '/g'), st('DMG/M', 'Dmg/m'),
-                       acc, kdaSplit ? `K/D/A ${kdaSplit}` : ''].filter(Boolean).join(' · ');
-    const statLine2 = [st('LIFE', 'Life'), st('OBJSC', 'ObjSc'), st('OBJ/MIN', 'Obj/m'),
-                       st('SC%', 'Sc%')].filter(Boolean).join(' · ');
+    // Stats grouped by ROLE: gunfight → damage/survival → objective
+    const slayLine = [st('KDA', 'KDA'), kdaSplit ? `${kdaSplit} K/D/A per gm` : '',
+                      accVal ? `${accVal} acc` : ''].filter(Boolean).join(' · ');
+    const dmgLine  = [st('DMG±/G', 'dmg diff/g'), st('DMG/M', 'dmg/min'),
+                      st('LIFE', 'avg life')].filter(Boolean).join(' · ');
+    const objLine  = [st('OBJSC', 'obj score'), st('OBJ/MIN', 'obj/min'),
+                      st('SC%', 'score share')].filter(Boolean).join(' · ');
 
     const record = (card.querySelector('.rc-card-record')?.innerText ?? '')
       .replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim();
-    const recLine = `  ${record}`;
 
     // every-game sparkline (colored squares)
     const gg = card.querySelector('.rc-game-grades');
     let gamesLine = '';
     if (gg) {
       const chips = Array.from(gg.querySelectorAll('.rcg-chip')).map(c => sqOf(c.innerText.trim()));
-      if (chips.length) gamesLine = `  ${chips.join('')}`;
+      if (chips.length) gamesLine = chips.join('');
     }
 
-    // Good/bad OUTLIER stats — anything elite (≥85) or awful (≤15) tonight
+    // Session-level OUTLIER STATS — anything elite (≥70th) or awful (≤20th)
     const NICE = { 'KDA': 'slaying', 'OBJ/MIN': 'objective pace',
                    'DMG±/G': 'damage trades', 'LIFE': 'survival', 'OBJSC': 'objective play',
                    'SC%': 'score share', 'DMG/M': 'damage output' };
     const entries = Object.entries(statInfo).filter(([, s]) => Number.isFinite(s.pct));
     const hot = entries.filter(([, s]) => s.pct >= 70).sort((a, b) => b[1].pct - a[1].pct)
-      .map(([l, s]) => `${NICE[l] || l} (${Math.round(s.pct)})`);
+      .map(([l, s]) => `${NICE[l] || l} (${ord(Math.round(s.pct))})`);
     const cold = entries.filter(([, s]) => s.pct <= 20).sort((a, b) => a[1].pct - b[1].pct)
-      .map(([l, s]) => `${NICE[l] || l} (${Math.round(s.pct)})`);
-    const outlierLine = (hot.length || cold.length)
-      ? '  ' + [hot.length ? `🔥 ${hot.join(', ')}` : '', cold.length ? `🚨 ${cold.join(', ')}` : '']
-          .filter(Boolean).join(' · ')
-      : '';
+      .map(([l, s]) => `${NICE[l] || l} (${ord(Math.round(s.pct))})`);
 
-    // Header: emoji + letter grade + comment + personal form. No overall
-    // number — the letter (from the win-correlated composite) carries it.
+    // OUTLIER GAMES — standout individual games, good and bad. ⭐ = the
+    // server's "worth a rewatch" flags (kill counts, huge obj scores, clean
+    // sheets, S/A+ games); 💀 = D/F stinkers.
+    const gitems = Array.from(card.querySelectorAll('.rcg-gitem')).map(li => ({
+      num: li.dataset.num || '', grade: li.dataset.grade || '',
+      score: parseFloat(li.dataset.score ?? ''), result: li.dataset.result || '',
+      map: li.dataset.map || '', mode: li.dataset.mode || '',
+      k: li.dataset.k || '', d: li.dataset.d || '', a: li.dataset.a || '',
+      watch: li.dataset.watch || '',
+    }));
+    const fmtGame = g => `G${g.num} ${g.result} · ${g.mode} on ${g.map} · ${g.k}/${g.d}/${g.a}`;
+    const starGames = gitems.filter(g => g.watch)
+      .sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 2)
+      .map(g => `⭐ ${fmtGame(g)} — ${g.watch}`);
+    const roughGames = gitems.filter(g => /^[DF]/.test(g.grade) && !g.watch)
+      .sort((a, b) => (a.score || 0) - (b.score || 0)).slice(0, 1)
+      .map(g => `💀 ${fmtGame(g)} — rough one (${g.grade})`);
+
+    // ━━ name · grade ━━ header, then vibe + personal form on line 2
     const p = Math.round(compPct);
     const letter = Number.isFinite(compPct) ? gradeOf(p) : '';
     const tierEmoji = Number.isFinite(compPct) ? perfTier(p).split(' ')[0] : '🎮';
     const COMMENT = { S: 'unconscious', A: 'cooked', B: 'a solid shift',
                       C: 'below par', D: 'a rough one', F: 'one to forget' };
-    const comment = letter ? ` — ${COMMENT[letter.replace(/[+\-]/, '')] || ''}` : '';
+    const comment = letter ? (COMMENT[letter.replace(/[+\-]/, '')] || '') : '';
     const form = Number.isFinite(formPct)
-      ? ` · ${formOf(formPct)}${Number.isFinite(usual) ? ` (norm ${gradeOf(Math.round(usual))})` : ''}`
+      ? `${formOf(formPct)}${Number.isFinite(usual) ? ` (norm ${gradeOf(Math.round(usual))})` : ''}`
       : '';
+    const vibeLine = [comment ? `${tierEmoji} ${comment}` : '', form].filter(Boolean).join(' · ');
     return [
-      `${tierEmoji} ${letter}  ${name}${comment}${form}`,
-      recLine,
-      ...(statLine1 ? [`  ${statLine1}`] : []),
-      ...(statLine2 ? [`  ${statLine2}`] : []),
-      ...(outlierLine ? [outlierLine] : []),
+      `━━ ${name} · ${letter || '—'} ━━`,
+      ...(vibeLine ? [vibeLine] : []),
+      record,
       ...(gamesLine ? [gamesLine] : []),
+      ...(slayLine ? [`🔫 ${slayLine}`] : []),
+      ...(dmgLine ? [`💥 ${dmgLine}`] : []),
+      ...(objLine ? [`🎯 ${objLine}`] : []),
+      ...(hot.length ? [`🔥 elite: ${hot.join(' · ')}`] : []),
+      ...(cold.length ? [`🚨 rough: ${cold.join(' · ')}`] : []),
+      ...starGames,
+      ...roughGames,
     ].join('\n');
   });
 
@@ -197,7 +222,7 @@ function copyReportCard(pfx) {
     blocks.join('\n\n'),
     '',
     ...(weightsLine ? [weightsLine] : []),
-    'ℹ️ grade = the 5 stats most tied to our wins, vs every squad game in the past 365 days · form = vs your own year of games',
+    'ℹ️ letters = graded vs every squad game in the past 365 days · “72nd” = squad percentile · form = vs your own year of games',
   ].join('\n');
 
   navigator.clipboard.writeText(text).then(() => {
