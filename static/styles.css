@@ -4200,3 +4200,12 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .sus-report > ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;}
 .sus-report ul ul{margin:4px 0 0;padding-left:16px;color:var(--text-2,#9aa7bd);font-size:.88rem;display:flex;flex-direction:column;gap:3px;}
 .rcg-sus{font-size:.7rem;padding:0 6px;flex:0 0 auto;}
+
+/* ── Player intel expander (match page) ── */
+.intel-btn{background:none;border:1px solid rgba(255,255,255,.15);border-radius:6px;cursor:pointer;font-size:.75rem;padding:1px 6px;vertical-align:middle;}
+.intel-btn:hover{border-color:var(--accent,#ff7a3d);}
+.intel-row td{background:rgba(255,255,255,.03);font-size:.86rem;}
+.intel-body{display:flex;flex-direction:column;gap:5px;padding:4px 2px;white-space:normal;}
+.intel-csr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.intel-spark{flex:0 0 auto;}
+.intel-warn{color:#ffd75e;font-weight:600;}

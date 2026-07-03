@@ -10997,6 +10997,103 @@ def sus_thresholds_debug():
     return jsonify(_sus_thresholds(ENGINE) or {})
 
 
+# ── Player intel: account age, career size, CSR history ──
+# DB half: everything we've recorded about a lobby player across OUR games
+# (encounters, CSR trail). API half: Halo career totals via the spartan token
+# the scraper keeps fresh in tokens.json (matchmade game count + first-ever
+# match date = account age). API results cached 24h per xuid; fail-soft to
+# DB-only when the token/API is unavailable (e.g. fresh fork installs).
+_INTEL_CACHE: dict = {}
+_INTEL_TTL = 86400
+
+
+def _spartan_token() -> str:
+    try:
+        data_dir = os.environ.get('HALO_DATA_DIR', '/data')
+        with open(os.path.join(data_dir, 'tokens.json')) as f:
+            return json.load(f).get('spartan_token') or ''
+    except Exception:
+        return ''
+
+
+def _intel_from_api(xuid: str):
+    e = _INTEL_CACHE.get(xuid)
+    if e and time.time() - e['ts'] < _INTEL_TTL:
+        return e['data']
+    data = {}
+    tok = _spartan_token()
+    if tok:
+        hdrs = {'x-343-authorization-spartan': tok, 'Accept': 'application/json'}
+        base = f'https://halostats.svc.halowaypoint.com/hi/players/xuid({xuid})'
+        try:
+            c = requests.get(f'{base}/matches/count', headers=hdrs, timeout=6).json()
+            mm = safe_int(c.get('MatchmadeMatchesPlayedCount'))
+            data['total_games'] = mm
+            # Oldest match = account age. The 'type' filter 400s, and the
+            # unfiltered index may not include local matches, so fetch the
+            # last PAGE and take its final entry — trying the all-matches
+            # count first, then the matchmade count.
+            first = None
+            for total in (safe_int(c.get('MatchesPlayedCount')), mm):
+                if total <= 0 or first:
+                    continue
+                h = requests.get(f'{base}/matches',
+                                 params={'start': max(total - 25, 0), 'count': 25},
+                                 headers=hdrs, timeout=6).json()
+                res = h.get('Results') or []
+                if res:
+                    first = (res[-1].get('MatchInfo') or {}).get('StartTime')
+                if first:
+                    fd = pd.to_datetime(first, utc=True, errors='coerce')
+                    if pd.notna(fd):
+                        yrs = (pd.Timestamp.now(tz='UTC') - fd).days / 365.25
+                        data['first_match'] = fd.strftime('%b %Y')
+                        data['account_age'] = (f"{yrs:.1f} yrs" if yrs >= 1
+                                               else f"{max((pd.Timestamp.now(tz='UTC') - fd).days, 1)} days")
+        except Exception as exc:
+            logger.warning('player intel api failed for %s: %s', xuid, exc)
+    _INTEL_CACHE[xuid] = {'ts': time.time(), 'data': data}
+    return data
+
+
+@app.route('/api/player-intel/<xuid>')
+def player_intel(xuid):
+    """Everything we can say about one lobby player: games + CSR trail from
+    our own records, career size + account age from the Halo API."""
+    xuid = str(xuid).strip()
+    if not xuid.isdigit() or len(xuid) > 20:
+        return jsonify({'ok': False}), 400
+    sql = text("""
+        SELECT gamertag, match_date, csr, kda
+        FROM halo_match_players
+        WHERE player_xuid = :x AND playlist ILIKE :pl
+        ORDER BY match_date
+    """)
+    rows = []
+    try:
+        with ENGINE.connect() as conn:
+            rows = [dict(r._mapping) for r in conn.execute(sql, {'x': xuid, 'pl': '%rank%'})]
+    except SQLAlchemyError:
+        pass
+    csr_series = [[r['match_date'].strftime('%Y-%m-%d'), int(safe_float(r['csr']))]
+                  for r in rows if safe_float(r.get('csr')) > 0 and r.get('match_date')]
+    kdas = [safe_float(r['kda']) for r in rows]
+    out = {
+        'ok': True,
+        'gamertag': rows[-1]['gamertag'] if rows else '',
+        'games_vs_us': len(rows),
+        'first_seen': rows[0]['match_date'].strftime('%b %d, %Y') if rows and rows[0].get('match_date') else '',
+        'last_seen': rows[-1]['match_date'].strftime('%b %d, %Y') if rows and rows[-1].get('match_date') else '',
+        'avg_kda_vs_us': round(sum(kdas) / len(kdas), 1) if kdas else None,
+        'csr_series': csr_series,
+        'csr_now': csr_series[-1][1] if csr_series else None,
+        'csr_min': min(v for _, v in csr_series) if csr_series else None,
+        'csr_max': max(v for _, v in csr_series) if csr_series else None,
+    }
+    out.update(_intel_from_api(xuid))
+    return jsonify(out)
+
+
 # ---------------------------------------------------------------------------
 # Roster routes
 # ---------------------------------------------------------------------------
@@ -14254,6 +14351,7 @@ def build_full_scoreboard(engine, match_id):
                                       lobby_avg_csr)
         teams.setdefault(tid, []).append({
             'player': r.get('gamertag') or '',
+            'xuid': str(r.get('player_xuid') or ''),
             'is_tracked': r.get('is_tracked'),
             'sus_kind': sus_kind,
             'sus_signals': sus,

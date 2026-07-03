@@ -60,8 +60,8 @@
       </thead>
       <tbody>
         {% for p in team.players %}
-        <tr class="{{ 'tracked-row' if p.is_tracked }}">
-          <td>{% if p.is_tracked %}<a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>{% else %}{{ p.player }}{% endif %}{% if p.sus_kind %} <span class="sus-chip{{ ' sus-hot' if p.sus_kind == 'cheat' }}" title="{{ p.sus_tip }}">{{ '🚨' if p.sus_kind == 'cheat' else ('🎭' if p.sus_kind == 'smurf' else '⚠️') }}</span>{% endif %}</td>
+        <tr class="{{ 'tracked-row' if p.is_tracked }}"{% if p.xuid %} data-xuid="{{ p.xuid }}"{% endif %}>
+          <td>{% if p.is_tracked %}<a href="{{ p.player|player_href }}" class="player-name {{ p.player|player_class }}"><strong>{{ p.player }}</strong></a>{% else %}{{ p.player }}{% endif %}{% if p.sus_kind %} <span class="sus-chip{{ ' sus-hot' if p.sus_kind == 'cheat' }}" title="{{ p.sus_tip }}">{{ '🚨' if p.sus_kind == 'cheat' else ('🎭' if p.sus_kind == 'smurf' else '⚠️') }}</span>{% endif %}{% if p.xuid %} <button type="button" class="intel-btn" title="Player intel — account age, career games, CSR history">ℹ️</button>{% endif %}</td>
           <td><span class="inline-grade {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span></td>
           <td>{{ p.kills }}</td>
           <td>{{ p.deaths }}</td>
@@ -211,4 +211,54 @@
   {% endif %}
 </section>
 {% endif %}
+
+<script>
+// ── Player intel expander: ℹ️ on a lobby row → account age, career games,
+// games vs us, CSR history sparkline (from /api/player-intel/<xuid>) ──
+(function () {
+  function sparkline(series) {
+    if (!series || series.length < 2) return '';
+    const vals = series.map(p => p[1]);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const W = 220, H = 44, pad = 3;
+    const x = i => pad + i * (W - 2 * pad) / (vals.length - 1);
+    const y = v => max === min ? H / 2 : (H - pad) - (v - min) * (H - 2 * pad) / (max - min);
+    const pts = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const up = vals[vals.length - 1] >= vals[0];
+    return `<svg class="intel-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="none">` +
+      `<polyline points="${pts}" fill="none" stroke="${up ? '#4ade80' : '#f87171'}" stroke-width="2"/></svg>`;
+  }
+  function render(d) {
+    const bits = [];
+    if (d.account_age) bits.push(`🎂 account: first Infinite game ${d.first_match} (${d.account_age} old)`);
+    if (d.total_games != null) bits.push(`🎮 ${d.total_games.toLocaleString()} matchmade games all-time`);
+    bits.push(`⚔️ seen in ${d.games_vs_us} of our lobbies${d.first_seen ? ` (${d.first_seen} → ${d.last_seen})` : ''}` +
+              (d.avg_kda_vs_us != null ? ` · ${d.avg_kda_vs_us} avg KDA vs us` : ''));
+    let csr = '';
+    if (d.csr_series && d.csr_series.length) {
+      csr = `<div class="intel-csr">📈 CSR vs us: ${d.csr_min === d.csr_max ? d.csr_now
+        : `${d.csr_series[0][1]} → ${d.csr_now} (low ${d.csr_min} · high ${d.csr_max})`}
+        ${sparkline(d.csr_series)}</div>`;
+    }
+    const warn = (d.total_games != null && d.total_games < 200)
+      ? `<div class="intel-warn">⚠️ small career (${d.total_games} games) — new account / possible smurf or alt</div>` : '';
+    return `<div class="intel-body">${bits.map(b => `<div>${b}</div>`).join('')}${csr}${warn}</div>`;
+  }
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.intel-btn');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('intel-row')) { next.remove(); return; }
+    const row = document.createElement('tr');
+    row.className = 'intel-row';
+    row.innerHTML = `<td colspan="${tr.children.length}">Loading player intel…</td>`;
+    tr.after(row);
+    fetch('/api/player-intel/' + tr.dataset.xuid)
+      .then(r => r.json())
+      .then(d => { row.firstElementChild.innerHTML = d.ok ? render(d) : 'No intel available.'; })
+      .catch(() => { row.firstElementChild.textContent = 'Intel lookup failed.'; });
+  });
+})();
+</script>
 {% endblock %}
