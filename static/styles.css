@@ -4085,3 +4085,46 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
    tracked roster). Give them proper light-ink colors. */
 [data-theme="light"] .help-text { color: #5b5249; }
 [data-theme="light"] .info-box p { color: #3a3128; }
+
+
+/* ── Live watch-mode drawers: mobile viewport + tap-target fixes ──
+   top:0/bottom:0 tracked the LAYOUT viewport, so on phones the drawer ran
+   under the browser chrome (chat cut off at the bottom) and the channel
+   tabs hid under the notch with ~10px tap targets. Use dynamic viewport
+   height + safe-area insets, and make the chat bar genuinely tappable. */
+@media (max-width: 720px){
+  .sl-watch .sl-chat-panel,
+  .sl-watch .sl-stats-pane{
+    top:0; bottom:auto;
+    height:100vh;              /* fallback */
+    height:100dvh;             /* tracks URL-bar show/hide */
+    padding-top:env(safe-area-inset-top, 0px);
+    padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 6px);
+  }
+  .sl-chat-bar{
+    padding:6px 6px 4px;
+    gap:6px;
+  }
+  .sl-chat-tabs{gap:6px;padding:2px;}
+  .sl-chat-tab{
+    font-size:.82rem;
+    padding:9px 14px;
+    min-height:40px;           /* real tap target */
+    border-radius:8px;
+  }
+  .sl-chat-popout,.sl-chat-embed{width:40px;height:40px;font-size:.8rem;}
+  /* visible close handle so users aren't stuck hunting the backdrop */
+  body.sl-chat-open .sl-drawer-chat,
+  body.sl-stats-open .sl-drawer-stats{background:rgba(255,122,61,.35);}
+}
+@media (max-width: 720px){
+  /* fadeIn's fill-mode leaves a permanent transform on .panel, which turns it
+     into the containing block for the fixed drawers (offset panels + the
+     backdrop eating taps on the chat tabs). Kill it in watch mode. */
+  body.live-watch-mode .panel{animation:none;transform:none;}
+}
+body.live-watch-mode .sl-streams-panel{animation:none;transform:none;}
+/* backdrop-filter ALSO makes .panel the containing block for the fixed
+   drawers (same trap as the fadeIn transform). Watch mode sits on a black
+   stage — the frosted blur is invisible there anyway. */
+body.live-watch-mode .sl-streams-panel{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
