@@ -52,7 +52,9 @@
     <span class="match-team-tot">{{ team.total_kills }} kills · {{ team.total_deaths }} deaths · {{ team.total_assists }} assists · {{ team.avg_kda }} avg KDA</span>
   </h3>
   <div class="table-wrap">
-    <table class="data-table">
+    {# data-heatmap="off": the global per-column tinter reads deaths/CSR as
+       higher-is-better and paints them backwards — the Grade chip carries it #}
+    <table class="data-table" data-heatmap="off">
       <thead>
         <tr><th>Player</th><th title="Absolute single-game grade">Grade</th><th>K</th><th>D</th><th>A</th><th title="kills + assists/3 − deaths">KDA</th><th>Acc</th><th>Damage</th><th title="Post-match CSR (ranked)">CSR</th><th title="Rank by KDA among all 8 players in the lobby">Lobby</th></tr>
       </thead>
@@ -84,7 +86,9 @@
   <div class="panel-header"><h2>Team vs Team</h2>
     <span class="muted">our team's totals vs the enemy team's</span></div>
   <div class="table-wrap">
-    <table class="data-table match-teamcmp">
+    {# data-heatmap="off": winner-side tint is server-computed (heat-excellent
+       on the better cell) — the global column tinter paints this backwards #}
+    <table class="data-table match-teamcmp" data-heatmap="off">
       <thead><tr><th style="text-align:right">Us</th><th style="text-align:center">Stat</th><th>Them</th></tr></thead>
       <tbody>
         {% for r in detail.team_rows %}

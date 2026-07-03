@@ -4158,3 +4158,29 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
   .match-stat-groups{grid-template-columns:1fr 1fr;}
   .match-medal-group{grid-column:1 / -1;}
 }
+
+/* ── Match detail page: mobile readability pass ── */
+@media (max-width: 720px){
+  /* Team-vs-Team is a fixed 3-column comparison — it must FIT, never swipe.
+     Overrides the global mobile .data-table{min-width:580px} scroller rule. */
+  .match-teamcmp{min-width:0;table-layout:fixed;width:100%;}
+  .match-teamcmp th:nth-child(1),.match-teamcmp td:nth-child(1),
+  .match-teamcmp th:nth-child(3),.match-teamcmp td:nth-child(3){width:28%;}
+  .match-teamcmp td{padding:7px 6px;font-size:.9rem;}
+  .match-teamcmp td:nth-child(2){font-size:.72rem;white-space:normal;line-height:1.2;}
+  /* Stat groups: one clean column — label left, value right, bigger type */
+  .match-stat-groups{grid-template-columns:1fr;gap:12px;}
+  .match-stat-group h4{font-size:.88rem;margin-bottom:4px;}
+  .match-stat-row{padding:4px 0;}
+  .match-stat-row dt{font-size:.9rem;}
+  .match-stat-row dd{font-size:.95rem;}
+  .match-medal-chip{font-size:.85rem;padding:5px 12px;}
+  /* Hero: tighter, score pops */
+  .match-hero-line{gap:10px;}
+  .match-hero-outcome{font-size:1rem;}
+  .match-hero-score{font-size:1.2rem;}
+  .match-hero-mmr{flex-basis:100%;}
+  /* Why panel: keep bullets airy and full-width */
+  .match-why-summary{font-size:1rem;line-height:1.4;}
+  .match-why-bullets li{font-size:.92rem;}
+}
