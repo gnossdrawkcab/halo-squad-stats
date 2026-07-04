@@ -59,7 +59,7 @@
     <div class="mss-top">
       <span class="grade-badge {{ leader.grade_class }}" title="{{ leader.grade_tip }}" data-grade-squad="{{ leader.grade }}" data-grade-self="{{ leader.grade_self }}" data-gclass-squad="{{ leader.grade_class }}" data-gclass-self="{{ leader.grade_class_self }}" data-gtip-squad="{{ leader.grade_tip }}" data-gtip-self="{{ leader.grade_tip_self }}">{{ leader.grade }}</span>
       <div class="mss-title">
-        <strong><a href="{{ leader.player|player_href }}" class="player-name {{ leader.player|player_class }}">{{ leader.player }}</a> led the session</strong>
+        <strong><a href="{{ leader.player|player_href }}" class="player-name {{ leader.player|player_class }}">{{ leader.player }}</a>{% if rc.kind != 'solo' and rc.rows|length > 1 %} led the session{% else %} · solo session{% endif %}</strong>
         <span class="mss-date">{{ rc.session_date }}</span>
         <span class="mss-sub">{{ rc.game_count }} game{{ 's' if rc.game_count != 1 else '' }} · <span class="rc-grade-mode-label" data-label-squad="vs squad" data-label-self="vs self">vs squad</span></span>
       </div>
