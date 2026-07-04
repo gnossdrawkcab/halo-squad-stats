@@ -4,6 +4,7 @@
 {% block content %}
 <div class="sl-page {{ 'sl-watch' if live.streams else 'sl-stats-only' }}">
 <div class="sl-mobile-actions" aria-label="Live controls">
+  <a class="sl-drawer-btn sl-dash-mobile" href="/?stay=1" title="Back to the dashboard">🏠 Dash</a>
   <button class="sl-drawer-btn sl-drawer-stats" type="button" data-drawer="stats">Stats</button>
   {% if live.streams %}<button class="sl-drawer-btn sl-drawer-chat" type="button" data-drawer="chat">Chat</button>{% endif %}
 </div>
