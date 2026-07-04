@@ -9,6 +9,7 @@ Config (env):
   HALO_NTFY_ENABLED   "1"/"true" to enable (default enabled if a URL is set)
   HALO_NTFY_URL       base ntfy server URL (unset = ntfy notifications disabled)
   HALO_NTFY_TOPIC     topic to publish to (default "halo")
+  HALO_SITE_URL       public site base URL for ntfy click-through links
   HALO_SESSION_GAP_MINUTES  minutes of inactivity that close a session (default 30)
 
 Everything is best-effort: any failure is logged and swallowed so notifications
@@ -48,6 +49,11 @@ def _topic() -> str:
     return os.getenv("HALO_NTFY_TOPIC", "halo")
 
 
+def _site_url() -> str:
+    """Public site base URL used for ntfy click-through links (unset = no link)."""
+    return os.getenv("HALO_SITE_URL", "").rstrip("/")
+
+
 def _session_gap_minutes() -> int:
     try:
         return int(os.getenv("HALO_SESSION_GAP_MINUTES", "30"))
@@ -55,7 +61,7 @@ def _session_gap_minutes() -> int:
         return 30
 
 
-def _publish(message: str, title: str = "", tags: str = "", priority: str = "") -> None:
+def _publish(message: str, title: str = "", tags: str = "", priority: str = "", click: str = "") -> None:
     """POST a single notification to ntfy. ASCII-only headers (emoji go in tags)."""
     url = f"{_base_url()}/{_topic()}"
     data = message.encode("utf-8")
@@ -66,6 +72,8 @@ def _publish(message: str, title: str = "", tags: str = "", priority: str = "") 
         req.add_header("Tags", tags)
     if priority:
         req.add_header("Priority", priority)
+    if click:
+        req.add_header("Click", click)
     try:
         with urllib.request.urlopen(req, timeout=8) as resp:
             resp.read()
@@ -554,11 +562,16 @@ def _game_summaries(engine, state) -> dict:
     for mid in sorted(new_mids, key=lambda m: by_mid[m][0]["date"]):
         try:
             title, body = _compose_game_summary(by_mid[mid], record, game_no)
+            # Click-through lands on the right dashboard: solo game → Solo Dash,
+            # squad game → Squad Dash (?stay=1 skips the streaming→/live redirect).
+            solo = len({r.get("player_gamertag") for r in by_mid[mid]}) <= 1
+            dash = "/solo" if solo else "/?stay=1"
+            site = _site_url()
             _publish(body, title=title, tags="video_game",
-                     priority="default")
+                     priority="default", click=(site + dash) if site else "")
             try:
                 import push
-                push.send_push(title, body, f"/match/{mid}", tag="halo-game")
+                push.send_push(title, body, dash, tag="halo-game")
             except Exception as e:
                 logger.warning("webpush_game_failed error=%s", e)
         except Exception as e:

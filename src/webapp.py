@@ -7646,6 +7646,15 @@ def build_session_mvp(df: pd.DataFrame) -> dict | None:
     if work.empty:
         return None
 
+    # Squad matches only (2+ tracked players together) — a solo night's "MVP"
+    # would trivially be the lone player, so the panel skips solo sessions.
+    if 'match_id' in work.columns and 'player_gamertag' in work.columns:
+        ppm = work.groupby('match_id')['player_gamertag'].nunique()
+        squad_ids = set(ppm[ppm >= 2].index)
+        if not squad_ids:
+            return None
+        work = work[work['match_id'].isin(squad_ids)]
+
     sess = latest_session_rows(work)
 
     best = None
