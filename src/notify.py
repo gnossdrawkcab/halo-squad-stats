@@ -508,7 +508,11 @@ def _compose_game_summary(mrows, record, game_no) -> tuple[str, str]:
 def _game_summaries(engine, state) -> dict:
     """Live look: one push after EACH new ranked game with every tracked
     player's line + the session record so far. Freshness-gated (45 min) so
-    backfills and long-downtime restarts never replay a flood."""
+    backfills and long-downtime restarts never replay a flood.
+
+    Mirrors the site's stat-tracking rules (Ranked Arena only, no DNF/left
+    outcomes, no voided short "ties" from a teammate quitting) so a game the
+    dashboards don't count is never announced — let alone called a loss."""
     if os.getenv("HALO_GAME_NOTIFY", "1").lower() in ("0", "false", "no"):
         return state
     sql = text(
@@ -517,8 +521,11 @@ def _game_summaries(engine, state) -> dict:
                kills, deaths, assists, kda, accuracy, dmg_difference,
                pre_match_csr, post_match_csr
         FROM halo_match_stats
-        WHERE playlist ILIKE '%%ranked%%' AND date IS NOT NULL
+        WHERE playlist ILIKE 'Ranked Arena' AND date IS NOT NULL
           AND date > NOW() - INTERVAL '45 minutes'
+          AND LOWER(outcome) NOT IN ('dnf', 'left')
+          AND NOT (LOWER(outcome) = 'tie'
+                   AND COALESCE(kills, 0) <= 1 AND COALESCE(duration, 0) < 120)
         ORDER BY date
         """
     )
@@ -540,8 +547,11 @@ def _game_summaries(engine, state) -> dict:
         """
         SELECT DISTINCT ON (match_id) match_id, date, outcome
         FROM halo_match_stats
-        WHERE playlist ILIKE '%%ranked%%' AND date IS NOT NULL
+        WHERE playlist ILIKE 'Ranked Arena' AND date IS NOT NULL
           AND date > NOW() - INTERVAL '18 hours'
+          AND LOWER(outcome) NOT IN ('dnf', 'left')
+          AND NOT (LOWER(outcome) = 'tie'
+                   AND COALESCE(kills, 0) <= 1 AND COALESCE(duration, 0) < 120)
         ORDER BY match_id, date DESC
         """
     )
