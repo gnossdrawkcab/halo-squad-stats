@@ -185,6 +185,161 @@
     });
     buildChat(document);
   }
+  // ── Anonymous chat reader (default view) ────────────────────────────
+  // The Twitch chat EMBED runs on OUR domain, so it can't reuse the
+  // twitch.tv login (third-party cookie partitioning) and nags for a
+  // fresh login on every device. READING chat needs no login at all via
+  // Twitch's public IRC websocket — so read-only is the default view and
+  // the ↗ popout (a real twitch.tv window that stays logged in) is how
+  // you talk. The 'in' button still swaps in the full embed on demand.
+  var chatBufs = {}, chatWS = null, chatWSKey = '', chatRetry = 0, chatTimer = null;
+  var CHAT_MAX = 150;
+  function chatChannels() {
+    return Array.from(document.querySelectorAll('.sl-chat-tab'))
+      .map(function (b) { return (b.dataset.channel || '').toLowerCase(); }).filter(Boolean);
+  }
+  function unescapeTag(v) {
+    var out = '', i = 0;
+    while (i < v.length) {
+      if (v[i] === '\\' && i + 1 < v.length) {
+        var n = v[i + 1];
+        out += n === 's' ? ' ' : (n === ':' ? ';' : (n === 'r' || n === 'n' ? ' ' : n));
+        i += 2;
+      } else { out += v[i]; i += 1; }
+    }
+    return out;
+  }
+  function parseTags(raw) {
+    var t = {};
+    raw.split(';').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i > 0) t[kv.slice(0, i)] = unescapeTag(kv.slice(i + 1));
+    });
+    return t;
+  }
+  var CHAT_COLORS = ['#ff7a3d', '#3dbfb8', '#e6c86e', '#8ab4f8', '#d78cf0', '#7fd08a', '#f38fb1', '#c6a2f2'];
+  function nameColor(name, tagColor) {
+    if (tagColor) return tagColor;
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return CHAT_COLORS[h % CHAT_COLORS.length];
+  }
+  function chatTextNodes(text, emotesTag) {
+    var frag = document.createDocumentFragment();
+    var cps = Array.from(text), cuts = [];
+    (emotesTag || '').split('/').forEach(function (e) {
+      var p = e.split(':');
+      if (p.length !== 2) return;
+      p[1].split(',').forEach(function (r) {
+        var se = r.split('-');
+        var s = parseInt(se[0], 10), en = parseInt(se[1], 10);
+        if (se.length === 2 && s >= 0 && en >= s && en < cps.length) cuts.push({ s: s, e: en, id: p[0] });
+      });
+    });
+    cuts.sort(function (a, b) { return a.s - b.s; });
+    var pos = 0;
+    cuts.forEach(function (c) {
+      if (c.s < pos) return;
+      if (c.s > pos) frag.appendChild(document.createTextNode(cps.slice(pos, c.s).join('')));
+      var img = document.createElement('img');
+      img.className = 'sl-cm-emote';
+      img.src = 'https://static-cdn.jtvnw.net/emoticons/v2/' + encodeURIComponent(c.id) + '/default/dark/1.0';
+      img.alt = img.title = cps.slice(c.s, c.e + 1).join('');
+      frag.appendChild(img);
+      pos = c.e + 1;
+    });
+    if (pos < cps.length) frag.appendChild(document.createTextNode(cps.slice(pos).join('')));
+    return frag;
+  }
+  function chatMsgNode(m) {
+    var div = document.createElement('div');
+    if (m.sys) {
+      div.className = 'sl-cm sl-cm-sys';
+      div.textContent = m.text;
+      return div;
+    }
+    div.className = 'sl-cm' + (m.action ? ' sl-cm-act' : '');
+    var name = document.createElement('span');
+    name.className = 'sl-cm-name';
+    name.style.color = nameColor(m.name, m.color);
+    name.textContent = m.name;
+    div.appendChild(name);
+    div.appendChild(chatTextNodes(m.text, m.emotes));
+    return div;
+  }
+  function activeChatChannel() {
+    var p = document.querySelector('.sl-chat-panel');
+    return p ? (p.dataset.activeChannel || '').toLowerCase() : '';
+  }
+  function pushChatMsg(chan, m) {
+    var buf = chatBufs[chan] = chatBufs[chan] || [];
+    buf.push(m);
+    if (buf.length > CHAT_MAX) buf.shift();
+    if (chan !== activeChatChannel()) return;
+    var list = document.querySelector('.sl-chat-msgs');
+    if (!list) return;
+    var stick = list.scrollTop + list.clientHeight >= list.scrollHeight - 40;
+    list.appendChild(chatMsgNode(m));
+    while (list.children.length > CHAT_MAX) list.removeChild(list.firstChild);
+    if (stick) list.scrollTop = list.scrollHeight;
+  }
+  window.haloChatPush = pushChatMsg;  // exposed for UI tests / debugging
+  function renderChatBuf(chan) {
+    var list = document.querySelector('.sl-chat-msgs');
+    if (!list) return;
+    list.innerHTML = '';
+    (chatBufs[chan] || []).forEach(function (m) { list.appendChild(chatMsgNode(m)); });
+    list.scrollTop = list.scrollHeight;
+  }
+  function chatConnect() {
+    var chans = chatChannels();
+    if (chatTimer) { clearTimeout(chatTimer); chatTimer = null; }
+    if (!chans.length) return;
+    chatWSKey = chans.join(',');
+    if (chatWS) { var old = chatWS; chatWS = null; try { old.close(); } catch (_) {} }
+    var ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+    chatWS = ws;
+    ws.onopen = function () {
+      ws.send('CAP REQ :twitch.tv/tags');
+      ws.send('NICK justinfan' + Math.floor(Math.random() * 90000 + 1000));
+      chans.forEach(function (c) { ws.send('JOIN #' + c); });
+    };
+    ws.onmessage = function (ev) {
+      String(ev.data).split('\r\n').forEach(function (line) {
+        if (!line) return;
+        if (line.lastIndexOf('PING', 0) === 0) { ws.send('PONG :tmi.twitch.tv'); return; }
+        var j = line.match(/ 366 [^ ]+ #([^ ]+)/);
+        if (j) {
+          chatRetry = 0;
+          pushChatMsg(j[1].toLowerCase(), { sys: true, text: '— connected, live messages appear below —' });
+          return;
+        }
+        var m = line.match(/^(?:@([^ ]+) )?:([^!\s]+)![^ ]+ PRIVMSG #([^ ]+) :(.*)$/);
+        if (!m) return;
+        var tags = m[1] ? parseTags(m[1]) : {};
+        var text = m[4], action = false;
+        if (text.charCodeAt(0) === 1) {           // \x01ACTION …\x01 = "/me"
+          action = true;
+          text = text.replace(/^\x01ACTION ?/, '').replace(/\x01$/, '');
+        }
+        pushChatMsg(m[3].toLowerCase(), {
+          name: tags['display-name'] || m[2], color: tags.color || '',
+          text: text, emotes: tags.emotes || '', action: action
+        });
+      });
+    };
+    ws.onclose = function () {
+      if (chatWS !== ws) return;
+      chatWS = null;
+      chatRetry = Math.min(chatRetry + 1, 5);
+      chatTimer = setTimeout(chatConnect, 1000 * Math.pow(2, chatRetry));
+    };
+  }
+  function chatEnsure() {
+    var key = chatChannels().join(',');
+    if (!key) return;
+    if (!chatWS || chatWS.readyState > 1 || key !== chatWSKey) chatConnect();
+  }
   function buildChat(root) {
     var wrap = (root || document).querySelector('.sl-chat-frame');
     if (!wrap || wrap.dataset.built) return;
@@ -194,12 +349,24 @@
     var ch = wrap.dataset.channel || '';
     if (!ch) return;
     var popUrl = 'https://www.twitch.tv/popout/' + encodeURIComponent(ch) + '/chat?popout=';
-    var mode = 'popout';
-    try { mode = localStorage.getItem('haloLiveChatMode') || 'popout'; } catch (_) {}
-    if (mode !== 'embed') {
-      wrap.innerHTML = '<div class="sl-chat-persist"><a class="sl-chat-open-link" href="' + popUrl +
-        '" target="halo_twitch_chat" rel="noopener">Open persistent Twitch chat</a>' +
-        '<button class="sl-chat-use-embed" type="button">Embed here</button></div>';
+    var mode = 'read';
+    try { mode = localStorage.getItem('haloLiveChatMode') || 'read'; } catch (_) {}
+    if (mode !== 'embed') mode = 'read';   // old 'popout' pref folds into the reader
+    var embedBtn = document.querySelector('.sl-chat-embed');
+    if (embedBtn) {
+      embedBtn.classList.toggle('active', mode === 'embed');
+      embedBtn.title = mode === 'embed' ? 'Back to the no-login chat view' : 'Embedded Twitch chat (needs a Twitch login)';
+    }
+    if (mode === 'read') {
+      wrap.innerHTML = '<div class="sl-chat-read"><div class="sl-chat-msgs"></div>' +
+        '<div class="sl-chat-note">no login needed \u00b7 read-only \u2014 <a href="' + popUrl +
+        '" target="halo_twitch_chat" rel="noopener">chat on Twitch \u2197</a></div></div>';
+      var lch = ch.toLowerCase();
+      if (!(chatBufs[lch] || []).length) {
+        pushChatMsg(lch, { sys: true, text: 'connecting to ' + ch + "'s chat\u2026" });
+      }
+      renderChatBuf(lch);
+      chatEnsure();
       return;
     }
     if (isIp) {
@@ -273,11 +440,10 @@
     var drawerBtn = e.target.closest('.sl-drawer-btn');
     if (drawerBtn) openDrawer(drawerBtn.dataset.drawer);
     if (e.target.closest('.sl-drawer-backdrop')) closeDrawers();
-    if (e.target.closest('.sl-chat-popout')) {
-      try { localStorage.setItem('haloLiveChatMode', 'popout'); } catch (_) {}
-    }
-    if (e.target.closest('.sl-chat-embed') || e.target.closest('.sl-chat-use-embed')) {
-      try { localStorage.setItem('haloLiveChatMode', 'embed'); } catch (_) {}
+    if (e.target.closest('.sl-chat-embed')) {
+      var curMode = 'read';
+      try { curMode = localStorage.getItem('haloLiveChatMode') || 'read'; } catch (_) {}
+      try { localStorage.setItem('haloLiveChatMode', curMode === 'embed' ? 'read' : 'embed'); } catch (_) {}
       var frame = document.querySelector('.sl-chat-frame');
       if (frame) { frame.dataset.built = ''; frame.innerHTML = ''; buildChat(document); }
     }
