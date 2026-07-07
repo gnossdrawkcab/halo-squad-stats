@@ -414,7 +414,11 @@ async def capture_match_players(client, engine, match_id, match_stats,
                      :is_bot, :kills, :deaths, :assists, :kda, :accuracy, :damage_dealt, :csr,
                      :match_date, :playlist, :map)
                 ON CONFLICT (match_id, player_xuid) DO UPDATE SET
-                    gamertag = EXCLUDED.gamertag, team_id = EXCLUDED.team_id,
+                    gamertag = CASE WHEN EXCLUDED.gamertag LIKE 'Spartan-%%'
+                                     AND halo_match_players.gamertag NOT LIKE 'Spartan-%%'
+                               THEN halo_match_players.gamertag
+                               ELSE EXCLUDED.gamertag END,
+                    team_id = EXCLUDED.team_id,
                     outcome = EXCLUDED.outcome, is_tracked = EXCLUDED.is_tracked,
                     is_bot = EXCLUDED.is_bot,
                     kills = EXCLUDED.kills, deaths = EXCLUDED.deaths,
@@ -473,6 +477,53 @@ async def backfill_opponent_csr(client, engine, limit=400):
         except Exception as exc:
             logger.warning("opp_csr_backfill_match_failed match_id=%s error=%s", mid, exc)
     logger.info("opp_csr_backfill processed=%s matches_with_csr=%s", len(match_ids), filled)
+
+
+# xuids we've already tried to re-resolve this process run — a name that
+# still fails (banned / deleted account) shouldn't cost an API call every
+# cycle forever.
+_NAME_BACKFILL_TRIED: set = set()
+
+
+async def backfill_opponent_names(client, engine, limit=300):
+    """Re-resolve historical ``halo_match_players`` rows stuck with the
+    ``Spartan-NNNN`` placeholder (captured while the profile API was
+    failing), so nemesis/opponent views show real gamertags. Bounded per
+    scraper cycle; a xuid that still can't be resolved is skipped for the
+    rest of the process run."""
+    try:
+        with engine.connect() as conn:
+            xuids = [r[0] for r in conn.execute(text(
+                """
+                SELECT DISTINCT player_xuid
+                FROM halo_match_players
+                WHERE gamertag LIKE 'Spartan-%%' AND NOT is_tracked
+                ORDER BY player_xuid
+                LIMIT :lim
+                """
+            ), {"lim": int(limit)})]
+    except Exception as exc:
+        logger.warning("opp_name_backfill_query_failed error=%s", exc)
+        return
+    todo = [x for x in xuids if x not in _NAME_BACKFILL_TRIED]
+    if not todo:
+        return
+    fixed = 0
+    for i in range(0, len(todo), 30):
+        chunk = todo[i:i + 30]
+        names = await resolve_gamertags(client, chunk)
+        with engine.begin() as conn:
+            for x in chunk:
+                _NAME_BACKFILL_TRIED.add(x)
+                gt = names.get(x) or ""
+                if gt and not gt.startswith("Spartan-"):
+                    conn.execute(text(
+                        "UPDATE halo_match_players SET gamertag = :g "
+                        "WHERE player_xuid = :x"
+                    ), {"g": gt, "x": x})
+                    fixed += 1
+        await asyncio.sleep(0.15)
+    logger.info("opp_name_backfill tried=%s fixed=%s", len(todo), fixed)
 
 
 # match_ids whose lobby we've already attempted this process run — avoids
@@ -2019,6 +2070,15 @@ async def run_stats(max_matches=None, force_refresh=False):
                 )
             except Exception as exc:
                 logger.warning("opp_csr_backfill_failed error=%s", exc)
+
+            # Re-resolve opponents stuck as Spartan-NNNN placeholders.
+            try:
+                await backfill_opponent_names(
+                    client, engine,
+                    limit=int(os.getenv("HALO_OPP_NAME_BACKFILL", "300")),
+                )
+            except Exception as exc:
+                logger.warning("opp_name_backfill_failed error=%s", exc)
 
     inserted_rows = int(inserted_counter.get("count", 0))
     # Final index ensure (cheap if already exists)
