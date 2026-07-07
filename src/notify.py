@@ -486,6 +486,10 @@ def _compose_game_summary(mrows, record, game_no) -> tuple[str, str]:
     mode = str(first.get("game_type") or "").split(":")[0].strip() or "Ranked"
     title = f"{icon} {word} · {mode} on {first.get('map') or '?'}"
     lines = []
+    try:
+        from grades import compute_match_grade
+    except Exception:                       # pragma: no cover - defensive
+        compute_match_grade = None
     for r in sorted(mrows, key=lambda x: _to_float(x.get("kda")) or 0, reverse=True):
         k, d, a = int(_to_float(r.get("kills")) or 0), int(_to_float(r.get("deaths")) or 0), int(_to_float(r.get("assists")) or 0)
         bits = [f"{k}/{d}/{a}"]
@@ -499,7 +503,18 @@ def _compose_game_summary(mrows, record, game_no) -> tuple[str, str]:
         if post and post > 0:
             delta = f" ({post - pre:+.0f})" if pre and pre > 0 else ""
             bits.append(f"CSR {post:.0f}{delta}")
-        lines.append(f"{r.get('player_gamertag')}: {' · '.join(bits)}")
+        label = str(r.get('player_gamertag'))
+        if compute_match_grade:
+            try:
+                g = compute_match_grade(
+                    kda=_to_float(r.get("kda")), accuracy=_to_float(r.get("accuracy")),
+                    dmg_dealt=r.get("damage_dealt"), dmg_taken=r.get("damage_taken"),
+                    outcome=r.get("outcome"))
+            except Exception:
+                g = None
+            if g and g.get("grade"):        # same absolute grade the site shows
+                label += f" [{g['grade']}]"
+        lines.append(f"{label}: {' · '.join(bits)}")
     if record:
         lines.append(f"Tonight: {record}" + (f" · game {game_no}" if game_no else ""))
     return title, "\n".join(lines)
@@ -519,6 +534,7 @@ def _game_summaries(engine, state) -> dict:
         """
         SELECT player_gamertag, match_id, date, map, game_type, outcome,
                kills, deaths, assists, kda, accuracy, dmg_difference,
+               damage_dealt, damage_taken,
                pre_match_csr, post_match_csr
         FROM halo_match_stats
         WHERE playlist ILIKE 'Ranked Arena' AND date IS NOT NULL

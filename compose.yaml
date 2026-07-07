@@ -69,6 +69,9 @@ services:
       - TZ=${TZ:-UTC}
       - HALO_DATA_DIR=/data
       - HALO_WEB_PORT=8091
+      # Twitch app client id (dev.twitch.tv, public client) — enables the
+      # live page's "sign in once to chat" flow. Empty = read-only chat.
+      - HALO_TWITCH_CLIENT_ID=${HALO_TWITCH_CLIENT_ID:-}
       - HALO_SITE_TITLE=${HALO_SITE_TITLE:-Halo Stats}
       - HALO_TZ=${HALO_TZ:-UTC}
       - HALO_DB_HOST=halodb

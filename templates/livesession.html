@@ -284,6 +284,120 @@
     if (stick) list.scrollTop = list.scrollHeight;
   }
   window.haloChatPush = pushChatMsg;  // exposed for UI tests / debugging
+  // — talking: per-browser Twitch sign-in (device-code flow) —
+  // Sign in ONCE per browser: token sits in localStorage, refreshes itself,
+  // and the IRC socket connects authenticated so messages send as YOU.
+  var twitchCfg = { enabled: false };
+  function chatAuth() {
+    try { return JSON.parse(localStorage.getItem('haloTwitchAuth') || 'null'); } catch (_) { return null; }
+  }
+  function setChatAuth(a) {
+    try { a ? localStorage.setItem('haloTwitchAuth', JSON.stringify(a)) : localStorage.removeItem('haloTwitchAuth'); } catch (_) {}
+  }
+  function chatSys(text) {
+    var chan = activeChatChannel();
+    if (chan) pushChatMsg(chan, { sys: true, text: text });
+  }
+  function updateChatNote() {
+    var note = document.querySelector('.sl-chat-note');
+    var panel = document.querySelector('.sl-chat-panel');
+    if (!note || !panel) return;
+    var ch = panel.dataset.activeChannel || '';
+    var popUrl = 'https://www.twitch.tv/popout/' + encodeURIComponent(ch) + '/chat?popout=';
+    var auth = chatAuth();
+    if (auth && auth.login) {
+      note.innerHTML = '<form class="sl-chat-send">' +
+        '<input class="sl-chat-input" maxlength="500" placeholder="Chat as ' + auth.login + '…" autocomplete="off">' +
+        '<button class="sl-chat-sendbtn" type="submit" title="Send">➤</button>' +
+        '<button class="sl-chat-signout" type="button" title="Sign out of Twitch chat">✕</button></form>';
+      return;
+    }
+    var links = [];
+    if (twitchCfg.enabled) links.push('<button class="sl-chat-signin" type="button">sign in once to chat here</button>');
+    links.push('<a href="' + popUrl + '" target="halo_twitch_chat" rel="noopener">Twitch ↗</a>');
+    note.innerHTML = 'read-only · ' + links.join(' · ');
+  }
+  fetch('/api/twitch/chat-config').then(function (r) { return r.json(); })
+    .then(function (c) { twitchCfg = c || {}; updateChatNote(); }).catch(function () {});
+  function startSignin() {
+    fetch('/api/twitch/device-start', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.device_code) { chatSys('Twitch sign-in unavailable right now.'); return; }
+      var uri = d.verification_uri || 'https://www.twitch.tv/activate';
+      chatSys('To chat from here: open twitch.tv/activate and enter code ' + d.user_code +
+              ' — this page finishes signing in by itself.');
+      var note = document.querySelector('.sl-chat-note');
+      if (note) note.innerHTML = 'enter code <b>' + d.user_code + '</b> at <a href="' + uri +
+        '" target="_blank" rel="noopener">twitch.tv/activate ↗</a>…';
+      var iv = Math.max(5, Number(d.interval || 5)) * 1000;
+      var deadline = Date.now() + Math.min(Number(d.expires_in || 600), 900) * 1000;
+      (function poll() {
+        if (Date.now() > deadline) { chatSys('Sign-in code expired — tap sign in again.'); updateChatNote(); return; }
+        setTimeout(function () {
+          fetch('/api/twitch/device-poll', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_code: d.device_code }) })
+            .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+            .then(function (res) {
+              if (res.j && res.j.access_token) { finishSignin(res.j); return; }
+              var msg = String((res.j && (res.j.message || res.j.error)) || '').toLowerCase();
+              if (msg.indexOf('pending') >= 0 || res.s === 400) { poll(); return; }
+              chatSys('Twitch sign-in failed (' + (msg || res.s) + ').'); updateChatNote();
+            }).catch(poll);
+        }, iv);
+      })();
+    }).catch(function () { chatSys('Twitch sign-in unavailable right now.'); });
+  }
+  function finishSignin(tok) {
+    fetch('/api/twitch/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: tok.access_token }) })
+      .then(function (r) { return r.json(); })
+      .then(function (v) {
+        var login = (v && v.login) || '';
+        if (!login) { chatSys('Could not confirm the Twitch account — try again.'); updateChatNote(); return; }
+        setChatAuth({ access: tok.access_token, refresh: tok.refresh_token || '', login: login });
+        chatSys('Signed in as ' + login + ' — you can chat from here now.');
+        updateChatNote();
+        chatConnect();
+      }).catch(function () { chatSys('Could not confirm the Twitch account — try again.'); updateChatNote(); });
+  }
+  var chatRefreshTried = false;
+  function tryChatRefresh() {
+    var auth = chatAuth();
+    if (!auth || !auth.refresh || chatRefreshTried) {
+      setChatAuth(null); updateChatNote();
+      chatSys('Twitch sign-in expired — sign in again to chat.');
+      chatConnect();
+      return;
+    }
+    chatRefreshTried = true;
+    fetch('/api/twitch/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: auth.refresh }) })
+      .then(function (r) { return r.json(); })
+      .then(function (t) {
+        if (t && t.access_token) {
+          setChatAuth({ access: t.access_token, refresh: t.refresh_token || auth.refresh, login: auth.login });
+          chatRefreshTried = false;
+          chatConnect();
+        } else {
+          setChatAuth(null); updateChatNote();
+          chatSys('Twitch sign-in expired — sign in again to chat.');
+          chatConnect();
+        }
+      }).catch(function () { chatConnect(); });
+  }
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('.sl-chat-send');
+    if (!form) return;
+    e.preventDefault();
+    var input = form.querySelector('.sl-chat-input');
+    var txt = (input.value || '').trim();
+    var auth = chatAuth();
+    var chan = activeChatChannel();
+    if (!txt || !auth || !chan) return;
+    if (!chatWS || chatWS.readyState !== 1) { chatSys('Chat is reconnecting — try again in a second.'); return; }
+    chatWS.send('PRIVMSG #' + chan + ' :' + txt);
+    pushChatMsg(chan, { name: auth.login, color: '', text: txt });  // Twitch doesn't echo your own line
+    input.value = '';
+  });
   function renderChatBuf(chan) {
     var list = document.querySelector('.sl-chat-msgs');
     if (!list) return;
@@ -300,14 +414,22 @@
     var ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
     chatWS = ws;
     ws.onopen = function () {
+      var auth = chatAuth();
       ws.send('CAP REQ :twitch.tv/tags');
-      ws.send('NICK justinfan' + Math.floor(Math.random() * 90000 + 1000));
+      if (auth && auth.access && auth.login) {
+        ws.send('PASS oauth:' + auth.access);
+        ws.send('NICK ' + auth.login.toLowerCase());
+      } else {
+        ws.send('NICK justinfan' + Math.floor(Math.random() * 90000 + 1000));
+      }
       chans.forEach(function (c) { ws.send('JOIN #' + c); });
     };
     ws.onmessage = function (ev) {
       String(ev.data).split('\r\n').forEach(function (line) {
         if (!line) return;
         if (line.lastIndexOf('PING', 0) === 0) { ws.send('PONG :tmi.twitch.tv'); return; }
+        if (line.indexOf(':Login authentication failed') >= 0 ||
+            line.indexOf(':Improperly formatted auth') >= 0) { tryChatRefresh(); return; }
         var j = line.match(/ 366 [^ ]+ #([^ ]+)/);
         if (j) {
           chatRetry = 0;
@@ -359,13 +481,13 @@
     }
     if (mode === 'read') {
       wrap.innerHTML = '<div class="sl-chat-read"><div class="sl-chat-msgs"></div>' +
-        '<div class="sl-chat-note">no login needed \u00b7 read-only \u2014 <a href="' + popUrl +
-        '" target="halo_twitch_chat" rel="noopener">chat on Twitch \u2197</a></div></div>';
+        '<div class="sl-chat-note"></div></div>';
       var lch = ch.toLowerCase();
       if (!(chatBufs[lch] || []).length) {
         pushChatMsg(lch, { sys: true, text: 'connecting to ' + ch + "'s chat\u2026" });
       }
       renderChatBuf(lch);
+      updateChatNote();
       chatEnsure();
       return;
     }
@@ -440,6 +562,8 @@
     var drawerBtn = e.target.closest('.sl-drawer-btn');
     if (drawerBtn) openDrawer(drawerBtn.dataset.drawer);
     if (e.target.closest('.sl-drawer-backdrop')) closeDrawers();
+    if (e.target.closest('.sl-chat-signin')) startSignin();
+    if (e.target.closest('.sl-chat-signout')) { setChatAuth(null); updateChatNote(); chatConnect(); }
     if (e.target.closest('.sl-chat-embed')) {
       var curMode = 'read';
       try { curMode = localStorage.getItem('haloLiveChatMode') || 'read'; } catch (_) {}

@@ -130,6 +130,7 @@ fallback used only when `players.json` doesn't exist.
 | Integration | Enables | Env vars |
 |-------------|---------|----------|
 | **Twitch** | Live-stream embeds on /live, "went live" alerts | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `HALO_TWITCH_CHANNELS` (gamertag→channel JSON map) |
+| **Twitch chat sign-in** | Post to chat from the /live reader (sign in once per browser, device-code flow) | `HALO_TWITCH_CLIENT_ID` (a *public* app from dev.twitch.tv — no secret) |
 | **ntfy** | Push alerts for rank-ups, streaks, PBs, session recaps | `HALO_NTFY_URL`, `HALO_NTFY_TOPIC` |
 | **Ollama** | AI Coach pages (local LLM analysis) | `HALO_OLLAMA_URL`, `HALO_OLLAMA_MODEL` |
 | **Web Push** | Browser/PWA notifications (keys auto-generated) | `HALO_VAPID_SUBJECT` (contact mailto) |

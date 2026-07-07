@@ -259,6 +259,11 @@ def require_admin_and_csrf():
     # browser push endpoint, so it's exempt from the admin+CSRF gate on POSTs.
     if endpoint in ('push_key', 'push_subscribe', 'push_unsubscribe', 'push_test'):
         return None
+    # Twitch chat sign-in relays are open to any visitor — they only proxy
+    # Twitch's public device-code flow and store nothing server-side.
+    if endpoint in ('twitch_chat_config', 'twitch_device_start', 'twitch_device_poll',
+                    'twitch_refresh', 'twitch_validate'):
+        return None
     if auth_enabled() and endpoint in ADMIN_ENDPOINTS and not is_admin():
         if _wants_json():
             return jsonify({'error': 'unauthorized'}), 401
@@ -10169,6 +10174,80 @@ def api_site_version():
     except Exception as exc:
         logger.warning('site-version failed: %s', exc)
         return jsonify({'ok': False, 'error': 'version check failed'}), 500
+
+
+
+# --- Twitch chat sign-in (device-code flow relay) --------------------------
+# The live page's chat reader is anonymous (read-only, no login). To TALK
+# from the page, each browser connects its own Twitch account once via the
+# device-code flow. There is no client secret (public client); these routes
+# only relay to id.twitch.tv so the browser never fights CORS, and tokens
+# live in that browser's localStorage — the server stores nothing.
+_TWITCH_ID = 'https://id.twitch.tv/oauth2'
+
+
+def _twitch_client_id() -> str:
+    return os.getenv('HALO_TWITCH_CLIENT_ID', '').strip()
+
+
+def _twitch_relay(path: str, payload: dict):
+    try:
+        resp = requests.post(f'{_TWITCH_ID}/{path}', data=payload, timeout=15)
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {'message': 'unexpected response'}
+        return jsonify(body), resp.status_code
+    except requests.RequestException:
+        return jsonify({'message': 'twitch unreachable'}), 502
+
+
+@app.route('/api/twitch/chat-config')
+def twitch_chat_config():
+    return jsonify({'enabled': bool(_twitch_client_id())})
+
+
+@app.route('/api/twitch/device-start', methods=['POST'])
+def twitch_device_start():
+    cid = _twitch_client_id()
+    if not cid:
+        return jsonify({'message': 'HALO_TWITCH_CLIENT_ID not configured'}), 404
+    return _twitch_relay('device', {'client_id': cid, 'scopes': 'chat:read chat:edit'})
+
+
+@app.route('/api/twitch/device-poll', methods=['POST'])
+def twitch_device_poll():
+    cid = _twitch_client_id()
+    if not cid:
+        return jsonify({'message': 'not configured'}), 404
+    dc = str((request.get_json(silent=True) or {}).get('device_code') or '')
+    return _twitch_relay('token', {'client_id': cid, 'device_code': dc,
+                                   'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'})
+
+
+@app.route('/api/twitch/refresh', methods=['POST'])
+def twitch_refresh():
+    cid = _twitch_client_id()
+    if not cid:
+        return jsonify({'message': 'not configured'}), 404
+    rt = str((request.get_json(silent=True) or {}).get('refresh_token') or '')
+    return _twitch_relay('token', {'client_id': cid, 'refresh_token': rt,
+                                   'grant_type': 'refresh_token'})
+
+
+@app.route('/api/twitch/validate', methods=['POST'])
+def twitch_validate():
+    tok = str((request.get_json(silent=True) or {}).get('token') or '')
+    try:
+        resp = requests.get(f'{_TWITCH_ID}/validate',
+                            headers={'Authorization': f'OAuth {tok}'}, timeout=15)
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {}
+        return jsonify(body), resp.status_code
+    except requests.RequestException:
+        return jsonify({'message': 'twitch unreachable'}), 502
 
 
 @app.route('/api/live-version')
