@@ -3959,6 +3959,18 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
   body.sl-stats-open .sl-drawer-backdrop{display:block;position:fixed;inset:0;z-index:120;
     background:rgba(0,0,0,.45);border:0;}
 }
+/* ── Desktop watch mode: the whole stage fits ONE screen, no scroll ──
+   Frames were rigid 16:9 boxes, so the stage height was content-driven:
+   on 1366×768 it overflowed the viewport (third stream cut off) and a
+   row-spanning stream left a dead void under its frame. Let the streams
+   panel take the height left under the hero and have each frame FILL its
+   grid cell — the Twitch player letterboxes itself. Height-gated so the
+   landscape-phone block keeps its own sizing. */
+@media (min-width:721px) and (min-height:521px){
+  .sl-watch .sl-streams-panel{flex:1 1 auto;}
+  .sl-watch .sl-streams{height:100%;align-items:stretch;}
+  .sl-watch .sl-stream-frame{flex:1 1 auto;min-height:0;height:auto;aspect-ratio:auto;}
+}
 @media (max-width: 720px){
   .sl-hero-stats-btn{display:none;}  /* mobile already has its own Stats drawer button */
 }
