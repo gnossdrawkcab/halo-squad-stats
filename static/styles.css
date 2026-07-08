@@ -89,9 +89,14 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Rajdhani's em box carries far more descent than cap overshoot, so even a
+     perfectly centered line box draws the letter high. Trim the line box to
+     cap-height/baseline so what gets centered is the letter's actual ink.
+     (Ignored harmlessly by browsers without text-box support.) */
+  text-box: trim-both cap alphabetic;
   min-width: 2.25rem;
   min-height: 1.35rem;
-  padding: 1px 7px;
+  padding: calc(1px + 0.09em) 7px 1px;  /* Rajdhani optical-center nudge (see _report_card_css) */
   border-radius: 6px;
   font-weight: 800;
   line-height: 1;
