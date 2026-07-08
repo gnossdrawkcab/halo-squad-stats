@@ -103,6 +103,23 @@
 {{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid) }}
 {% endif %}
 
+
+{% if recent_solo_strip and not single_session and not selected_sid %}
+{# Cross-flag: fresh solo grinds since the last squad night — otherwise the
+   only way to notice one is to open the Solo Dash. #}
+<section class="panel solo-strip">
+  <span class="solo-strip-label">🎯 Solo since the last squad night</span>
+  {% for s in recent_solo_strip %}
+  <a class="solo-strip-item" href="/solo?sid={{ s.sid }}" title="Open this solo session on the Solo Dash">
+    <b class="player-name {{ s.css }}">{{ s.player }}</b>
+    <span>went {{ s.record }} · {{ s.games }}g</span>
+    <span class="grade-badge {{ s.grade_class }}">{{ s.grade }}</span>
+    <span>CSR {{ s.csr_delta }} · {{ s.session_date }} →</span>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+
 {% from "_report_card.html" import render_full_stat_table with context %}
 {{ render_full_stat_table(squad_report_card, 'rc') }}
 
@@ -178,14 +195,6 @@
 
 {% if squad_report_card and squad_report_card.rows %}
 {{ render_report_card(squad_report_card, 'rc', '/report', '🗓️ Browse sessions →', true, ('Session Report Card' if single_session else 'Squad Session Report Card')) }}
-{% if solo_xlink and not single_session and not selected_sid %}
-{# The very latest ranked session was a solo run (newer than the squad card
-   above): don't render solo content here — hand off to the Solo Dash. #}
-<section class="panel solo-xlink">
-  <span class="solo-xlink-txt">🎯 Latest session was a solo run — <b class="player-name {{ solo_xlink.players[0]|player_class if solo_xlink.players else '' }}">{{ solo_xlink.players_str }}</b> went {{ solo_xlink.record }} ({{ solo_xlink.games }}g) · {{ solo_xlink.date }}</span>
-  <a class="btn btn-small" href="/solo">See it on the Solo Dash →</a>
-</section>
-{% endif %}
 
 {% if not single_session %}
 <div class="mobile-dashboard-links">

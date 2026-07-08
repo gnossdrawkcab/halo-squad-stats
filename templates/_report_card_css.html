@@ -488,19 +488,6 @@
     animation: tapTipIn .12s ease-out;
   }
   @keyframes tapTipIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-
-  /* ── Solo cross-link strip (squad dash → /solo) ────────────── */
-  .solo-xlink {
-    display: flex;
-    flex-direction: row;  /* .panel is a column flex — lay the strip out as one row */
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    padding: 12px 16px;
-  }
-  .solo-xlink-txt { font-size: 0.9rem; }
-  .solo-xlink .btn { white-space: nowrap; }
 </style>
 <style>
 /* ── Full stat table panel (top of squad + solo dash) ──

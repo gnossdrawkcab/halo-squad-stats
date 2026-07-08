@@ -2959,6 +2959,49 @@ def build_player_solo_cards(df: pd.DataFrame) -> list[dict]:
     return cards
 
 
+def build_recent_solo_strip(df: pd.DataFrame) -> list[dict]:
+    """Squad-dash cross-flag: one line per player whose latest SOLO session
+    is newer than the last squad night (inside a 48h freshness window), so a
+    fresh solo grind is visible without opening the Solo Dash. Returns [] on
+    days nobody soloed — the strip simply doesn't render."""
+    try:
+        cards = build_player_solo_cards(df)
+    except Exception as exc:
+        logger.warning('recent solo strip failed: %s', exc)
+        return []
+    if not cards:
+        return []
+    squad_ts = 0.0
+    try:
+        rdf = _ranked_only(df)
+        if not rdf.empty and 'match_id' in rdf.columns and 'date' in rdf.columns:
+            work = rdf.copy()
+            ensure_datetime(work)
+            work = work.dropna(subset=['date'])
+            ppm = work.groupby('match_id')['player_gamertag'].nunique()
+            squad_ids = set(ppm[ppm >= 2].index)
+            if squad_ids:
+                squad_ts = float(pd.Timestamp(
+                    work[work['match_id'].isin(squad_ids)]['date'].max()).timestamp())
+    except Exception:
+        squad_ts = 0.0
+    floor_ts = max(squad_ts, time.time() - 48 * 3600)
+    strip = []
+    for c in cards:
+        ts = float(c.get('session_ts') or 0.0)
+        if ts <= floor_ts:
+            continue
+        strip.append({
+            'player': c['player'], 'css': c['css'],
+            'grade': c['grade'], 'grade_class': c['grade_class'],
+            'record': c['record'], 'games': c['games'],
+            'csr_delta': c['csr_delta'], 'session_date': c['session_date'],
+            'sid': c['sid'],
+        })
+    return strip
+
+
+
 def build_solo_all_table(df: pd.DataFrame) -> dict:
     """
     The /solo Full Stat Table: ONE row per tracked player = that player's
@@ -7609,10 +7652,10 @@ def _index_base_build(df: pd.DataFrame) -> dict:
     # Fast tier: the live-ish, per-game stuff (report card + grade chart + CSR).
     fast = {
         'squad_report_card': build_squad_report_card(df, mode='squad'),
-        # Cheap probe for the "latest session was a solo run" cross-link strip:
-        # just the newest ranked session's metadata (any kind), NOT a full
-        # graded report card — the solo card itself lives on /solo now.
-        'latest_any_session': build_session_list(df, mode='all', limit=1),
+        # Cross-flag strip: every player whose latest SOLO session is newer
+        # than the last squad night — surfaced on the squad dash so a fresh
+        # solo grind is never invisible (full solo content stays on /solo).
+        'recent_solo_strip': build_recent_solo_strip(df),
         'grade_timeline': build_grade_timeline(df, mode='squad'),
         'squad_skill_perf': build_squad_skill_performance(df),
         'csr_overview_rows': build_csr_overview(df),
@@ -9128,15 +9171,7 @@ def index():
     next_sid = _sids[_cur - 1] if _cur - 1 >= 0 else ''
     cur_session = session_list[_cur] if 0 <= _cur < len(session_list) else None
 
-    # Cross-link strip: if the very latest ranked session was a SOLO run (newer
-    # than the squad card's night), point at /solo instead of rendering solo
-    # content here — the squad dash stays squad-only.
-    _latest_any = base.get('latest_any_session') or []
-    solo_xlink = None
-    if (_latest_any and session_list
-            and _latest_any[0].get('kind') == 'solo'
-            and _latest_any[0].get('sid') != session_list[0].get('sid')):
-        solo_xlink = _latest_any[0]
+    recent_solo_strip = base.get('recent_solo_strip') or []
 
     # Lightweight per-request work
     map_rows = build_breakdown(filtered, 'map')
@@ -9210,7 +9245,7 @@ def index():
                           session_highlights=session_highlights,
                           session_mvp=session_mvp,
                           squad_report_card=squad_card,
-                          solo_xlink=solo_xlink,
+                          recent_solo_strip=recent_solo_strip,
                           session_list=session_list,
                           selected_sid=sel_sid,
                           prev_sid=prev_sid,
