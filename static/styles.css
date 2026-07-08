@@ -3994,6 +3994,34 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
   .sl-watch .sl-streams{height:100%;align-items:stretch;}
   .sl-watch .sl-stream-frame{flex:1 1 auto;min-height:0;height:auto;aspect-ratio:auto;}
 }
+/* ── Wide desktop watch mode: game stats as a permanent LEFT column ──
+   Below 1100px there isn't room for stats + streams + chat side by side,
+   so the left-overlay drawer (above) stays; at >=1100px the stats pane
+   becomes an in-flow left column, visible by default — no click. ── */
+@media (min-width:1100px) and (min-height:521px){
+  .sl-watch{
+    display:grid;
+    grid-template-columns:minmax(260px,340px) minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr);
+    column-gap:8px;align-items:stretch;
+  }
+  .sl-watch .sl-hero{grid-column:1 / -1;grid-row:1;}
+  .sl-watch .sl-stats-pane{
+    grid-column:1;grid-row:2;
+    position:static;transform:none;width:auto;min-height:0;
+    padding:10px;overflow:auto;
+    background:rgba(255,255,255,.02);
+    border:1px solid rgba(255,255,255,.06);border-radius:10px;
+    box-shadow:none;transition:none;
+  }
+  .sl-watch .sl-streams-panel{grid-column:2;grid-row:2;min-height:0;}
+  /* one card per row in the narrow left rail (auto-fit min 360 would overflow) */
+  .sl-watch .sl-stats-pane .sl-grid{grid-template-columns:minmax(0,1fr);}
+  .sl-watch .sl-card{min-width:0;}
+  /* stats always on → the 📊 toggle + its dimmer backdrop are just noise */
+  .sl-hero-stats-btn{display:none!important;}
+  body.sl-stats-open .sl-drawer-backdrop{display:none!important;}
+}
 @media (max-width: 720px){
   .sl-hero-stats-btn{display:none;}  /* mobile already has its own Stats drawer button */
 }
