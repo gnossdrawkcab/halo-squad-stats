@@ -26,6 +26,9 @@
   </div>
   {% if next_sid %}<a href="{{ base }}?sid={{ next_sid }}" class="dsn-arrow" title="Next (newer) session" aria-label="Next session">→</a>{% else %}<span class="dsn-arrow dsn-off">→</span>{% endif %}
   {% if selected_sid %}<a href="{{ base }}" class="dsn-latest" title="Back to the latest session">⟲ latest</a>{% endif %}
+  {# Optional extra content (e.g. the squad dash's solo-since-squad pills)
+     rides in this row's spare width via {% call session_nav(...) %}. #}
+  {% if caller %}{{ caller() }}{% endif %}
 </div>
 <script>
 function dsnToggle(e){e.stopPropagation();document.getElementById('dsnDD').classList.toggle('open');}

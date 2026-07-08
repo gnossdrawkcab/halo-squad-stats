@@ -100,25 +100,26 @@
 
 {% if session_list and not single_session %}
 {% from "_session_nav.html" import session_nav %}
-{{ session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid) }}
-{% endif %}
-
-
-{% if recent_solo_strip and not single_session and not selected_sid %}
-{# Cross-flag: fresh solo grinds since the last squad night — otherwise the
-   only way to notice one is to open the Solo Dash. #}
-<section class="panel solo-strip">
-  <span class="solo-strip-label">🎯 Solo since the last squad night</span>
+{% call session_nav(session_list, cur_session, selected_sid, prev_sid, next_sid) %}
+{% if recent_solo_strip and not selected_sid %}
+{# Fresh solo grinds since the last squad night — rides in the picker row's
+   spare width instead of burning its own panel. #}
+<div class="solo-strip">
+  <span class="solo-strip-label">🎯 solo since squad night</span>
   {% for s in recent_solo_strip %}
-  <a class="solo-strip-item" href="/solo?sid={{ s.sid }}" title="Open this solo session on the Solo Dash">
+  <a class="solo-strip-item" href="/solo?sid={{ s.sid }}" title="{{ s.session_date }} — open this solo session on the Solo Dash">
     <b class="player-name {{ s.css }}">{{ s.player }}</b>
-    <span>went {{ s.record }} · {{ s.games }}g</span>
+    <span>{{ s.record }} · {{ s.games }}g</span>
     <span class="grade-badge {{ s.grade_class }}">{{ s.grade }}</span>
-    <span>CSR {{ s.csr_delta }} · {{ s.session_date }} →</span>
+    {% if s.csr_delta and s.csr_delta != '—' %}<span>CSR {{ s.csr_delta }}</span>{% endif %}
+    <span class="solo-strip-go">→</span>
   </a>
   {% endfor %}
-</section>
+</div>
 {% endif %}
+{% endcall %}
+{% endif %}
+
 
 {% from "_report_card.html" import render_full_stat_table with context %}
 {{ render_full_stat_table(squad_report_card, 'rc') }}

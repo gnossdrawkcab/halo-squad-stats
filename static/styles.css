@@ -4268,9 +4268,11 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .site-logo-mark{width:30px;height:30px;border-radius:7px;flex:0 0 auto;}
 @media (max-width:720px){.site-logo-mark{width:26px;height:26px;}}
 
-/* ── Squad-dash cross-flag: fresh solo sessions ── */
-.solo-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 14px;margin-bottom:14px;}
-.solo-strip-label{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#9a8f82);}
-.solo-strip-item{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.85rem;color:inherit;text-decoration:none;padding:6px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);}
+/* ── Squad-dash cross-flag: fresh solo sessions (inline in the picker row) ── */
+.solo-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-left:auto;}
+.solo-strip-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#9a8f82);}
+.solo-strip-item{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:inherit;text-decoration:none;padding:4px 9px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:rgba(255,255,255,.03);}
 .solo-strip-item:hover{border-color:var(--accent,#ff7a3d);}
-.solo-strip-item .grade-badge{font-size:.72rem;min-width:1.35rem;min-height:1.35rem;}
+.solo-strip-item .grade-badge{font-size:.66rem;min-width:1.2rem;min-height:1.2rem;}
+.solo-strip-go{color:var(--accent,#ff7a3d);}
+@media (max-width:720px){.solo-strip{margin-left:0;flex-basis:100%;}}
