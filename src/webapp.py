@@ -10303,7 +10303,7 @@ def api_live_version():
         current_count = load_db_row_count(ENGINE)
         refresh_match_caches_for_count(current_count)
         streams = build_stream_embeds()
-        stream_key = stream_key_for_streams(streams)
+        stream_key = stream_key_for_streams(streams) + '|' + _presence_fingerprint()
         return jsonify({
             'ok': True,
             'count': int(current_count),
@@ -11816,7 +11816,59 @@ def _fmt_ago(minutes: float) -> str:
     return f'{h:.0f} hr ago' if h >= 2 else f'{h:.1f} hr ago'
 
 
+
+
+# --- Xbox presence (written by the scraper's presence poller) ---------------
+_PRESENCE_MEMO = {"ts": 0.0, "data": {}}
+
+
+def _load_presence_file() -> dict:
+    """presence.json snapshot with a 5s in-proc memo; {} when absent/stale."""
+    now = time.time()
+    if now - _PRESENCE_MEMO["ts"] < 5:
+        return _PRESENCE_MEMO["data"]
+    data = {}
+    try:
+        with open(data_path("presence.json")) as f:
+            raw = json.load(f)
+        poll = float(raw.get("poll_seconds") or 75)
+        if now - float(raw.get("updated") or 0) <= max(300, poll * 4):
+            data = raw
+    except Exception:
+        data = {}
+    _PRESENCE_MEMO.update(ts=now, data=data)
+    return data
+
+
+def _presence_now() -> list[dict]:
+    """Players in Halo Infinite right now: [{'player','css','detail','mins'}]."""
+    snap = _load_presence_file()
+    out = []
+    for name, v in (snap.get("players") or {}).items():
+        if not v.get("in_halo"):
+            continue
+        mins = max(0, int((time.time() - float(v.get("since") or time.time())) / 60))
+        out.append({"player": name, "css": get_player_class(name),
+                    "detail": (v.get("detail") or "").strip(), "mins": mins})
+    out.sort(key=lambda p: -p["mins"])
+    return out
+
+
+def _presence_fingerprint() -> str:
+    return ",".join(f"{p['player']}:{p['detail']}" for p in _presence_now())
+
+
 def build_live_now(df):
+    """build_live_now core + who's in Halo RIGHT NOW via Xbox presence (knows
+    about a session the moment the game boots, before any match finishes)."""
+    out = _build_live_now_core(df)
+    try:
+        out["halo_now"] = _presence_now()
+    except Exception:
+        out["halo_now"] = []
+    return out
+
+def _build_live_now_core(df):
     """Who's playing right now: tracked players whose most recent match landed
     within LIVE_WINDOW_MINUTES. Reports their line in the in-progress session
     (the cluster of matches within SESSION_GAP_MINUTES of the latest game).
@@ -12096,7 +12148,9 @@ def live():
         payload['streams'] = build_stream_embeds()
     except Exception:
         payload['streams'] = []
-    payload['stream_key'] = stream_key_for_streams(payload.get('streams') or [])
+    payload['stream_key'] = (stream_key_for_streams(payload.get('streams') or [])
+                             + '|' + _presence_fingerprint())
+    payload['halo_now'] = _presence_now()
     payload['stream_poll_seconds'] = LIVE_STREAM_POLL_SECONDS
     status = load_status()
     return render_template('livesession.html', app_title=APP_TITLE, live=payload,

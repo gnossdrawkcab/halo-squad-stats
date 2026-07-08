@@ -4273,6 +4273,13 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .site-logo-mark{width:30px;height:30px;border-radius:7px;flex:0 0 auto;}
 @media (max-width:720px){.site-logo-mark{width:26px;height:26px;}}
 
+/* ── Xbox presence: 'in Halo right now' chips (live page + Live Now banner) ── */
+.halo-now-row,.sl-halo-now{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 10px;}
+.halo-now-row{margin:2px 0 8px;}
+.hn-chip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;padding:3px 9px;border-radius:999px;border:1px solid rgba(61,191,120,.35);background:rgba(61,191,120,.08);}
+.hn-detail{color:var(--muted,#9a8f82);font-size:.72rem;}
+.sl-watch .sl-halo-now .hn-chip{font-size:.62rem;padding:2px 7px;}
+
 /* ── Squad-dash cross-flag: fresh solo sessions (inline in the picker row) ── */
 .solo-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-left:auto;}
 .solo-strip-label{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted,#9a8f82);}

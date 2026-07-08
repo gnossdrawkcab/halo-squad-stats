@@ -127,15 +127,23 @@
 {# ══════════════════════════════════════════════════════════
    LIVE NOW — someone's currently in a session (last 45 min)
    ══════════════════════════════════════════════════════════ #}
-{% if live_now and live_now.live %}
+{% if live_now and (live_now.live or live_now.halo_now) %}
 <section class="panel live-now-panel">
   <div class="live-now-head">
     <span class="live-dot"></span>
-    <span class="live-now-title">Live Now</span>
+    <span class="live-now-title">{{ 'Live Now' if live_now.live else 'On Halo Now' }}</span>
     <span class="session-kind kind-{{ live_now.kind }}">{{ live_now.kind|upper }}</span>
-    <span class="live-now-meta">{% if live_now.stream_only %}streaming now · waiting on first game{% else %}{{ live_now.session_games }} game{{ 's' if live_now.session_games != 1 else '' }} this session · {{ live_now.wins }}-{{ live_now.losses }} · last game {{ live_now.ago }}{% endif %}</span>
+    <span class="live-now-meta">{% if not live_now.live %}booted the game — no match finished yet{% elif live_now.stream_only %}streaming now · waiting on first game{% else %}{{ live_now.session_games }} game{{ 's' if live_now.session_games != 1 else '' }} this session · {{ live_now.wins }}-{{ live_now.losses }} · last game {{ live_now.ago }}{% endif %}</span>
     <a href="/live" class="btn btn-small live-now-link">Live session →</a>
   </div>
+  {% if live_now.halo_now %}
+  <div class="halo-now-row" title="Xbox presence — in Halo Infinite right now">
+    {% for p in live_now.halo_now %}
+    <span class="hn-chip">🎮 <b class="player-name {{ p.css }}">{{ p.player }}</b>
+      <span class="hn-detail">{{ p.detail or 'in Halo' }} · {{ p.mins }}m</span></span>
+    {% endfor %}
+  </div>
+  {% endif %}
   <div class="live-now-players">
     {% for p in live_now.players %}
     <a href="{{ p.player|player_href }}" class="live-chip{{ ' is-live' if p.is_live else ' is-idle' }}" title="{{ p.games }} games · {{ p.record }} · KDA {{ p.kda }} · last seen {{ p.ago }}">

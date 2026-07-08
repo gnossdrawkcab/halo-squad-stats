@@ -16,6 +16,14 @@
       {% if live.live %}<strong>{{ live.live_count }} online</strong> · in a {{ live.kind }} session{% else %}No one's playing right now — showing the last session{% endif %}
     </div>
     <span class="sl-refresh" id="sl-refresh">checking for new games</span>
+    {% if live.halo_now %}
+    <span class="sl-halo-now" title="Xbox presence — in Halo Infinite right now">
+      {%- for p in live.halo_now %}
+      <span class="hn-chip">🎮 <b class="player-name {{ p.css }}">{{ p.player }}</b>
+        <span class="hn-detail">{{ p.detail or 'in Halo' }} · {{ p.mins }}m</span></span>
+      {%- endfor %}
+    </span>
+    {% endif %}
     {% if live.streams %}<button class="btn btn-small sl-drawer-btn sl-hero-stats-btn" data-drawer="stats" type="button" title="Show live player stats">📊 Stats</button>{% endif %}
     <a href="/?stay=1" class="btn btn-small sl-dash-link" title="Back to the dashboard">🏠 Dashboard</a>
   </div>

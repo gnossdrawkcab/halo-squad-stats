@@ -126,6 +126,14 @@ def get_update_interval():
     return max(1, idle_interval)
 
 def main():
+    # Presence poller: daemon thread in THIS long-lived process (stats.py runs
+    # as per-cycle subprocesses, so it can't own anything continuous).
+    try:
+        from presence import start_presence_thread
+        start_presence_thread()
+    except Exception as e:
+        print(f"presence poller failed to start: {e}")
+
     while True:
         status = token_status()
         if status != "valid":

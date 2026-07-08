@@ -498,6 +498,7 @@ async def backfill_opponent_names(client, engine, limit=300):
                 SELECT DISTINCT player_xuid
                 FROM halo_match_players
                 WHERE gamertag LIKE 'Spartan-%%' AND NOT is_tracked
+                  AND NOT COALESCE(is_bot, FALSE)  -- bots have bid(...) pseudo-xuids, never resolvable
                 ORDER BY player_xuid
                 LIMIT :lim
                 """
