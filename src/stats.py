@@ -2036,6 +2036,17 @@ async def run_stats(max_matches=None, force_refresh=False):
                 _session_active = _age_min <= int(os.getenv("HALO_ACTIVE_WINDOW_MIN", "45"))
         except Exception:
             _session_active = False
+        # Xbox presence: anyone IN Halo means a session could start any minute —
+        # hold API-hungry backfills even before the first match lands.
+        if not _session_active:
+            try:
+                with open(data_path("presence.json")) as _pf:
+                    _snap = json.load(_pf)
+                if (time.time() - float(_snap.get("updated") or 0) < 300
+                        and any(v.get("in_halo") for v in (_snap.get("players") or {}).values())):
+                    _session_active = True
+            except Exception:
+                pass
         run_backfills = (new_this_cycle == 0 and not _session_active) \
             or os.getenv("HALO_BACKFILL_ALWAYS", "0") == "1"
 

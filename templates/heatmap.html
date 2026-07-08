@@ -29,6 +29,50 @@
   {% endif %}
 </section>
 
+{# ── Xbox presence analytics: REAL time on Halo (lobby time included) ── #}
+{% if presence_heat and presence_heat.has_data %}
+<section class="panel">
+  <h2>🎮 When You're Actually On Halo</h2>
+  <p class="muted">Member-minutes in Halo Infinite by day &amp; hour from Xbox presence — menus and lobby time count, not just finished matches.</p>
+  <div class="table-wrap">
+    <table class="data-table heatmap-table">
+      <thead><tr><th>Day</th>{% for h in presence_heat.hours %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in presence_heat.grid %}
+        <tr><td><strong>{{ row.day }}</strong></td>
+          {% for c in row.cells %}<td style="{{ c.style }}">{% if c.mins %}{{ c.mins }}m{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if playtime and playtime.has_data %}
+<section class="panel">
+  <h2>⏱️ Playtime Truth</h2>
+  <p class="muted">Hours actually in Halo (Xbox presence{% if playtime.since %} · collecting since {{ playtime.since }}{% endif %}). Menus stints = time between games — the queue-time tax.</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Player</th><th>Last 7d</th><th>Last 30d</th><th title="Share of in-Halo time spent in a match (vs menus/lobby)">In-match %</th><th title="Average unbroken stretch in menus while on Halo">Avg menus stint</th><th title="Longest unbroken stretch in menus">Longest</th></tr></thead>
+      <tbody>
+        {% for p in playtime.players %}
+        <tr>
+          <td><span class="player-name {{ p.css }}">{{ p.player }}</span></td>
+          <td>{{ p.h7 }}h</td>
+          <td>{{ p.h30 }}h</td>
+          <td>{{ p.match_pct }}%</td>
+          <td>{{ p.avg_stint ~ 'm' if p.avg_stint is not none else '—' }}</td>
+          <td>{{ p.max_stint ~ 'm' if p.max_stint is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 {% if compare and compare.has_data %}
 <section class="panel">
   <h2>Who Plays Best, By Time of Day</h2>

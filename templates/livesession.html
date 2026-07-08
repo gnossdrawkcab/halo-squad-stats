@@ -27,6 +27,13 @@
     {% if live.streams %}<button class="btn btn-small sl-drawer-btn sl-hero-stats-btn" data-drawer="stats" type="button" title="Show live player stats">📊 Stats</button>{% endif %}
     <a href="/?stay=1" class="btn btn-small sl-dash-link" title="Back to the dashboard">🏠 Dashboard</a>
   </div>
+  {% if not live.live and live.halo_last_seen %}
+  <div class="sl-last-seen">🎮 Last on Halo:
+    {%- for p in live.halo_last_seen %}
+    <span class="hn-chip"><b class="player-name {{ p.css }}">{{ p.player }}</b> <span class="hn-detail">{{ p.ago }}</span></span>
+    {%- endfor %}
+  </div>
+  {% endif %}
   {% if live.has_data %}
   <div class="sl-hero-stats">
     <div class="sl-hs"><span>Record</span><strong class="{{ 'rec-pos' if live.wins > live.losses else ('rec-neg' if live.losses > live.wins else '') }}">{{ live.wins }}–{{ live.losses }}</strong></div>

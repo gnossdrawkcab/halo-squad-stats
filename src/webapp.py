@@ -11858,6 +11858,144 @@ def _presence_fingerprint() -> str:
     return ",".join(f"{p['player']}:{p['detail']}" for p in _presence_now())
 
 
+
+
+def _presence_log_intervals(days: int = 60) -> list[tuple]:
+    """Reconstruct (gamertag, start, end, kind) stints from the transition log.
+    kind: 'menus' (idle/lobby) vs 'match' (any richer presence string). An
+    interval still open closes at now, capped at 12h against poller gaps."""
+    from datetime import datetime, timedelta, timezone as _tz
+    try:
+        with ENGINE.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT ts, gamertag, in_halo, COALESCE(detail,'') FROM halo_presence_log "
+                "WHERE ts > NOW() - INTERVAL ':d days' ".replace(':d', str(int(days))) +
+                "ORDER BY gamertag, ts"
+            )).fetchall()
+    except Exception:
+        return []
+    def kind(detail):
+        return 'menus' if str(detail).strip() in ('', 'Menus') else 'match'
+    out, open_at, open_kind, cur = [], None, 'menus', None
+    now = datetime.now(_tz.utc)
+    def close(g, end):
+        nonlocal open_at
+        if open_at is not None:
+            out.append((g, open_at, min(end, open_at + timedelta(hours=12)), open_kind))
+            open_at = None
+    for ts, g, in_halo, detail in rows:
+        if g != cur:
+            close(cur, now)
+            cur = g
+        if open_at is not None:
+            close(g, ts)
+        if in_halo:
+            open_at, open_kind = ts, kind(detail)
+    close(cur, now)
+    return [(g, s, e, k) for g, s, e, k in out if e > s]
+
+
+def build_playtime() -> dict:
+    """Per-player REAL time in Halo from Xbox presence: 7d/30d hours,
+    in-match share, and menus-stint stats (the queue-time proxy)."""
+    from datetime import datetime, timedelta, timezone as _tz
+    iv = _presence_log_intervals(days=30)
+    if not iv:
+        return {'has_data': False, 'players': [], 'since': ''}
+    now = datetime.now(_tz.utc)
+    d7 = now - timedelta(days=7)
+    stats: dict = {}
+    for g, s, e, k in iv:
+        st = stats.setdefault(g, {'s30': 0.0, 's7': 0.0, 'match': 0.0,
+                                  'stints': []})
+        dur = (e - s).total_seconds()
+        st['s30'] += dur
+        if e > d7:
+            st['s7'] += (e - max(s, d7)).total_seconds()
+        if k == 'match':
+            st['match'] += dur
+        elif dur >= 30:                      # menus stints under 30s are noise
+            st['stints'].append(dur)
+    players = []
+    for g, st in stats.items():
+        stints = st['stints']
+        players.append({
+            'player': g, 'css': get_player_class(g),
+            'h7': round(st['s7'] / 3600, 1), 'h30': round(st['s30'] / 3600, 1),
+            'match_pct': int(round(st['match'] / st['s30'] * 100)) if st['s30'] else 0,
+            'avg_stint': int(round(sum(stints) / len(stints) / 60)) if stints else None,
+            'max_stint': int(round(max(stints) / 60)) if stints else None,
+        })
+    players.sort(key=lambda p: -p['h30'])
+    since = ''
+    try:
+        with ENGINE.connect() as conn:
+            first = conn.execute(text(
+                "SELECT MIN(ts) FROM halo_presence_log")).scalar()
+        if first is not None:
+            since = format_date(first)
+    except Exception:
+        pass
+    return {'has_data': bool(players), 'players': players, 'since': since}
+
+
+def build_presence_heatmap(days: int = 60) -> dict:
+    """Day x hour grid of member-minutes actually ON Halo (local time) —
+    counts lobby/menus time the match heatmap can't see."""
+    from datetime import timedelta
+    iv = _presence_log_intervals(days=days)
+    if not iv:
+        return {'has_data': False, 'grid': [], 'hours': []}
+    tz = pytz_timezone(TIMEZONE)
+    mins = [[0.0] * 24 for _ in range(7)]     # Mon..Sun x hour
+    for _, s, e, _k in iv:
+        cur = s.astimezone(tz)
+        end = e.astimezone(tz)
+        while cur < end:
+            nxt = (cur.replace(minute=0, second=0, microsecond=0)
+                   + timedelta(hours=1))
+            chunk = (min(nxt, end) - cur).total_seconds() / 60
+            mins[cur.weekday()][cur.hour] += chunk
+            cur = min(nxt, end)
+    peak = max(max(r) for r in mins) or 1.0
+    days_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    grid = []
+    for di, row in enumerate(mins):
+        cells = []
+        for h in range(24):
+            m = int(round(row[h]))
+            alpha = round(min(1.0, row[h] / peak) * 0.85, 2)
+            cells.append({'mins': m,
+                          'style': f'background:rgba(61,191,120,{alpha})' if m else ''})
+        grid.append({'day': days_names[di], 'cells': cells})
+    return {'has_data': True, 'grid': grid,
+            'hours': [f'{h:02d}' for h in range(24)]}
+
+
+def _presence_last_seen() -> list[dict]:
+    """For roster players NOT in Halo right now: when they last were."""
+    snap = _load_presence_file()
+    players = snap.get('players') or {}
+    offline = [g for g, v in players.items() if not v.get('in_halo')]
+    if not offline:
+        return []
+    try:
+        with ENGINE.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT gamertag, MAX(ts) FROM halo_presence_log "
+                "WHERE NOT in_halo GROUP BY gamertag")).fetchall()
+    except Exception:
+        return []
+    out = []
+    for g, ts in rows:
+        if g not in offline or ts is None:
+            continue
+        mins = max(0.0, (pd.Timestamp.now(tz='UTC') - pd.Timestamp(ts)).total_seconds() / 60)
+        out.append({'player': g, 'css': get_player_class(g),
+                    'ago': _fmt_ago(mins), 'mins': mins})
+    out.sort(key=lambda p: p['mins'])
+    return out
+
 def build_live_now(df):
     """build_live_now core + who's in Halo RIGHT NOW via Xbox presence (knows
     about a session the moment the game boots, before any match finishes)."""
@@ -12151,6 +12289,11 @@ def live():
     payload['stream_key'] = (stream_key_for_streams(payload.get('streams') or [])
                              + '|' + _presence_fingerprint())
     payload['halo_now'] = _presence_now()
+    try:
+        payload['halo_last_seen'] = get_cached_page_payload(
+            'halo_last_seen', lambda: {'v': _presence_last_seen()}).get('v') or []
+    except Exception:
+        payload['halo_last_seen'] = []
     payload['stream_poll_seconds'] = LIVE_STREAM_POLL_SECONDS
     status = load_status()
     return render_template('livesession.html', app_title=APP_TITLE, live=payload,
@@ -12819,9 +12962,20 @@ def heatmap():
     except Exception as exc:
         logger.warning('heatmap compare failed: %s', exc)
         compare = {'time_cols': [], 'time_players': [], 'pos_cols': [], 'pos_players': [], 'has_data': False}
+    try:
+        playtime = get_cached_page_payload('playtime', lambda: build_playtime())
+    except Exception as exc:
+        logger.warning('playtime failed: %s', exc)
+        playtime = {'has_data': False, 'players': [], 'since': ''}
+    try:
+        presence_heat = get_cached_page_payload('presence_heat', lambda: build_presence_heatmap())
+    except Exception as exc:
+        logger.warning('presence heatmap failed: %s', exc)
+        presence_heat = {'has_data': False, 'grid': [], 'hours': []}
     status = load_status()
     return render_template('heatmap.html', app_title=APP_TITLE,
                            grid=payload['grid'], hours=payload['hours'],
+                           playtime=playtime, presence_heat=presence_heat,
                            by_position=payload['by_position'],
                            compare=compare,
                            last_update=status.get('last_update'),

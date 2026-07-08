@@ -121,9 +121,23 @@ def get_update_interval():
     active_interval = int(os.getenv("HALO_UPDATE_INTERVAL_ACTIVE", "15"))
     idle_interval = int(os.getenv("HALO_UPDATE_INTERVAL_IDLE",
                                   os.getenv("HALO_UPDATE_INTERVAL", "60")))
-    if _session_is_active():
+    if _session_is_active() or _presence_is_active():
         return max(1, active_interval)
     return max(1, idle_interval)
+
+
+def _presence_is_active():
+    """True while Xbox presence shows anyone IN Halo — a strictly earlier
+    signal than 'a match landed recently', so game #1 of a night gets the
+    fast polling cadence instead of waiting out an idle sleep."""
+    try:
+        with open(data_path("presence.json")) as f:
+            snap = json.load(f)
+        if time.time() - float(snap.get("updated") or 0) > 300:
+            return False
+        return any(v.get("in_halo") for v in (snap.get("players") or {}).values())
+    except Exception:
+        return False
 
 def main():
     # Presence poller: daemon thread in THIS long-lived process (stats.py runs
