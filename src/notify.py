@@ -549,27 +549,31 @@ def _game_summaries(engine, state) -> dict:
         fresh = [dict(r._mapping) for r in conn.execute(sql)]
     if not fresh:
         return state
-    seen = set(str(x) for x in (state.get("_game_notified") or []))
+    seen_raw = [str(x) for x in (state.get("_game_notified") or [])]
+    # `covered` accepts both bare match_ids and legacy "mid|player" keys, so a
+    # deploy that changes the key format never replays already-sent matches.
+    covered = set(x.split("|", 1)[0] for x in seen_raw)
+    pending = dict(state.get("_game_pending") or {})   # mid -> roster last cycle
     by_mid: dict = {}
     for r in fresh:
         by_mid.setdefault(str(r["match_id"]), []).append(r)
 
-    def _pair(mid, r):
-        return f"{mid}|{r.get('player_gamertag')}"
-
-    # Per-(match, player) dedup: only a player's rows we haven't announced yet.
-    # A bare match_id in `seen` is legacy (old whole-match dedup) — skip that
-    # whole match so a redeploy doesn't replay history.
-    new_by_mid: dict = {}
-    new_keys: list = []
+    # Roster-settling: a match is READY to announce only once its set of tracked
+    # players is the SAME as last cycle — i.e. every squadmate whose per-player
+    # stats Halo is going to surface has now been scraped. First sighting (or a
+    # roster that just grew) waits one more cycle so the push includes everyone.
+    ready: list = []
+    new_pending: dict = {}
     for mid, rows in by_mid.items():
-        if mid in seen:
+        if mid in covered:
             continue
-        fresh_rows = [r for r in rows if _pair(mid, r) not in seen]
-        if fresh_rows:
-            new_by_mid[mid] = fresh_rows
-            new_keys.extend(_pair(mid, r) for r in fresh_rows)
-    if not new_by_mid:
+        roster = sorted({str(r.get("player_gamertag")) for r in rows})
+        if pending.get(mid) == roster:
+            ready.append(mid)
+        else:
+            new_pending[mid] = roster
+    if not ready:
+        state["_game_pending"] = new_pending
         return state
 
     # Session-so-far record: walk today's games back over the session gap.
@@ -600,9 +604,9 @@ def _game_summaries(engine, state) -> dict:
     record = f"{wins}-{losses}" if session_rows else ""
     game_no = len(session_rows)
 
-    for mid in sorted(new_by_mid, key=lambda m: new_by_mid[m][0]["date"]):
+    for mid in sorted(ready, key=lambda m: by_mid[m][0]["date"]):
         try:
-            title, body = _compose_game_summary(new_by_mid[mid], record, game_no)
+            title, body = _compose_game_summary(by_mid[mid], record, game_no)
             # Click-through lands on the right dashboard: solo game → Solo Dash,
             # squad game → Squad Dash (?stay=1 skips the streaming→/live redirect).
             solo = len({r.get("player_gamertag") for r in by_mid[mid]}) <= 1
@@ -617,7 +621,8 @@ def _game_summaries(engine, state) -> dict:
                 logger.warning("webpush_game_failed error=%s", e)
         except Exception as e:
             logger.warning("notify_game_compose_failed match=%s error=%s", mid, e)
-    state["_game_notified"] = (list(seen) + new_keys)[-600:]
+    state["_game_notified"] = (seen_raw + ready)[-400:]
+    state["_game_pending"] = new_pending
     return state
 
 
