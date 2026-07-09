@@ -4402,3 +4402,25 @@ a.rcg-gmap:hover{color:var(--accent,#ff7a3d);}
 .solo-strip-item .grade-badge{font-size:.66rem;min-width:1.2rem;min-height:1.2rem;}
 .solo-strip-go{color:var(--accent,#ff7a3d);}
 @media (max-width:720px){.solo-strip{margin-left:0;flex-basis:100%;}}
+
+
+/* ── Monthly Squad Awards ── */
+.aw-monthnav{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap;}
+.aw-month{font-size:1.15rem;font-weight:800;letter-spacing:.02em;}
+.aw-live{font-size:.72rem;font-weight:600;color:var(--muted,#9a8f82);letter-spacing:0;}
+.aw-count{font-size:.78rem;margin-left:auto;}
+.aw-disabled{opacity:.35;pointer-events:none;}
+.aw-section{margin-bottom:16px;}
+.aw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:10px;}
+.aw-card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-left:3px solid var(--accent,#ff7a3d);}
+.aw-card-shame{border-left-color:#ff5a5a;background:rgba(239,68,68,.05);}
+.aw-icon{font-size:1.9rem;line-height:1;flex:0 0 auto;}
+.aw-body{min-width:0;flex:1 1 auto;}
+.aw-name{font-weight:800;font-size:.95rem;}
+.aw-desc{font-size:.72rem;color:var(--muted,#9a8f82);margin-bottom:6px;}
+.aw-winner{display:inline-block;font-size:1.05rem;font-weight:800;text-decoration:none;}
+.aw-value{font-size:.9rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px;}
+.aw-games{font-weight:400;font-size:.72rem;}
+.aw-runner{font-size:.72rem;margin-top:4px;}
+.aw-shame .section-label{color:#ff7a7a;}
+@media (max-width:620px){.aw-grid{grid-template-columns:1fr;}}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Squad Awards — {{ app_title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">🏆 Squad Awards</h1>
+  <p class="page-sub">Monthly honours (and dishonours) from Ranked Arena — who carried, who fed.</p>
+</div>
+
+<div class="aw-monthnav">
+  <a class="btn btn-small" href="/awards?ym={{ aw.prev_ym }}" title="Previous month">←</a>
+  <span class="aw-month">{{ aw.label }}{% if aw.is_current %} <span class="aw-live">· so far</span>{% endif %}</span>
+  {% if aw.next_ym %}<a class="btn btn-small" href="/awards?ym={{ aw.next_ym }}" title="Next month">→</a>{% else %}<span class="btn btn-small aw-disabled">→</span>{% endif %}
+  {% if aw.games %}<span class="aw-count muted">{{ aw.games }} ranked games</span>{% endif %}
+</div>
+
+{% if not aw.has_data %}
+<section class="panel"><p class="empty">No ranked games in {{ aw.label }} yet — awards show up once the squad has played enough.</p></section>
+{% else %}
+
+<section class="panel aw-section">
+  <div class="section-label">🥇 The Podium</div>
+  <div class="aw-grid">
+    {% for c in aw.positive %}
+    <div class="aw-card">
+      <div class="aw-icon">{{ c.icon }}</div>
+      <div class="aw-body">
+        <div class="aw-name">{{ c.name }}</div>
+        <div class="aw-desc">{{ c.desc }}</div>
+        <a href="{{ c.winner|player_href }}" class="aw-winner player-name {{ c.winner_css }}">{{ c.winner }}</a>
+        <div class="aw-value">{{ c.value }} <span class="aw-games muted">· {{ c.winner_games }}g</span></div>
+        {% if c.runner %}<div class="aw-runner muted">runner-up <span class="player-name {{ c.runner_css }}">{{ c.runner }}</span> · {{ c.runner_value }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if aw.shame %}
+<section class="panel aw-section aw-shame">
+  <div class="section-label">💀 Wall of Shame</div>
+  <div class="aw-grid">
+    {% for c in aw.shame %}
+    <div class="aw-card aw-card-shame">
+      <div class="aw-icon">{{ c.icon }}</div>
+      <div class="aw-body">
+        <div class="aw-name">{{ c.name }}</div>
+        <div class="aw-desc">{{ c.desc }}</div>
+        <a href="{{ c.winner|player_href }}" class="aw-winner player-name {{ c.winner_css }}">{{ c.winner }}</a>
+        <div class="aw-value">{{ c.value }} <span class="aw-games muted">· {{ c.winner_games }}g</span></div>
+        {% if c.runner %}<div class="aw-runner muted">also <span class="player-name {{ c.runner_css }}">{{ c.runner }}</span> · {{ c.runner_value }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if aw.standings %}
+<section class="panel aw-section">
+  <div class="section-label">📋 {{ aw.label }} standings</div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Player</th><th>Games</th><th>Avg grade</th><th>KDA</th><th>Acc</th><th>Win%</th></tr></thead>
+      <tbody>
+        {% for s in aw.standings %}
+        <tr>
+          <td><a href="{{ s.player|player_href }}" class="player-name {{ s.css }}">{{ s.player }}</a></td>
+          <td>{{ s.games }}</td>
+          <td>{% if s.grade_letter %}<span class="inline-grade {{ s.grade_class }}">{{ s.grade_letter }}</span> {% endif %}{{ s.avg_grade }}{% if s.avg_grade != '—' %}<span class="muted">/100</span>{% endif %}</td>
+          <td>{{ s.kda }}</td>
+          <td>{{ s.acc }}</td>
+          <td>{{ s.win_pct }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% endif %}
+{% endblock %}

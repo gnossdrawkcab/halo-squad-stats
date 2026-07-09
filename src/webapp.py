@@ -9361,7 +9361,220 @@ _HUBS = {
 }
 
 
+# ── Monthly Squad Awards ────────────────────────────────────────────────────
+# A calendar-month awards show: MVP, Most Improved, Sharpshooter … plus a
+# light-hearted Wall of Shame. Computed from that month's Ranked Arena games
+# in the site timezone. Browsable month-by-month. Cached by (row count, ym).
+
+_AWARD_MIN_GAMES = 6   # rate-based awards need at least this many games in the month
+
+
+def _month_key_now():
+    return pd.Timestamp.now(tz=pytz_timezone(TIMEZONE)).strftime("%Y-%m")
+
+
+def _month_shift(ym, delta):
+    y, m = int(ym[:4]), int(ym[5:7])
+    idx = (y * 12 + (m - 1)) + delta
+    return f"{idx // 12:04d}-{idx % 12 + 1:02d}"
+
+
+def _month_label(ym):
+    names = ["", "January", "February", "March", "April", "May", "June", "July",
+             "August", "September", "October", "November", "December"]
+    return f"{names[int(ym[5:7])]} {ym[:4]}"
+
+
+def _month_frame(df, ym):
+    """Ranked Arena rows whose LOCAL-time month == ym (YYYY-MM)."""
+    work = _ranked_only(df)
+    if work is None or work.empty or "date" not in work.columns:
+        return work.iloc[0:0] if work is not None else None
+    work = work.copy()
+    ensure_datetime(work)
+    work = work.dropna(subset=["date"])
+    local = work["date"].dt.tz_convert(pytz_timezone(TIMEZONE))
+    return work[local.dt.strftime("%Y-%m") == ym]
+
+
+def _streaks(outcomes):
+    """(longest win run, longest loss run) over a chronological W/L/T list."""
+    best_w = best_l = cur_w = cur_l = 0
+    for o in outcomes:
+        if o == "win":
+            cur_w += 1; cur_l = 0
+        elif o == "loss":
+            cur_l += 1; cur_w = 0
+        else:
+            cur_w = cur_l = 0
+        best_w = max(best_w, cur_w); best_l = max(best_l, cur_l)
+    return best_w, best_l
+
+
+def _player_month_stats(mf):
+    """Per-player aggregates for one month's ranked frame → {player: {...}}."""
+    out = {}
+    if mf is None or mf.empty or "player_gamertag" not in mf.columns:
+        return out
+    for player, pdf in mf.groupby("player_gamertag"):
+        pdf = pdf.drop_duplicates(subset=["match_id"]) if "match_id" in pdf.columns else pdf
+        games = len(pdf)
+        if games == 0:
+            continue
+        k = float(numeric_series(pdf, "kills").sum())
+        d = float(numeric_series(pdf, "deaths").sum())
+        a = float(numeric_series(pdf, "assists").sum())
+        acc = numeric_series(pdf, "accuracy").dropna()
+        acc_v = float(acc.mean()) if not acc.empty else 0.0
+        acc_v = acc_v * 100 if acc_v <= 1.5 else acc_v
+        scores = []
+        for _i, row in pdf.iterrows():
+            g = _match_grade_for_row(row)
+            if g.get("grade_score") is not None:
+                scores.append(g["grade_score"])
+        avg_grade = round(sum(scores) / len(scores)) if scores else None
+        ordered = pdf.sort_values("date") if "date" in pdf.columns else pdf
+        outcomes = [str(o).lower() for o in ordered.get("outcome", pd.Series(dtype=str))]
+        wins = sum(1 for o in outcomes if o == "win")
+        win_streak, loss_streak = _streaks(outcomes)
+        out[player] = {
+            "player": player, "css": get_player_class(player), "games": games,
+            "avg_grade": avg_grade,
+            "kda": (k + a / 3.0 - d) / games,
+            "acc": acc_v,
+            "kd": k / d if d else k,
+            "deaths_pg": d / games,
+            "kills_pg": k / games,
+            "score_pg": float(numeric_series(pdf, "personal_score").mean() or 0),
+            "hs_pg": float(numeric_series(pdf, "headshot_kills").sum()) / games,
+            "betrayals": int(numeric_series(pdf, "betrayals").sum()),
+            "win_streak": win_streak, "loss_streak": loss_streak,
+            "win_pct": round(wins / games * 100) if games else 0,
+        }
+    return out
+
+
+def _pick(stats, key, reverse=True, min_games=_AWARD_MIN_GAMES, need_positive=False):
+    """(winner_stat, runner_stat) by `key`; None winner if nobody qualifies."""
+    pool = [s for s in stats.values() if s["games"] >= min_games and s.get(key) is not None]
+    if need_positive:
+        pool = [s for s in pool if (s.get(key) or 0) > 0]
+    if not pool:
+        return None, None
+    pool.sort(key=lambda s: s[key], reverse=reverse)
+    return pool[0], (pool[1] if len(pool) > 1 else None)
+
+
+def build_monthly_awards(df, ym=None):
+    ym = ym or _month_key_now()
+    now_ym = _month_key_now()
+    mf = _month_frame(df, ym)
+    stats = _player_month_stats(mf)
+    total_games = mf["match_id"].nunique() if (mf is not None and not mf.empty and "match_id" in mf.columns) else 0
+    prev = _player_month_stats(_month_frame(df, _month_shift(ym, -1)))
+
+    def card(icon, name, desc, key, reverse=True, fmt="{:.2f}", suffix="",
+             min_games=_AWARD_MIN_GAMES, need_positive=False):
+        w, r = _pick(stats, key, reverse, min_games, need_positive)
+        if not w:
+            return None
+        return {
+            "icon": icon, "name": name, "desc": desc,
+            "winner": w["player"], "winner_css": w["css"], "winner_games": w["games"],
+            "value": fmt.format(w[key]) + suffix,
+            "runner": (r["player"] if r else ""), "runner_css": (r["css"] if r else ""),
+            "runner_value": (fmt.format(r[key]) + suffix if r else ""),
+        }
+
+    positive = []
+    positive.append(card("🏆", "MVP", "Best average game grade", "avg_grade",
+                         fmt="{:.0f}", suffix="/100"))
+
+    # Most Improved — biggest avg-grade gain vs last month (min games both)
+    improved = None
+    gains = []
+    for p, s in stats.items():
+        if s["games"] >= _AWARD_MIN_GAMES and s["avg_grade"] is not None:
+            ps = prev.get(p)
+            if ps and ps["games"] >= _AWARD_MIN_GAMES and ps["avg_grade"] is not None:
+                gains.append((p, s, s["avg_grade"] - ps["avg_grade"]))
+    if gains:
+        gains.sort(key=lambda t: t[2], reverse=True)
+        top = gains[0]
+        if top[2] > 0:
+            r = gains[1] if len(gains) > 1 and gains[1][2] > 0 else None
+            improved = {
+                "icon": "📈", "name": "Most Improved",
+                "desc": "Biggest jump in game grade vs last month",
+                "winner": top[0], "winner_css": top[1]["css"], "winner_games": top[1]["games"],
+                "value": f"+{top[2]:.0f}", "runner": (r[0] if r else ""),
+                "runner_css": (r[1]["css"] if r else ""), "runner_value": (f"+{r[2]:.0f}" if r else ""),
+            }
+    if improved:
+        positive.append(improved)
+
+    positive.append(card("🔫", "Top Slayer", "Best KDA", "kda", fmt="{:.2f}"))
+    positive.append(card("🎯", "Sharpshooter", "Best accuracy", "acc", fmt="{:.1f}", suffix="%"))
+    positive.append(card("🧼", "Untouchable", "Best kill/death ratio", "kd", fmt="{:.2f}"))
+    positive.append(card("🎖️", "Headhunter", "Most headshots per game", "hs_pg", fmt="{:.1f}"))
+    positive.append(card("🎯", "Playmaker", "Highest personal score per game", "score_pg", fmt="{:,.0f}"))
+    positive.append(card("💪", "Grinder", "Most games played", "games", fmt="{:.0f}", suffix=" games", min_games=1))
+    positive.append(card("🔥", "Hot Hand", "Longest win streak", "win_streak",
+                         fmt="{:.0f}", suffix=" W", min_games=1, need_positive=True))
+    positive = [c for c in positive if c]
+
+    shame = []
+    shame.append(card("💀", "Cannon Fodder", "Most deaths per game", "deaths_pg", fmt="{:.1f}"))
+    shame.append(card("🪦", "Tilt Merchant", "Longest losing streak", "loss_streak",
+                      fmt="{:.0f}", suffix=" L", min_games=1, need_positive=True))
+    shame.append(card("🎭", "Backstabber", "Most betrayals", "betrayals",
+                      fmt="{:.0f}", min_games=1, need_positive=True))
+    shame.append(card("🤡", "Spray & Pray", "Lowest accuracy", "acc", reverse=False, fmt="{:.1f}", suffix="%"))
+    shame = [c for c in shame if c]
+
+    # Leaderboard: each player's month at a glance, sorted by avg grade.
+    standings = sorted(
+        (s for s in stats.values() if s["games"] >= 1),
+        key=lambda s: (s["avg_grade"] if s["avg_grade"] is not None else -1), reverse=True)
+
+    return {
+        "ym": ym, "label": _month_label(ym), "games": int(total_games),
+        "has_data": bool(stats),
+        "prev_ym": _month_shift(ym, -1),
+        "next_ym": (_month_shift(ym, 1) if ym < now_ym else ""),
+        "is_current": ym == now_ym,
+        "positive": positive, "shame": shame,
+        "standings": [{
+            "player": s["player"], "css": s["css"], "games": s["games"],
+            "avg_grade": (s["avg_grade"] if s["avg_grade"] is not None else "—"),
+            "grade_letter": (grade_from_percentile(s["avg_grade"]) if s["avg_grade"] is not None else ""),
+            "grade_class": (grade_class(grade_from_percentile(s["avg_grade"])) if s["avg_grade"] is not None else ""),
+            "kda": f"{s['kda']:.2f}", "acc": f"{s['acc']:.1f}%", "win_pct": f"{s['win_pct']}%",
+        } for s in standings],
+    }
+
+
+@app.route('/awards')
+def awards():
+    """Monthly Squad Awards — MVP, Most Improved, Wall of Shame, standings."""
+    df = cache.get()
+    ym = request.args.get('ym') or None
+    try:
+        payload = get_cached_page_payload('awards', lambda: build_monthly_awards(df, ym),
+                                          key=(ym or 'current'))
+    except Exception as exc:
+        logger.warning('awards page failed: %s', exc)
+        payload = {'has_data': False, 'positive': [], 'shame': [], 'standings': [],
+                   'label': '', 'games': 0, 'prev_ym': '', 'next_ym': '', 'ym': '',
+                   'is_current': True}
+    return render_template('awards.html', app_title=APP_TITLE, aw=payload or {'has_data': False},
+                           last_update=load_status().get('last_update'),
+                           db_row_count=count_cache.get())
+
+
 @app.route('/combat-hub')
+
+
 @app.route('/winning-hub')
 @app.route('/analysis')
 @app.route('/records')
