@@ -109,17 +109,17 @@
 
     <div class="sl-record">{{ p.wins }}W · {{ p.games }}G · {{ p.win_pct }}</div>
 
-    <div class="sl-stats">
-      <div class="sl-stat sl-big"><span>KDA</span><strong>{{ p.kda }}</strong></div>
-      <div class="sl-stat"><span>K/D/A</span><strong>{{ p.kills }}/{{ p.deaths }}/{{ p.assists }}</strong></div>
-      <div class="sl-stat"><span>Acc</span><strong>{{ p.accuracy }}</strong></div>
-      <div class="sl-stat"><span>Dmg±/g</span><strong>{{ p.dmg_diff_pg }}</strong></div>
-      <div class="sl-stat"><span>Dmg/m</span><strong>{{ p.dmg_per_min }}</strong></div>
-      <div class="sl-stat"><span>KDA/min</span><strong>{{ p.kda_min }}</strong></div>
-      <div class="sl-stat"><span>Life</span><strong>{{ p.avg_life }}</strong></div>
-      <div class="sl-stat"><span>ObjSc</span><strong>{{ p.obj_score }}</strong></div>
-      <div class="sl-stat"><span>Sc%</span><strong>{{ p.score_pct }}</strong></div>
-      <div class="sl-stat"><span>✨/g</span><strong>{{ p.perfect_pg }}</strong></div>
+    <div class="sl-stats" title="colour = vs 365-day squad history">
+      <div class="sl-stat sl-big {{ p.kda_heat }}" title="{{ p.kda_tip }}"><span>KDA</span><strong>{{ p.kda }}</strong></div>
+      <div class="sl-stat {{ p.kda_heat }}"><span>K/D/A</span><strong>{{ p.kills }}/{{ p.deaths }}/{{ p.assists }}</strong></div>
+      <div class="sl-stat {{ p.acc_heat }}"><span>Acc</span><strong>{{ p.accuracy }}</strong></div>
+      <div class="sl-stat {{ p.ddiff_heat }}" title="{{ p.ddiff_tip }}"><span>Dmg±/g</span><strong>{{ p.dmg_diff_pg }}</strong></div>
+      <div class="sl-stat {{ p.dmgm_heat }}" title="{{ p.dmgm_tip }}"><span>Dmg/m</span><strong>{{ p.dmg_per_min }}</strong></div>
+      <div class="sl-stat {{ p.kda_min_heat }}" title="{{ p.kda_min_tip }}"><span>KDA/min</span><strong>{{ p.kda_min }}</strong></div>
+      <div class="sl-stat {{ p.life_heat }}" title="{{ p.life_tip }}"><span>Life</span><strong>{{ p.avg_life }}</strong></div>
+      <div class="sl-stat {{ p.obj_score_heat }}" title="{{ p.obj_tip }}"><span>ObjSc</span><strong>{{ p.obj_score }}</strong></div>
+      <div class="sl-stat {{ p.score_heat }}" title="{{ p.score_tip }}"><span>Sc%</span><strong>{{ p.score_pct }}</strong></div>
+      <div class="sl-stat {{ p.perfect_heat }}"><span>✨/g</span><strong>{{ p.perfect_pg }}</strong></div>
     </div>
 
     {% if p.game_grades %}
@@ -623,7 +623,8 @@
   // the stream embeds keep playing. The streams panel is only rebuilt when
   // the set of live channels actually changes.
   var refreshing = false, livePoll = null;
-  function refreshStats() {
+  function refreshStats(statsChanged) {
+    if (statsChanged === undefined) statsChanged = true;  // manual calls do a full rebuild
     if (refreshing) return;
     refreshing = true;
     fetch(location.href, { cache: 'no-store' }).then(function (r) { return r.text(); })
@@ -631,18 +632,25 @@
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var curPage = document.querySelector('.sl-page'), neuPage = doc.querySelector('.sl-page');
         if (curPage && neuPage) curPage.className = neuPage.className;
-        ['.sl-hero', '.sl-stats-pane'].forEach(function (sel) {
-          var cur = document.querySelector(sel), neu = doc.querySelector(sel);
-          if (cur && neu) cur.replaceWith(neu);
-          else if (cur && !neu) cur.remove();
-        });
-        restoreGameDetails();
+        // Hero is a thin bar (record + presence chips) — cheap to swap in place.
+        var curHero = document.querySelector('.sl-hero'), neuHero = doc.querySelector('.sl-hero');
+        if (curHero && neuHero) curHero.replaceWith(neuHero);
+        else if (curHero && !neuHero) curHero.remove();
+        // The stat pane is the big one: rebuild it ONLY when a new game landed.
+        // Presence/stream-only pings must not flash it or drop expanded games.
+        if (statsChanged) {
+          var curPane = document.querySelector('.sl-stats-pane'), neuPane = doc.querySelector('.sl-stats-pane');
+          if (curPane && neuPane) curPane.replaceWith(neuPane);
+          else if (curPane && !neuPane) curPane.remove();
+          restoreGameDetails();
+        }
         var curP = document.getElementById('sl-streams-panel');
         var neuP = doc.getElementById('sl-streams-panel');
         var curCh = curP ? curP.dataset.channels : '';
         var neuCh = neuP ? neuP.dataset.channels : '';
         if (curCh !== neuCh) syncStreamPanel(curP, neuP);
-        window.haloLiveStreamKey = neuCh;
+        // NOTE: window.haloLiveStreamKey is owned by pollLiveVersion (it holds
+        // the full channels|presence key); do NOT overwrite it with neuCh here.
         syncWatchMode(document);
         refreshing = false;
       })
@@ -656,9 +664,13 @@
       .then(function (data) {
         if (data && data.ok) {
           if (data.changed) {
-            window.haloInitialRowCount = data.count || window.haloInitialRowCount;
+            var newCount = data.count || window.haloInitialRowCount;
+            // Only a new game changes the stats; a stream/presence change alone
+            // shouldn't rebuild the stat pane.
+            var statsChanged = newCount !== window.haloInitialRowCount;
+            window.haloInitialRowCount = newCount;
             window.haloLiveStreamKey = data.stream_key || '';
-            refreshStats();
+            refreshStats(statsChanged);
           }
           var secs = Number(data.poll_seconds || window.haloLiveStreamPollSeconds || 5);
           livePoll = setTimeout(pollLiveVersion, Math.max(2000, secs * 1000));

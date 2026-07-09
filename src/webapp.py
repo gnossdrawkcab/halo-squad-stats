@@ -12246,6 +12246,10 @@ def build_super_live(df):
         players.append({**r,
                         'is_live': bool(lv.get('is_live')),
                         'ago': lv.get('ago', ''),
+                        # acc/perfect have no report-card heat class, only a
+                        # vs-365d pctile — turn those into the same heat scale.
+                        'acc_heat': _rc_heat(r.get('acc_pctile', 50)),
+                        'perfect_heat': _rc_heat(r.get('perfect_pctile', 50)),
                         'best_game': best, 'worst_game': worst})
     players.sort(key=lambda p: (not p['is_live'], -(p.get('composite_pct') or 0)))
     # Header record: live count while active, else derive from the card.

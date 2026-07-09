@@ -3994,6 +3994,23 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
   .sl-watch .sl-streams{height:100%;align-items:stretch;}
   .sl-watch .sl-stream-frame{flex:1 1 auto;min-height:0;height:auto;aspect-ratio:auto;}
 }
+/* ── Live stat tiles: heatmap vs 365d squad history (same palette as the
+   dashboard heatmap table, tuned for small tiles) ── */
+.sl-stat.heat-excellent{background:rgba(34,197,94,.30)!important;}
+.sl-stat.heat-good{background:rgba(34,197,94,.16)!important;}
+.sl-stat.heat-average{background:rgba(234,179,8,.15)!important;}
+.sl-stat.heat-below{background:rgba(249,115,22,.22)!important;}
+.sl-stat.heat-poor{background:rgba(239,68,68,.32)!important;}
+.sl-stat.heat-excellent strong{color:#eafff0;}
+.sl-stat.heat-poor strong{color:#fff;}
+[data-theme="light"] .sl-stat.heat-excellent{background:rgba(22,163,74,.28)!important;}
+[data-theme="light"] .sl-stat.heat-good{background:rgba(22,163,74,.15)!important;}
+[data-theme="light"] .sl-stat.heat-average{background:rgba(202,138,4,.16)!important;}
+[data-theme="light"] .sl-stat.heat-below{background:rgba(234,88,12,.18)!important;}
+[data-theme="light"] .sl-stat.heat-poor{background:rgba(220,38,38,.26)!important;}
+[data-theme="light"] .sl-stat.heat-excellent strong,
+[data-theme="light"] .sl-stat.heat-poor strong{color:inherit;}
+
 /* ── Live stats: click-to-expand per-game rows ── */
 .sl-game-list{margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px;}
 .sl-game-list-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#9a8f82);margin-bottom:5px;}
