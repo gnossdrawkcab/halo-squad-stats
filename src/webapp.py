@@ -9441,18 +9441,32 @@ def _player_month_stats(mf):
         if "enemy_team_perfects" in pdf.columns:
             ep = pd.to_numeric(pdf["enemy_team_perfects"], errors="coerce")
             ep = ep.where(ep >= 0).dropna()
+        # Rate awards are PER MINUTE of game time (month totals / month minutes)
+        # so long games don't inflate and short games don't cheat anyone.
+        mins = float(numeric_series(pdf, "duration").sum()) / 60.0
+        ep_rows = pdf.loc[ep.index] if ep is not None else None
+        ep_mins = (float(numeric_series(ep_rows, "duration").sum()) / 60.0
+                   if ep_rows is not None and len(ep_rows) else 0.0)
         out[player] = {
             "player": player, "css": get_player_class(player), "games": games,
             "perfected_pg": (float(ep.sum()) / len(ep)
                              if ep is not None and len(ep) >= _AWARD_MIN_GAMES else None),
+            "perfected_10m": (float(ep.sum()) / ep_mins * 10.0
+                              if ep is not None and len(ep) >= _AWARD_MIN_GAMES and ep_mins > 0 else None),
             "avg_grade": avg_grade,
             "kda": (k + a / 3.0 - d) / games,
+            "kda_min": ((k + a / 3.0 - d) / mins) if mins > 0 else None,
             "acc": acc_v,
             "kd": k / d if d else k,
             "deaths_pg": d / games,
+            "deaths_min": (d / mins) if mins > 0 else None,
             "kills_pg": k / games,
+            "kills_min": (k / mins) if mins > 0 else None,
             "score_pg": float(numeric_series(pdf, "personal_score").mean() or 0),
+            "score_min": (float(numeric_series(pdf, "personal_score").sum()) / mins) if mins > 0 else None,
             "hs_pg": float(numeric_series(pdf, "headshot_kills").sum()) / games,
+            "hs_min": (float(numeric_series(pdf, "headshot_kills").sum()) / mins) if mins > 0 else None,
+            "hours": mins / 60.0,
             "betrayals": int(numeric_series(pdf, "betrayals").sum()),
             "win_streak": win_streak, "loss_streak": loss_streak,
             "win_pct": round(wins / games * 100) if games else 0,
@@ -9519,25 +9533,25 @@ def build_monthly_awards(df, ym=None):
     if improved:
         positive.append(improved)
 
-    positive.append(card("🔫", "Top Slayer", "Best KDA", "kda", fmt="{:.2f}"))
+    positive.append(card("🔫", "Top Slayer", "Best KDA per minute", "kda_min", fmt="{:.3f}"))
     positive.append(card("🎯", "Sharpshooter", "Best accuracy", "acc", fmt="{:.1f}", suffix="%"))
     positive.append(card("🧼", "Untouchable", "Best kill/death ratio", "kd", fmt="{:.2f}"))
-    positive.append(card("🎖️", "Headhunter", "Most headshots per game", "hs_pg", fmt="{:.1f}"))
-    positive.append(card("🎯", "Playmaker", "Highest personal score per game", "score_pg", fmt="{:,.0f}"))
-    positive.append(card("💪", "Grinder", "Most games played", "games", fmt="{:.0f}", suffix=" games", min_games=1))
+    positive.append(card("🎖️", "Headhunter", "Most headshots per minute", "hs_min", fmt="{:.2f}"))
+    positive.append(card("🎯", "Playmaker", "Highest score per minute", "score_min", fmt="{:,.0f}", suffix="/min"))
+    positive.append(card("💪", "Grinder", "Most time in matches", "hours", fmt="{:.1f}", suffix="h", min_games=1))
     positive.append(card("🔥", "Hot Hand", "Longest win streak", "win_streak",
                          fmt="{:.0f}", suffix=" W", min_games=1, need_positive=True))
     positive = [c for c in positive if c]
 
     shame = []
-    shame.append(card("💀", "Cannon Fodder", "Most deaths per game", "deaths_pg", fmt="{:.1f}"))
+    shame.append(card("💀", "Cannon Fodder", "Most deaths per minute", "deaths_min", fmt="{:.2f}", suffix="/min"))
     shame.append(card("🪦", "Tilt Merchant", "Longest losing streak", "loss_streak",
                       fmt="{:.0f}", suffix=" L", min_games=1, need_positive=True))
     shame.append(card("🎭", "Backstabber", "Most betrayals", "betrayals",
                       fmt="{:.0f}", min_games=1, need_positive=True))
     shame.append(card("🤡", "Spray & Pray", "Lowest accuracy", "acc", reverse=False, fmt="{:.1f}", suffix="%"))
-    shame.append(card("🩸", "Highlight Reel Fodder", "Most enemy Perfects per game (in your lobbies)",
-                      "perfected_pg", fmt="{:.2f}", suffix="/g", need_positive=True))
+    shame.append(card("🩸", "Highlight Reel Fodder", "Most enemy Perfects per 10 min (in your lobbies)",
+                      "perfected_10m", fmt="{:.2f}", suffix="/10m", need_positive=True))
     shame = [c for c in shame if c]
 
     # Leaderboard: each player's month at a glance, sorted by avg grade.

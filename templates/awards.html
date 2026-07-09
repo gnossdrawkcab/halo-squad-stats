@@ -14,6 +14,7 @@
   {% if aw.next_ym %}<a class="btn btn-small" href="/awards?ym={{ aw.next_ym }}" title="Next month">→</a>{% else %}<span class="btn btn-small aw-disabled">→</span>{% endif %}
   {% if aw.games %}<span class="aw-count muted">{{ aw.games }} ranked games</span>{% endif %}
 </div>
+<p class="muted aw-note">Rate awards are <strong>per minute of game time</strong> — long games don't inflate them and short games don't cheat anyone. Ratio awards (accuracy, K/D) and streaks are unchanged by time.</p>
 
 {% if not aw.has_data %}
 <section class="panel"><p class="empty">No ranked games in {{ aw.label }} yet — awards show up once the squad has played enough.</p></section>
