@@ -3994,6 +3994,35 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
   .sl-watch .sl-streams{height:100%;align-items:stretch;}
   .sl-watch .sl-stream-frame{flex:1 1 auto;min-height:0;height:auto;aspect-ratio:auto;}
 }
+/* ── Live stats: click-to-expand per-game rows ── */
+.sl-game-list{margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:7px;}
+.sl-game-list-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#9a8f82);margin-bottom:5px;}
+.sl-game-list-label .muted{text-transform:none;letter-spacing:0;opacity:.7;}
+.sl-game{border:1px solid rgba(255,255,255,.07);border-radius:8px;margin-bottom:5px;background:rgba(255,255,255,.02);}
+.sl-game-sum{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;list-style:none;font-size:.8rem;}
+.sl-game-sum::-webkit-details-marker{display:none;}
+.sl-game[open]{border-color:rgba(255,122,61,.35);}
+.sl-game[open] .sl-game-caret{transform:rotate(180deg);}
+.sl-game-num{font-weight:800;color:var(--muted,#9a8f82);min-width:1.7em;}
+.sl-game-res{font-weight:900;min-width:1.1em;text-align:center;}
+.sl-res-w{color:#3dbfb8;} .sl-res-l{color:#ff7a3d;} .sl-res-t{color:#e6c86e;}
+.sl-game-sum .grade-badge{font-size:.68rem;min-width:1.3rem;min-height:1.3rem;}
+.sl-game-map{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sl-game-kda{color:var(--muted,#9a8f82);font-variant-numeric:tabular-nums;font-weight:700;}
+.sl-game-flag{color:var(--accent,#ff7a3d);}
+.sl-game-caret{color:var(--muted,#9a8f82);font-size:.7rem;transition:transform .15s ease;}
+.sl-game-detail{padding:7px 10px 9px;display:flex;flex-direction:column;gap:4px;font-size:.78rem;border-top:1px solid rgba(255,255,255,.06);}
+.sl-gd-row{display:flex;justify-content:space-between;gap:10px;}
+.sl-gd-row span{color:var(--muted,#9a8f82);}
+.sl-gd-row b{font-variant-numeric:tabular-nums;}
+.sl-gd-note{color:var(--accent,#ff7a3d);font-size:.72rem;}
+.sl-gd-link{color:var(--accent,#ff7a3d);text-decoration:none;font-size:.74rem;margin-top:3px;}
+.sl-gd-link:hover{text-decoration:underline;}
+/* the compact watch overrides shrank these to overlay-drawer size; the game
+   list has its own readable sizing above and shouldn't inherit that */
+.sl-watch .sl-game-sum{font-size:.8rem;}
+.sl-watch .sl-game-detail{font-size:.78rem;}
+
 /* ── Wide desktop watch mode: game stats as a permanent LEFT column ──
    Below 1100px there isn't room for stats + streams + chat side by side,
    so the left-overlay drawer (above) stays; at >=1100px the stats pane
@@ -4021,6 +4050,19 @@ body.live-watch-mode .page{max-width:none;width:100%;height:100dvh;padding:6px;o
   /* stats always on → the 📊 toggle + its dimmer backdrop are just noise */
   .sl-hero-stats-btn{display:none!important;}
   body.sl-stats-open .sl-drawer-backdrop{display:none!important;}
+  /* readable stat sizing — the compact drawer fonts (down to .42rem) clip
+     numbers in a full-width column, so scale them up here */
+  .sl-watch .sl-card{padding:11px 12px;border-left-width:4px;}
+  .sl-watch .sl-card-head .grade-badge{font-size:1.15rem;min-width:2.2rem;min-height:2.2rem;border-radius:9px;}
+  .sl-watch .sl-name{font-size:.95rem;}
+  .sl-watch .sl-status,.sl-watch .sl-record{font-size:.72rem;}
+  .sl-watch .sl-csr strong{font-size:1.15rem;}
+  .sl-watch .sl-csr span{font-size:.66rem;}
+  .sl-watch .sl-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:8px;}
+  .sl-watch .sl-stat{padding:6px 7px;}
+  .sl-watch .sl-stat span{font-size:.62rem;}
+  .sl-watch .sl-stat strong{font-size:.86rem;white-space:nowrap;}
+  .sl-watch .sl-stat.sl-big strong{font-size:1rem;}
 }
 @media (max-width: 720px){
   .sl-hero-stats-btn{display:none;}  /* mobile already has its own Stats drawer button */

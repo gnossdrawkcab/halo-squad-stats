@@ -123,18 +123,33 @@
     </div>
 
     {% if p.game_grades %}
-    <div class="sl-games">
-      <span class="sl-games-label">Games</span>
-      <span class="sl-pips">
-        {% for g in p.game_grades %}<span class="sl-pip {{ g.grade_class }}{{ ' sl-pip-win' if g.won else ' sl-pip-loss' }}" title="G{{ g.num }} · {{ g.map }} · {{ g.mode }} · {{ g.result }} · KDA {{ g.kda }} · {{ g.grade }}{% if g.watch %} · {{ g.watch_reason }}{% endif %}">{{ g.grade }}</span>{% endfor %}
-      </span>
+    <div class="sl-game-list">
+      <div class="sl-game-list-label">Games <span class="muted">· tap for detail</span></div>
+      {% for g in p.game_grades %}
+      <details class="sl-game" data-gkey="{{ p.player }}|{{ g.num }}">
+        <summary class="sl-game-sum">
+          <span class="sl-game-num">G{{ g.num }}</span>
+          <span class="sl-game-res {{ 'sl-res-w' if g.won else ('sl-res-t' if g.result == 'T' else 'sl-res-l') }}">{{ g.result }}</span>
+          <span class="grade-badge {{ g.grade_class }}">{{ g.grade }}</span>
+          <span class="sl-game-map">{{ g.map }}</span>
+          <span class="sl-game-kda">{{ g.kda }}</span>
+          {% if g.watch %}<span class="sl-game-flag" title="{{ g.watch_reason }}">⚑</span>{% endif %}
+          <span class="sl-game-caret">▾</span>
+        </summary>
+        <div class="sl-game-detail">
+          <div class="sl-gd-row"><span>Mode</span><b>{{ g.mode }}</b></div>
+          <div class="sl-gd-row"><span>K / D / A</span><b>{{ g.kills }} / {{ g.deaths }} / {{ g.assists }}</b></div>
+          <div class="sl-gd-row"><span>KDA</span><b>{{ g.kda }}</b></div>
+          <div class="sl-gd-row"><span>Accuracy</span><b>{{ g.acc }}</b></div>
+          <div class="sl-gd-row"><span>Damage</span><b>{{ g.dmg }}</b></div>
+          <div class="sl-gd-row"><span>Obj score</span><b>{{ g.obj }}</b></div>
+          {% if g.watch %}<div class="sl-gd-note">{{ g.watch_reason }}</div>{% endif %}
+          <a class="sl-gd-link" href="/match/{{ g.mid }}">Full match →</a>
+        </div>
+      </details>
+      {% endfor %}
     </div>
     {% endif %}
-
-    <div class="sl-hilo">
-      {% if p.best_game %}<span class="sl-hi" title="Best game">▲ G{{ p.best_game.num }} {{ p.best_game.map }} · {{ p.best_game.grade }} ({{ p.best_game.kda }} KDA)</span>{% endif %}
-      {% if p.worst_game and p.worst_game.num != p.best_game.num %}<span class="sl-lo" title="Worst game">▼ G{{ p.worst_game.num }} {{ p.worst_game.map }} · {{ p.worst_game.grade }} ({{ p.worst_game.kda }} KDA)</span>{% endif %}
-    </div>
   </section>
   {% endfor %}
 </div>
@@ -147,6 +162,21 @@
   window.haloLiveStreamKey = {{ live.stream_key|default('')|tojson|safe }};
   window.haloLiveStreamPollSeconds = {{ live.stream_poll_seconds|default(5)|tojson|safe }};
   window.haloDisableGlobalRefresh = true;
+  // Expandable per-game rows: the stats pane is REPLACED on every live refresh,
+  // so track which games are open and re-open them after each swap. A capturing
+  // listener catches <details> toggle (which doesn't bubble).
+  window.__openGames = window.__openGames || new Set();
+  document.addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (!d || !d.classList || !d.classList.contains('sl-game')) return;
+    if (d.open) window.__openGames.add(d.dataset.gkey);
+    else window.__openGames.delete(d.dataset.gkey);
+  }, true);
+  function restoreGameDetails() {
+    document.querySelectorAll('.sl-game[data-gkey]').forEach(function (d) {
+      if (window.__openGames.has(d.dataset.gkey)) d.open = true;
+    });
+  }
   function syncWatchMode(root) {
     var page = (root || document).querySelector('.sl-page');
     document.body.classList.toggle('live-watch-mode', !!(page && page.classList.contains('sl-watch')));
@@ -606,6 +636,7 @@
           if (cur && neu) cur.replaceWith(neu);
           else if (cur && !neu) cur.remove();
         });
+        restoreGameDetails();
         var curP = document.getElementById('sl-streams-panel');
         var neuP = doc.getElementById('sl-streams-panel');
         var curCh = curP ? curP.dataset.channels : '';

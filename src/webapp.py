@@ -2356,6 +2356,9 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
             _ga = safe_float(grow.get('assists', 0))
             _gkda = safe_kda(_gk, _ga, _gd)
             _gobj = float(_obj_by_idx.get(_idx, 0.0) or 0.0)
+            _gacc = safe_float(grow.get('accuracy', 0))
+            _gacc = _gacc * 100 if _gacc <= 1 else _gacc
+            _gdmg = safe_float(grow.get('damage_dealt', 0))
             _gbase = gg.get('grade', '')
             # Outlier detection — flag genuinely notable games (slaying OR objective)
             _reasons = []
@@ -2384,6 +2387,9 @@ def build_squad_report_card(df: pd.DataFrame, mode: str = 'latest', player: str 
                 'mode': clean_mode(grow.get('game_type', '')),
                 'kda': f"{_gkda:.1f}",
                 'kills': int(_gk), 'deaths': int(_gd), 'assists': int(_ga),
+                'acc': f"{_gacc:.0f}%",
+                'dmg': f"{int(_gdmg):,}",
+                'obj': int(round(_gobj)),
                 'watch': bool(_reasons),
                 'watch_reason': ' · '.join(_reasons[:2]),
                 'sus_kind': _sess_sus.get(str(grow.get('match_id', '')), {}).get('kind', ''),
