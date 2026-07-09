@@ -134,8 +134,13 @@ def send_push(title: str, body: str, url: str = "/live", tag: str = "halo") -> i
     keep, sent = [], 0
     for s in subs:
         try:
+            # ttl: queue+retry for 12h so a phone that's asleep/locked when the
+            # game ends still gets the push on wake (ttl=0, the pywebpush default,
+            # makes the service DROP it — that's why 'test' works but real ones
+            # miss on mobile). Urgency:high punches through Android Doze.
             webpush(subscription_info=s, data=payload,
-                    vapid_private_key=pem_path, vapid_claims={"sub": subject})
+                    vapid_private_key=pem_path, vapid_claims={"sub": subject},
+                    ttl=43200, headers={"Urgency": "high"})
             keep.append(s)
             sent += 1
         except WebPushException as e:
