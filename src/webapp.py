@@ -12224,6 +12224,303 @@ def _merge_streaming_players(players: list, streaming: list) -> None:
             players.append(_stream_only_player(gt))
 
 
+
+
+# ── Second-screen Companion: rich per-player stats + coaching tips ──────────
+# A stats-only view of the live session (no stream) meant for a 2nd monitor
+# while playing: every stat we track, heatmapped vs the squad's 365-day
+# history, plus coaching tips mined from each player's own recent games
+# (tonight vs their norm, best/worst maps & modes, hot/cold streaks, CSR and
+# lobby-strength context). Cached by row-count so it only rebuilds on a new
+# game. Best-effort throughout: any failure degrades to an empty companion.
+
+# (column, label, agg, higher_is_better, formatter) for the extended tiles.
+_COMPANION_STATS = {
+    'Slaying': [
+        ('kills', 'Kills/g', 'mean', True, '.1f'),
+        ('deaths', 'Deaths/g', 'mean', False, '.1f'),
+        ('assists', 'Assists/g', 'mean', True, '.1f'),
+        ('_kd', 'K/D', 'ratio', True, '.2f'),
+        ('max_killing_spree', 'Best spree', 'max', True, '.0f'),
+        ('headshot_kills', 'Headshots/g', 'mean', True, '.1f'),
+    ],
+    'Precision': [
+        ('_acc', 'Accuracy', 'acc', True, '.1f%'),
+        ('damage_dealt', 'Dmg/g', 'mean', True, ',.0f'),
+        ('damage_taken', 'Dmg taken/g', 'mean', False, ',.0f'),
+        ('_dpk', 'Dmg/kill', 'ratio', True, '.0f'),
+        ('_dmgmin', 'Dmg/min', 'permin', True, '.0f'),
+        ('grenade_kills', 'Nade kills/g', 'mean', True, '.1f'),
+    ],
+    'Special': [
+        ('melee_kills', 'Melee/g', 'mean', True, '.1f'),
+        ('power_weapon_kills', 'Power-wpn/g', 'mean', True, '.1f'),
+        ('callout_assists', 'Callouts/g', 'mean', True, '.1f'),
+        ('medal_count', 'Medals/g', 'mean', True, '.1f'),
+        ('betrayals', 'Betrayals', 'sum', False, '.0f'),
+        ('suicides', 'Suicides', 'sum', False, '.0f'),
+    ],
+    'Objective & discipline': [
+        ('objectives_completed', 'Objectives/g', 'mean', True, '.1f'),
+        ('average_life_duration', 'Avg life', 'life', True, 's'),
+        ('personal_score', 'Score/g', 'mean', True, ',.0f'),
+    ],
+}
+
+
+def _comp_series(pdf, col):
+    if col not in pdf.columns:
+        return pd.Series(dtype=float)
+    return numeric_series(pdf, col).dropna()
+
+
+def _comp_value(pdf, col, agg):
+    # Returns (numeric_for_percentile, display_number) or (None, None).
+    if agg == 'ratio' and col == '_kd':
+        k = _comp_series(pdf, 'kills').sum(); d = _comp_series(pdf, 'deaths').sum()
+        return (k / d, k / d) if d else (None, None)
+    if agg == 'ratio' and col == '_dpk':
+        dd = _comp_series(pdf, 'damage_dealt').sum(); k = _comp_series(pdf, 'kills').sum()
+        return (dd / k, dd / k) if k else (None, None)
+    if agg == 'acc':
+        s = _comp_series(pdf, 'accuracy')
+        if s.empty:
+            return (None, None)
+        v = float(s.mean()); v = v * 100 if v <= 1.5 else v
+        return (v, v)
+    if agg == 'permin':
+        dd = _comp_series(pdf, 'damage_dealt').sum()
+        dur = _comp_series(pdf, 'duration').sum() if 'duration' in pdf.columns else 0.0
+        mins = dur / 60.0 if dur else 0.0
+        return (dd / mins, dd / mins) if mins else (None, None)
+    if agg == 'life':
+        s = _comp_series(pdf, 'average_life_duration')
+        return (None, None) if s.empty else (float(s.mean()), float(s.mean()))
+    s = _comp_series(pdf, col)
+    if s.empty:
+        return (None, None)
+    if agg == 'mean':
+        return (float(s.mean()), float(s.mean()))
+    if agg == 'sum':
+        return (float(s.sum()), float(s.sum()))
+    if agg == 'max':
+        return (float(s.max()), float(s.max()))
+    return (float(s.mean()), float(s.mean()))
+
+
+def _comp_fmt(v, fmt):
+    if v is None:
+        return '—'
+    try:
+        if fmt.endswith('%'):
+            return format(v, fmt[:-1]) + '%'
+        if fmt == 's':
+            return f"{v:.1f}s"
+        return format(v, fmt)
+    except Exception:
+        return str(v)
+
+
+def _comp_baselines(df):
+    # 365-day squad per-game distribution for each raw column used above.
+    hist = _ranked_only(df)
+    if hist is not None and not hist.empty and 'date' in hist.columns:
+        h = hist.copy()
+        ensure_datetime(h)
+        h = h.dropna(subset=['date'])
+        cut = pd.Timestamp.now(tz='UTC') - pd.Timedelta(days=365)
+        h = h[h['date'] >= cut]
+    else:
+        h = hist
+    arrs = {}
+    cols = ['kills', 'deaths', 'assists', 'max_killing_spree', 'headshot_kills',
+            'damage_dealt', 'damage_taken', 'grenade_kills', 'melee_kills',
+            'power_weapon_kills', 'callout_assists', 'medal_count', 'betrayals',
+            'suicides', 'objectives_completed', 'average_life_duration', 'personal_score']
+    for c in cols:
+        if h is not None and c in h.columns:
+            arrs[c] = numeric_series(h, c).dropna().values
+    # accuracy needs 0-100 normalisation
+    if h is not None and 'accuracy' in h.columns:
+        a = numeric_series(h, 'accuracy').dropna()
+        if not a.empty:
+            a = a * 100 if float(a.mean()) <= 1.5 else a
+            arrs['_acc'] = a.values
+    return arrs
+
+
+def _comp_heat(numeric, col, agg, higher, arrs):
+    if numeric is None:
+        return ''
+    base = arrs.get('_acc' if col == '_acc' else col)
+    if base is None or len(base) == 0:
+        return ''
+    pct = _rc_percentile(numeric, base)
+    if not higher:
+        pct = 100 - pct
+    return _rc_heat(pct)
+
+
+def _win_by(pdf, col, minimum=6):
+    # {value: (win_pct, games)} for a categorical column, min games filter.
+    if col not in pdf.columns or 'outcome' not in pdf.columns or pdf.empty:
+        return {}
+    out = {}
+    key = pdf[col].map(normalize_map_name) if col == 'map' else pdf[col].map(clean_mode)
+    for val, g in pdf.groupby(key):
+        n = len(g)
+        if n < minimum or not val:
+            continue
+        w = (g['outcome'].astype(str).str.lower() == 'win').sum()
+        out[val] = (w / n * 100.0, n)
+    return out
+
+
+def _companion_tips(player, sess_df, hist90, current_csr, csr_delta, opp_mmr):
+    tips = []
+
+    def mean_of(frame, col):
+        s = _comp_series(frame, col)
+        return float(s.mean()) if not s.empty else None
+
+    # 1. Accuracy tonight vs 90-day norm
+    a_now = mean_of(sess_df, 'accuracy'); a_hist = mean_of(hist90, 'accuracy')
+    if a_now is not None and a_hist is not None:
+        a_now = a_now * 100 if a_now <= 1.5 else a_now
+        a_hist = a_hist * 100 if a_hist <= 1.5 else a_hist
+        if a_now <= a_hist - 3:
+            tips.append({'tone': 'bad', 'text': f"Aim's off tonight — {a_now:.0f}% acc vs your {a_hist:.0f}% norm. Slow down, pick cleaner fights."})
+        elif a_now >= a_hist + 3:
+            tips.append({'tone': 'good', 'text': f"Locked in — {a_now:.0f}% accuracy, above your {a_hist:.0f}% average."})
+
+    # 2. Deaths tonight vs norm
+    d_now = mean_of(sess_df, 'deaths'); d_hist = mean_of(hist90, 'deaths')
+    if d_now is not None and d_hist is not None and d_now >= d_hist + 1.5:
+        tips.append({'tone': 'bad', 'text': f"Dying more than usual — {d_now:.1f}/game vs {d_hist:.1f}. Trade smarter and reset with your team."})
+
+    # 3. Damage tonight vs norm
+    dd_now = mean_of(sess_df, 'damage_dealt'); dd_hist = mean_of(hist90, 'damage_dealt')
+    if dd_now is not None and dd_hist is not None and dd_hist > 0:
+        if dd_now >= dd_hist * 1.12:
+            tips.append({'tone': 'good', 'text': f"Output's up — {dd_now:,.0f} dmg/game vs your {dd_hist:,.0f} norm."})
+        elif dd_now <= dd_hist * 0.85:
+            tips.append({'tone': 'warn', 'text': f"Damage down — {dd_now:,.0f}/game vs {dd_hist:,.0f}. Look for more gunfights."})
+
+    # 4. Hot/cold within the session (first vs second half by game order)
+    kdas = []
+    if 'match_id' in sess_df.columns:
+        sd = sess_df.copy(); ensure_datetime(sd); sd = sd.dropna(subset=['date']).sort_values('date')
+        for _mid, g in sd.groupby('match_id', sort=False):
+            k = numeric_series(g, 'kills').sum(); d = numeric_series(g, 'deaths').sum(); a = numeric_series(g, 'assists').sum()
+            kdas.append(safe_kda(k, a, d))
+    if len(kdas) >= 4:
+        half = len(kdas) // 2
+        first = sum(kdas[:half]) / half
+        second = sum(kdas[half:]) / (len(kdas) - half)
+        if second <= first - 2:
+            tips.append({'tone': 'warn', 'text': f"Cooling off — KDA dropped from {first:.1f} early to {second:.1f}. If it keeps sliding, a short break resets the tilt."})
+        elif second >= first + 2:
+            tips.append({'tone': 'good', 'text': f"Heating up — KDA climbed from {first:.1f} to {second:.1f} across the session. Keep queuing."})
+
+    # 5/6. Best & worst map / mode over 90 days
+    maps = _win_by(hist90, 'map', minimum=6)
+    if maps:
+        best = max(maps.items(), key=lambda kv: kv[1][0]); worst = min(maps.items(), key=lambda kv: kv[1][0])
+        if best[0] != worst[0]:
+            tips.append({'tone': 'info', 'text': f"Maps (90d): best {best[0]} {best[1][0]:.0f}% ({best[1][1]}g) · worst {worst[0]} {worst[1][0]:.0f}% ({worst[1][1]}g)."})
+    modes = _win_by(hist90, 'game_type', minimum=6)
+    if modes:
+        best = max(modes.items(), key=lambda kv: kv[1][0]); worst = min(modes.items(), key=lambda kv: kv[1][0])
+        if best[0] != worst[0]:
+            tips.append({'tone': 'info', 'text': f"Modes (90d): you crush {best[0]} ({best[1][0]:.0f}%) but struggle in {worst[0]} ({worst[1][0]:.0f}%)."})
+
+    # 7. CSR context
+    if current_csr:
+        tname, _tc = _sb_tier(current_csr)
+        if tname.startswith('Onyx'):
+            tname = 'Onyx'
+        elif tname == 'Unranked':
+            tname = ''
+        if csr_delta is not None and csr_delta != 0:
+            if csr_delta > 0:
+                tips.append({'tone': 'good', 'text': f"CSR {current_csr:.0f}{(' · ' + tname) if tname else ''} — up {csr_delta:+.0f} this session. Ride it."})
+            else:
+                tips.append({'tone': 'warn', 'text': f"CSR {current_csr:.0f}{(' · ' + tname) if tname else ''} — down {csr_delta:.0f} this session. Tighten up; protect the rank."})
+        elif tname:
+            tips.append({'tone': 'info', 'text': f"CSR {current_csr:.0f} · {tname}."})
+
+    # 8. Lobby strength tonight vs norm
+    if opp_mmr:
+        h_opp = None
+        if 'enemy_team_mmr' in hist90.columns:
+            _o = numeric_series(hist90, 'enemy_team_mmr').dropna()
+            h_opp = float(_o.mean()) if not _o.empty else None
+        if h_opp and opp_mmr >= h_opp + 60:
+            tips.append({'tone': 'warn', 'text': f"Tough lobbies tonight — avg enemy MMR {opp_mmr:.0f} vs your usual {h_opp:.0f}. Grades will run a touch low; that's expected."})
+        elif h_opp and opp_mmr <= h_opp - 60:
+            tips.append({'tone': 'info', 'text': f"Softer lobbies tonight — enemy MMR {opp_mmr:.0f} vs {h_opp:.0f} usual. Good time to push rank."})
+
+    return tips
+
+
+def build_companion(df, session_ids):
+    if df is None or df.empty or not session_ids:
+        return {}
+    try:
+        arrs = _comp_baselines(df)
+    except Exception as exc:
+        logger.warning('companion baselines failed: %s', exc)
+        arrs = {}
+    work = _ranked_only(df)
+    if work is None or work.empty or 'match_id' not in work.columns:
+        return {}
+    sess = work[work['match_id'].isin(session_ids)]
+    if sess.empty:
+        return {}
+    ensure_datetime(work)
+    hist_cut = pd.Timestamp.now(tz='UTC') - pd.Timedelta(days=90)
+    out = {}
+    for player, pdf in sess.groupby('player_gamertag'):
+        groups = []
+        for gname, specs in _COMPANION_STATS.items():
+            tiles = []
+            for col, label, agg, higher, fmt in specs:
+                numeric, disp = _comp_value(pdf, col, agg)
+                tiles.append({
+                    'label': label,
+                    'value': _comp_fmt(disp, fmt),
+                    'heat': _comp_heat(numeric, col, agg, higher, arrs),
+                })
+            groups.append({'group': gname, 'tiles': tiles})
+        # 90-day history for this player (tips)
+        try:
+            ph = work[(work['player_gamertag'] == player)]
+            ph = ph[ph['date'] >= hist_cut] if 'date' in ph.columns else ph
+        except Exception:
+            ph = pdf
+        # current CSR + session delta from the session slice
+        cur_csr = None; csr_delta = None; opp_mmr = None
+        try:
+            pm = numeric_series(pdf, 'post_match_csr').dropna()
+            pre = numeric_series(pdf, 'pre_match_csr').dropna()
+            if not pm.empty:
+                cur_csr = float(pm.iloc[-1])
+            if not pm.empty and not pre.empty:
+                csr_delta = float(pm.iloc[-1] - pre.iloc[0])
+            if 'enemy_team_mmr' in pdf.columns:
+                _o = numeric_series(pdf, 'enemy_team_mmr').dropna()
+                opp_mmr = float(_o.mean()) if not _o.empty else None
+        except Exception:
+            pass
+        try:
+            tips = _companion_tips(player, pdf, ph, cur_csr, csr_delta, opp_mmr)
+        except Exception as exc:
+            logger.warning('companion tips failed for %s: %s', player, exc)
+            tips = []
+        out[player] = {'ext': groups, 'tips': tips}
+    return out
+
+
 def build_super_live(df):
     """The big live board: reuses the latest-session report card (all the rich
     per-player stats + game-by-game) and layers on who's actually online now.
@@ -12305,6 +12602,23 @@ def live():
     except Exception:
         payload['halo_last_seen'] = []
     payload['stream_poll_seconds'] = LIVE_STREAM_POLL_SECONDS
+    # Companion enrichment: rich per-player stats + coaching tips for the
+    # stats-only 2nd-screen view. Cached by row count (rebuilds on a new game).
+    try:
+        _sids = set()
+        for _p in payload.get('players', []):
+            for _g in _p.get('game_grades', []):
+                if _g.get('mid'):
+                    _sids.add(_g['mid'])
+        if _sids:
+            comp = get_cached_page_payload('companion', lambda: build_companion(df, _sids)) or {}
+            for _p in payload.get('players', []):
+                _c = comp.get(_p['player'])
+                if _c:
+                    _p['ext'] = _c.get('ext', [])
+                    _p['tips'] = _c.get('tips', [])
+    except Exception as _exc:
+        logger.warning('companion enrich failed: %s', _exc)
     status = load_status()
     return render_template('livesession.html', app_title=APP_TITLE, live=payload,
                            last_update=status.get('last_update'),

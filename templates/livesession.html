@@ -25,6 +25,7 @@
     </span>
     {% endif %}
     {% if live.streams %}<button class="btn btn-small sl-drawer-btn sl-hero-stats-btn" data-drawer="stats" type="button" title="Show live player stats">📊 Stats</button>{% endif %}
+    {% if live.streams %}<button class="btn btn-small sl-view-toggle" type="button" title="Switch between the stream and a full-screen stats companion">📊 Stats view</button>{% endif %}
     <a href="/?stay=1" class="btn btn-small sl-dash-link" title="Back to the dashboard">🏠 Dashboard</a>
   </div>
   {% if not live.live and live.halo_last_seen %}
@@ -155,6 +156,43 @@
 </div>
 {% endif %}
 </section>
+
+{% if live.has_data %}
+{# ── Companion (2nd-screen) view: full-width rich stats + coaching tips.
+     Hidden until the 📊 Stats view toggle turns it on (body.sl-companion). #}
+<div class="sl-companion">
+  {% for p in live.players %}
+  <section class="panel sl-comp-card {{ p.grade_class }}">
+    <div class="sl-comp-head">
+      <span class="grade-badge {{ p.grade_class }}" title="{{ p.grade_tip }}">{{ p.grade }}</span>
+      <a href="{{ p.player|player_href }}" class="player-name {{ p.css }} sl-comp-name">{{ p.player }}</a>
+      <span class="sl-comp-sub">{% if p.is_live %}<span class="sl-dot sl-dot-sm"></span> playing{% else %}idle{% endif %} · {{ p.wins }}W-{{ p.games }}G · {{ p.win_pct }} · CSR {{ p.current_csr }} ({{ p.csr_delta }})</span>
+    </div>
+    {% if p.tips %}
+    <div class="sl-tips">
+      {% for t in p.tips %}
+      <div class="sl-tip sl-tip-{{ t.tone }}">{{ t.text }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if p.ext %}
+    <div class="sl-comp-groups">
+      {% for grp in p.ext %}
+      <div class="sl-comp-group">
+        <div class="sl-comp-group-label">{{ grp.group }}</div>
+        <div class="sl-comp-tiles">
+          {% for t in grp.tiles %}
+          <div class="sl-stat {{ t.heat }}"><span>{{ t.label }}</span><strong>{{ t.value }}</strong></div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
 </div>
 
 <script>
@@ -191,6 +229,26 @@
     document.body.classList.toggle('sl-chat-open', which === 'chat' && !chatWasOpen);
   }
   syncWatchMode(document);
+  // ── Companion (stats-only) view toggle ───────────────────────────────
+  // Hides the stream + chat and shows the full-width stats+tips companion,
+  // for a 2nd screen while playing. Persisted per browser.
+  function applyCompanion() {
+    var on = false;
+    try { on = localStorage.getItem('haloLiveView') === 'stats'; } catch (_) {}
+    document.body.classList.toggle('sl-view-companion', on);
+    document.querySelectorAll('.sl-view-toggle').forEach(function (b) {
+      b.textContent = on ? '📺 Stream view' : '📊 Stats view';
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.sl-view-toggle')) {
+      var on = false;
+      try { on = localStorage.getItem('haloLiveView') === 'stats'; } catch (_) {}
+      try { localStorage.setItem('haloLiveView', on ? 'stream' : 'stats'); } catch (_) {}
+      applyCompanion();
+    }
+  });
+  applyCompanion();
   // ── Twitch embeds ────────────────────────────────────────────────────
   // Built client-side because the player needs parent=<page hostname>, and
   // Twitch only accepts real domains — on a LAN IP we fall back to links.
