@@ -29,6 +29,38 @@
   {{ cm.combat_leaders(combat_report, top_n=0) }}
 </section>
 
+{% if perfected %}
+<section class="panel">
+  <div class="panel-header">
+    <div class="section-label" style="margin-bottom:0">🩸 Getting Perfected</div>
+    <span class="muted">{{ perfected.covered }}/{{ perfected.total }} games covered</span>
+  </div>
+  <p class="muted section-intro">Enemy <strong>Perfect</strong> medals in games you were in, vs Perfects you dealt. Halo never records a medal's <em>victim</em>, so “eaten” is your team's total across your games — the closest truth the API allows.{% if perfected.covered < perfected.total %} History is backfilling a batch per scraper cycle.{% endif %}</p>
+  {% if perfected.has_data %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Player</th><th>Games</th><th title="Enemy Perfect medals in your games">Eaten</th><th>Eaten/g</th><th title="Your own Perfect medals">Dealt</th><th>Dealt/g</th><th title="Dealt − eaten">Balance</th></tr></thead>
+      <tbody>
+        {% for r in perfected.rows %}
+        <tr>
+          <td><a href="{{ r.player|player_href }}" class="player-name {{ r.css }}">{{ r.player }}</a></td>
+          <td>{{ r.games }}</td>
+          <td>{{ r.eaten }}</td>
+          <td>{{ r.eaten_pg }}</td>
+          <td>{{ r.dealt }}</td>
+          <td>{{ r.dealt_pg }}</td>
+          <td class="{{ 'rec-pos' if r.diff > 0 else ('rec-neg' if r.diff < 0 else '') }}">{{ r.diff_str }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No coverage yet — the backfill starts filling this on the next quiet scraper cycle.</p>
+  {% endif %}
+</section>
+{% endif %}
+
 {% else %}
 <section class="panel">
   <p class="muted">No combat data yet — once a few ranked games come in this fills up.</p>

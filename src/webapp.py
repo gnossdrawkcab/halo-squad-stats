@@ -9437,8 +9437,14 @@ def _player_month_stats(mf):
         outcomes = [str(o).lower() for o in ordered.get("outcome", pd.Series(dtype=str))]
         wins = sum(1 for o in outcomes if o == "win")
         win_streak, loss_streak = _streaks(outcomes)
+        ep = None
+        if "enemy_team_perfects" in pdf.columns:
+            ep = pd.to_numeric(pdf["enemy_team_perfects"], errors="coerce")
+            ep = ep.where(ep >= 0).dropna()
         out[player] = {
             "player": player, "css": get_player_class(player), "games": games,
+            "perfected_pg": (float(ep.sum()) / len(ep)
+                             if ep is not None and len(ep) >= _AWARD_MIN_GAMES else None),
             "avg_grade": avg_grade,
             "kda": (k + a / 3.0 - d) / games,
             "acc": acc_v,
@@ -9530,6 +9536,8 @@ def build_monthly_awards(df, ym=None):
     shame.append(card("🎭", "Backstabber", "Most betrayals", "betrayals",
                       fmt="{:.0f}", min_games=1, need_positive=True))
     shame.append(card("🤡", "Spray & Pray", "Lowest accuracy", "acc", reverse=False, fmt="{:.1f}", suffix="%"))
+    shame.append(card("🩸", "Highlight Reel Fodder", "Most enemy Perfects per game (in your lobbies)",
+                      "perfected_pg", fmt="{:.2f}", suffix="/g", need_positive=True))
     shame = [c for c in shame if c]
 
     # Leaderboard: each player's month at a glance, sorted by avg grade.
@@ -9591,6 +9599,41 @@ def hub_page():
                            db_row_count=count_cache.get())
 
 
+
+
+def build_perfected(df):
+    """'Getting Perfected' board: enemy Perfect medals in each player's games
+    (team-level — Halo never records a medal's victim) vs Perfects dealt.
+    Rows with the -1 backfill sentinel count as no-data."""
+    out = {'has_data': False, 'rows': [], 'covered': 0, 'total': 0}
+    work = _ranked_only(df)
+    if work is None or work.empty or 'enemy_team_perfects' not in work.columns:
+        return out
+    work = work.copy()
+    ep = pd.to_numeric(work['enemy_team_perfects'], errors='coerce')
+    work['_ep'] = ep.where(ep >= 0)
+    out['total'] = int(work['match_id'].nunique()) if 'match_id' in work.columns else len(work)
+    cov = work.dropna(subset=['_ep'])
+    out['covered'] = int(cov['match_id'].nunique()) if 'match_id' in cov.columns else len(cov)
+    if cov.empty:
+        return out
+    for player, pdf in cov.groupby('player_gamertag'):
+        pdf = pdf.drop_duplicates(subset=['match_id'])
+        g = len(pdf)
+        if not g:
+            continue
+        eaten = float(pdf['_ep'].sum())
+        dealt = float(numeric_series(pdf, 'medal_Perfect').sum()) if 'medal_Perfect' in pdf.columns else 0.0
+        out['rows'].append({
+            'player': player, 'css': get_player_class(player), 'games': g,
+            'eaten': int(eaten), 'eaten_pg': f"{eaten / g:.2f}",
+            'dealt': int(dealt), 'dealt_pg': f"{dealt / g:.2f}",
+            'diff': int(dealt - eaten), 'diff_str': format_signed(dealt - eaten, 0),
+        })
+    out['rows'].sort(key=lambda r: -r['diff'])
+    out['has_data'] = bool(out['rows'])
+    return out
+
 @app.route('/combat')
 def combat():
     """Full squad combat & medals page — the rich weapon/medal data summarised."""
@@ -9600,9 +9643,15 @@ def combat():
     except Exception as exc:
         logger.warning('combat page failed: %s', exc)
         report = {'scoreboard': [], 'leaders': [], 'has_data': False}
+    try:
+        perfected = get_cached_page_payload('perfected', lambda: build_perfected(medal_df()))
+    except Exception as exc:
+        logger.warning('perfected board failed: %s', exc)
+        perfected = {'has_data': False, 'rows': [], 'covered': 0, 'total': 0}
     return render_template('combat.html',
                           app_title=APP_TITLE,
                           combat_report=report,
+                          perfected=perfected,
                           players=unique_sorted(df['player_gamertag']) if 'player_gamertag' in df.columns else [],
                           last_update=load_status().get('last_update'),
                           db_row_count=count_cache.get())
