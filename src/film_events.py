@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-FILM_WINDOW_DAYS = 30          # only fetch films for matches this recent
+FILM_WINDOW_DAYS = 60          # only fetch films for matches this recent
 FILM_RETRY_YOUNG_SECS = 2 * 3600   # films lag the match end — retry young failures
 
 _film_schema_done = False
