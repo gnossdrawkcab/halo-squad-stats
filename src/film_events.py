@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-FILM_WINDOW_DAYS = 14          # only fetch films for matches this recent
+FILM_WINDOW_DAYS = 30          # only fetch films for matches this recent
 FILM_RETRY_YOUNG_SECS = 2 * 3600   # films lag the match end — retry young failures
 
 _film_schema_done = False
@@ -230,3 +230,39 @@ async def backfill_match_timing(client, engine, limit=40, time_budget_s=20):
         await asyncio.sleep(0.15)
     if stored or failed:
         logger.info("match_timing stored=%s failed=%s candidates=%s", stored, failed, len(rows))
+
+
+async def reconcile_match_events(engine):
+    """Copy film events into halo_match_events for matches that predate the
+    per-match capture (the Session Moment Log reads halo_match_events; the
+    two tables hold the same theater data through different backfills, so a
+    session older than the capture window otherwise renders no log at all).
+    Pure SQL — no API calls. No-op where halo_match_events doesn't exist."""
+    try:
+        with engine.begin() as conn:
+            if conn.execute(text("SELECT to_regclass('halo_match_events')")).scalar() is None:
+                return
+            copied = conn.execute(text(
+                """
+                INSERT INTO halo_match_events (match_id, event_index, player_xuid,
+                    gamertag, event_type, time_ms, medal_name, medal_value)
+                SELECT f.match_id,
+                       ROW_NUMBER() OVER (PARTITION BY f.match_id
+                                          ORDER BY f.time_ms, f.event_type) - 1,
+                       f.xuid, f.gamertag, f.event_type, f.time_ms, f.medal_name, NULL
+                FROM halo_film_events f
+                WHERE NOT EXISTS (SELECT 1 FROM halo_match_events e
+                                  WHERE e.match_id = f.match_id)
+                """)).rowcount
+            if copied:
+                conn.execute(text(
+                    """
+                    INSERT INTO halo_match_film_status (match_id, state, event_count)
+                    SELECT match_id, 'ready', COUNT(*) FROM halo_match_events
+                    WHERE match_id NOT IN (SELECT match_id FROM halo_match_film_status)
+                    GROUP BY match_id
+                    ON CONFLICT (match_id) DO NOTHING
+                    """))
+                logger.info("match_events_reconciled rows=%s", copied)
+    except Exception as exc:
+        logger.warning("match_events_reconcile_failed error=%s", exc)

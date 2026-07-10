@@ -2161,6 +2161,11 @@ async def run_stats(max_matches=None, force_refresh=False):
                 )
             except Exception as exc:
                 logger.warning("match_timing_failed error=%s", exc)
+            try:
+                from film_events import reconcile_match_events
+                await reconcile_match_events(engine)
+            except Exception as exc:
+                logger.warning("match_events_reconcile_failed error=%s", exc)
 
         if run_backfills:
             # Backfill the full lobby (opponents) for historical matches that predate
