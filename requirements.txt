@@ -1,6 +1,6 @@
 requests
 aiohttp
-spnkr
+spnkr>=0.10.2
 pandas
 pytz
 sqlalchemy

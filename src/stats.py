@@ -2135,6 +2135,20 @@ async def run_stats(max_matches=None, force_refresh=False):
         run_backfills = (new_this_cycle == 0 and not _session_active) \
             or os.getenv("HALO_BACKFILL_ALWAYS", "0") == "1"
 
+        # Theater film events (exact kill/death/medal times) — EVERY cycle so
+        # tonight's games get precise highlight timing while the squad plays;
+        # small budget when active, bigger when idle to chew through history.
+        if os.getenv("HALO_FILM_EVENTS", "1") == "1":
+            try:
+                from film_events import backfill_film_events
+                await backfill_film_events(
+                    client, engine,
+                    limit=8 if _session_active else int(os.getenv("HALO_FILM_EVENTS_LIMIT", "50")),
+                    time_budget_s=12 if _session_active else int(os.getenv("HALO_FILM_EVENTS_SECONDS", "25")),
+                )
+            except Exception as exc:
+                logger.warning("film_events_failed error=%s", exc)
+
         if run_backfills:
             # Backfill the full lobby (opponents) for historical matches that predate
             # the halo_match_players capture — time-budgeted per cycle, resumable.
