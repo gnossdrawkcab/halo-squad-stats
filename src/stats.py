@@ -2149,6 +2149,19 @@ async def run_stats(max_matches=None, force_refresh=False):
             except Exception as exc:
                 logger.warning("film_events_failed error=%s", exc)
 
+        # Exact match timing (EndTime - Duration = film t0) — StartTime is a
+        # lobby stamp and can be ~50s early; consumers anchor on this instead.
+        if os.getenv("HALO_MATCH_TIMING", "1") == "1":
+            try:
+                from film_events import backfill_match_timing
+                await backfill_match_timing(
+                    client, engine,
+                    limit=int(os.getenv("HALO_MATCH_TIMING_LIMIT", "40")),
+                    time_budget_s=int(os.getenv("HALO_MATCH_TIMING_SECONDS", "15")),
+                )
+            except Exception as exc:
+                logger.warning("match_timing_failed error=%s", exc)
+
         if run_backfills:
             # Backfill the full lobby (opponents) for historical matches that predate
             # the halo_match_players capture — time-budgeted per cycle, resumable.

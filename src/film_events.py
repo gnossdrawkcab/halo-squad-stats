@@ -138,3 +138,95 @@ async def backfill_film_events(client, engine, limit=50, time_budget_s=25):
         await asyncio.sleep(0.2)
     if fetched or failed:
         logger.info("film_events fetched=%s failed=%s candidates=%s", fetched, failed, len(rows))
+
+
+_timing_schema_done = False
+
+
+def _ensure_timing_schema(engine) -> None:
+    global _timing_schema_done
+    if _timing_schema_done:
+        return
+    with engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS halo_match_timing (
+                match_id   TEXT PRIMARY KEY,
+                end_time   TIMESTAMPTZ,
+                duration_s DOUBLE PRECISION,
+                fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """))
+    _timing_schema_done = True
+
+
+_ISO_DUR_RE = None
+
+
+def _parse_iso_duration_s(value):
+    global _ISO_DUR_RE
+    import re as _re
+    if _ISO_DUR_RE is None:
+        _ISO_DUR_RE = _re.compile(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:([0-9.]+)S)?')
+    m = _ISO_DUR_RE.fullmatch(str(value or ''))
+    if not m or not any(m.groups()):
+        return None
+    h, mi, se = m.groups()
+    return int(h or 0) * 3600 + int(mi or 0) * 60 + float(se or 0)
+
+
+async def backfill_match_timing(client, engine, limit=40, time_budget_s=20):
+    """Store each match's EndTime + Duration from MatchInfo.
+
+    Halo's StartTime is stamped at LOBBY creation and can precede the theater
+    film by 45+ seconds (frame-verified against VOD footage); EndTime is
+    stamped when the match actually ends, and the film's span equals Duration
+    to the millisecond. EndTime - Duration is therefore the film's exact t0 —
+    the anchor every timestamp consumer should use instead of StartTime."""
+    try:
+        _ensure_timing_schema(engine)
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                """
+                SELECT m.match_id
+                FROM halo_match_stats m
+                LEFT JOIN halo_match_timing t ON t.match_id = m.match_id
+                WHERE m.date > NOW() - INTERVAL '30 days'
+                  AND t.match_id IS NULL
+                GROUP BY m.match_id
+                ORDER BY MAX(m.date) DESC
+                LIMIT :lim
+                """), {"lim": int(limit)}).fetchall()
+    except Exception as exc:
+        logger.warning("match_timing_query_failed error=%s", exc)
+        return
+    if not rows:
+        return
+    start = _time.monotonic()
+    stored = failed = 0
+    for (mid,) in rows:
+        if _time.monotonic() - start > time_budget_s:
+            break
+        mid = str(mid)
+        try:
+            resp = await client.stats.get_match_stats(mid)
+            js = await resp.json()
+            mi = js.get('MatchInfo') or {}
+            end_raw = mi.get('EndTime')
+            dur_s = _parse_iso_duration_s(mi.get('Duration'))
+            if not end_raw or dur_s is None:
+                raise ValueError('MatchInfo missing EndTime/Duration')
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "INSERT INTO halo_match_timing (match_id, end_time, duration_s) "
+                    "VALUES (:m, :e, :d) "
+                    "ON CONFLICT (match_id) DO UPDATE SET end_time = EXCLUDED.end_time, "
+                    "duration_s = EXCLUDED.duration_s, fetched_at = NOW()"),
+                    {"m": mid, "e": str(end_raw), "d": float(dur_s)})
+            stored += 1
+        except Exception as exc:
+            failed += 1
+            logger.info("match_timing_skipped match_id=%s error=%s", mid[:8], str(exc)[:120])
+        await asyncio.sleep(0.15)
+    if stored or failed:
+        logger.info("match_timing stored=%s failed=%s candidates=%s", stored, failed, len(rows))

@@ -10619,21 +10619,24 @@ def api_film_events():
             rows = conn.execute(text(
                 """
                 SELECT f.match_id, f.gamertag, f.event_type, f.time_ms, f.medal_name,
-                       EXTRACT(EPOCH FROM m.start) AS start_epoch, m.dur
+                       EXTRACT(EPOCH FROM m.start) AS start_epoch, m.dur,
+                       EXTRACT(EPOCH FROM t.end_time) - t.duration_s AS start_exact
                 FROM halo_film_events f
                 JOIN (
                     SELECT match_id, MIN(date) AS start, MAX(duration) AS dur
                     FROM halo_match_stats GROUP BY match_id
                 ) m ON m.match_id = f.match_id
+                LEFT JOIN halo_match_timing t ON t.match_id = f.match_id
                 WHERE m.start > NOW() - INTERVAL ':h hours'
                 """.replace(':h', str(hours)) +
                 ("  AND f.match_id = :mid" if only_match else "") +
                 " ORDER BY f.match_id, f.time_ms",
             ), ({"mid": only_match} if only_match else {})).fetchall()
         matches = {}
-        for mid, gt, etype, tms, medal, start_epoch, dur in rows:
+        for mid, gt, etype, tms, medal, start_epoch, dur, start_exact in rows:
             m = matches.setdefault(str(mid), {
-                'start': float(start_epoch or 0), 'duration': float(dur or 0), 'events': []})
+                'start': float(start_epoch or 0), 'duration': float(dur or 0),
+                'start_exact': float(start_exact) if start_exact else None, 'events': []})
             m['events'].append({'gamertag': gt, 'type': etype,
                                 'time_ms': int(tms), 'medal': medal})
         return jsonify({'hours': hours, 'matches': matches})
