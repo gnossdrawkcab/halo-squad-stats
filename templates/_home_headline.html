@@ -36,4 +36,29 @@
   </div>
   {% endif %}
 </section>
+<nav class="home-jump" id="homeJump" aria-label="Jump to a Home section" hidden></nav>
+<script>
+/* Jump bar: one link per visible Home section (built from each section's own label). */
+document.addEventListener('DOMContentLoaded', function () {
+  var bar = document.getElementById('homeJump');
+  if (!bar) return;
+  // Follow on-screen order (some panels are reordered with CSS `order`).
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main.page > section.panel:not(.home-headline), main.page > section.home-watch-grid'))
+    .sort(function (a, b) { return a.getBoundingClientRect().top - b.getBoundingClientRect().top; });
+  var n = 0;
+  sections.forEach(function (sec) {
+    var labelEl = sec.querySelector('.section-label, h2, summary');
+    if (!labelEl || !sec.getClientRects().length) return;
+    var label = labelEl.textContent.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\uFE0F]/gu, '').replace(/\s+/g, ' ').trim()
+      .replace(/^Latest /, '').replace(/ · Everyone$/, '').replace(/ SQUAD$/, '').replace(/—.*/, '').trim();
+    if (label === 'Session') label = 'Report card';
+    if (!label) return;
+    if (!sec.id) sec.id = 'home-sec-' + (++n);
+    var a = document.createElement('a');
+    a.href = '#' + sec.id; a.textContent = label;
+    bar.appendChild(a);
+  });
+  bar.hidden = bar.children.length < 3;
+});
+</script>
 {% endif %}

@@ -4485,3 +4485,9 @@ main.page input[type=search],main.page input[type=text],main.page input[type=num
 .heat-average{background-color:transparent!important;font-weight:inherit}
 /* Headline MVP: keep the player pill but at body-title scale, not h2 scale. */
 .home-headline h2 .player-name{font-size:.62em;vertical-align:.18em;padding:3px 10px}
+
+/* Home jump bar under the headline. */
+.home-jump{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;margin:-4px 0 4px;scrollbar-width:none}
+.home-jump::-webkit-scrollbar{display:none}
+.home-jump a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--panel);color:var(--muted);font-size:.85rem;font-weight:600;text-decoration:none;white-space:nowrap}
+.home-jump a:hover{border-color:var(--accent);color:var(--ink)}
