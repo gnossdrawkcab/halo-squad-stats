@@ -4492,6 +4492,8 @@ main.page input[type=search],main.page input[type=text],main.page input[type=num
 .home-jump a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--panel);color:var(--muted);font-size:.85rem;font-weight:600;text-decoration:none;white-space:nowrap}
 .home-jump a:hover{border-color:var(--accent);color:var(--ink)}
 
+/* Drawer-only (<1500px); never the inline >=1500px header nav. */
+@media (max-width: 1499px) {
 /* ── Navigation drawer redesign (2026-09-26) ─────────────────────────────
    Was ~2,200px of 48px bordered cards each with a boxed ☆. Now: full-width
    search, a 2-column grid of the main destinations, compact list rows for
@@ -4531,3 +4533,7 @@ main.page input[type=search],main.page input[type=text],main.page input[type=num
 .site-nav .nav-utility:hover{background:rgba(255,255,255,.04)!important;color:var(--ink)!important}
 @media (hover:none){.site-nav .nav-mega .nav-pin{opacity:.55}}
 .site-nav .nav-personal,.site-nav .nav-finder,.site-nav .nav-group{width:100%;align-self:stretch;justify-self:stretch}
+}
+
+/* Form controls inherit the site font. */
+button,input,select,textarea{font-family:inherit}
