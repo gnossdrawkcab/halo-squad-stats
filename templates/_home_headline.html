@@ -1,0 +1,39 @@
+{# Latest squad night at a glance — top of Home. Data: _build_home_headline(). #}
+{% if home_headline %}{% set hh = home_headline %}
+<section class="panel home-headline" aria-labelledby="homeHeadlineTitle">
+  <div class="hh-top">
+    <div>
+      <div class="eyebrow">Last squad night · {{ hh.date }}</div>
+      <h2 id="homeHeadlineTitle">
+        {% if hh.record %}{{ hh.record }}{% else %}{{ hh.games }} game{{ 's' if hh.games != 1 }}{% endif %}
+        {% if hh.mvp %}<span class="hh-title-sep">·</span> <span class="hh-mvp-label">MVP</span> <a href="{{ hh.mvp.player|player_href }}" class="player-name {{ hh.mvp.player|player_class }}">{{ hh.mvp.player }}</a>{% endif %}
+      </h2>
+      <p class="muted">{{ hh.games }} squad game{{ 's' if hh.games != 1 }}{% if hh.win_pct %} · {{ hh.win_pct }} win rate{% endif %}{% if hh.rank %} · {% if hh.rank.rank == 1 %}best night in the last {{ hh.rank.window_days }} days{% else %}#{{ hh.rank.rank }} of {{ hh.rank.total }} nights in the last {{ hh.rank.window_days }} days{% endif %}{% endif %}</p>
+    </div>
+    {% if hh.sid %}<a class="btn hh-open" href="/session/{{ hh.sid }}">Full night →</a>{% endif %}
+  </div>
+  <div class="hh-players">
+    {% for p in hh.players %}
+    <a class="hh-player" href="{{ p.player|player_href }}">
+      <span class="player-name {{ p.player|player_class }}">{{ p.player }}</span>
+      {% if p.score_grade %}<span class="grade-badge {{ p.score_grade_class }}" title="Session grade">{{ p.score_grade }}</span>{% endif %}
+      <span class="hh-stat"><b>{{ p.kda }}</b><small>KDA</small></span>
+      <span class="hh-stat"><b class="{{ 'is-up' if (p.csr_delta or '').startswith('+') else 'is-down' if (p.csr_delta or '').startswith('-') else '' }}">{{ p.csr_delta or '—' }}</b><small>CSR{% if p.current_csr and p.current_csr != '—' %} → {{ p.current_csr }}{% endif %}</small></span>
+      <span class="hh-stat"><b>{{ p.record }}</b><small>W–L</small></span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if hh.clips %}
+  <div class="hh-clips">
+    <span class="hh-clips-label">Top plays</span>
+    {% for c in hh.clips %}
+    <a class="hh-clip" href="{{ c.url }}"{% if c.external %} target="_blank" rel="noopener"{% endif %}>
+      <b>{{ c.score }}</b>
+      <span><span class="player-name {{ c.css }}">{{ c.player }}</span> · G{{ c.game_num }} {{ c.time }}</span>
+      <small>{{ (c.medals + c.reasons)|join(' · ') }}</small>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}

@@ -2018,14 +2018,14 @@ def build_csr_overview(df: pd.DataFrame) -> list:
             'player': player,
             'is_online': is_player_online(presence, player),
             'last_match_iso': format_iso(latest_row.get('date')),
-            'current_csr': format_float(current_csr_val, 1) if current_csr_val and not pd.isna(current_csr_val) else '-',
-            'session_start_csr': format_float(session_start_csr_val, 1) if session_start_csr_val and not pd.isna(session_start_csr_val) else '-',
+            'current_csr': format_float(current_csr_val, 0) if current_csr_val and not pd.isna(current_csr_val) else '-',
+            'session_start_csr': format_float(session_start_csr_val, 0) if session_start_csr_val and not pd.isna(session_start_csr_val) else '-',
             'session_csr_change': format_signed(session_csr_change, 1) if session_csr_change is not None else '-',
             'delta_7': format_signed(delta_7, 0) if delta_7 is not None else '-',
             'delta_30': format_signed(delta_30, 0) if delta_30 is not None else '-',
             'delta_90': format_signed(delta_90, 0) if delta_90 is not None else '-',
             'target_delta': format_signed(target_delta_val, 0) if target_delta_val is not None else '-',
-            'max_csr': format_float(max_csr_val, 1) if max_csr_val else '-',
+            'max_csr': format_float(max_csr_val, 0) if max_csr_val else '-',
             'max_csr_date': format_date(max_csr_date) if max_csr_date else '-'
         })
     
@@ -3833,7 +3833,7 @@ def build_ranked_arena_summary(df: pd.DataFrame) -> list:
         rows.append({
             'player': player,
             'session_date': format_date(session_df['date'].max()),
-            'csr': format_float(latest_csr, 1) if latest_csr else '-',
+            'csr': format_float(latest_csr, 0) if latest_csr else '-',
             'games': format_int(games),
             'win_pct': format_float(win_pct, 1),
             'kills': format_float(kills, 1),
@@ -4051,7 +4051,7 @@ def format_player_stats_row(player: str, games: int, wins: int, stats: dict, csr
     win_pct = wins / games * 100 if games > 0 else 0
     return {
         'player': player,
-        'csr': format_float(csr, 1) if csr else '-',
+        'csr': format_float(csr, 0) if csr else '-',
         'games': format_int(games),
         'win_pct': format_float(win_pct, 1),
         'kills': format_float(stats.get('kills', 0), 1),
@@ -4813,7 +4813,7 @@ def build_hall_fame_shame(df: pd.DataFrame) -> tuple[list, list]:
             'max_damage_dealt': format_int(damage_dealt.max() if not damage_dealt.empty else 0),
             'max_damage_diff': format_signed(damage_diff.max() if not damage_diff.empty else 0, 0),
             'max_score': format_int(score_vals.max() if not score_vals.empty else 0),
-            'max_obj_score': format_float(obj_score.max() if not obj_score.empty else 0, 1),
+            'max_obj_score': format_float(obj_score.max() if not obj_score.empty else 0, 0),
             'max_medals': format_int(medals.max() if not medals.empty else 0),
             'max_headshots': format_int(headshots.max() if not headshots.empty else 0),
             'max_grenades': format_int(grenades.max() if not grenades.empty else 0),
@@ -4838,7 +4838,7 @@ def build_hall_fame_shame(df: pd.DataFrame) -> tuple[list, list]:
             'max_damage_taken': format_int(damage_taken.max() if not damage_taken.empty else 0),
             'min_damage_diff': format_signed(damage_diff.min() if not damage_diff.empty else 0, 0),
             'min_score': format_int(score_vals.min() if not score_vals.empty else 0),
-            'min_obj_score': format_float(obj_score.min() if not obj_score.empty else 0, 1),
+            'min_obj_score': format_float(obj_score.min() if not obj_score.empty else 0, 0),
             'min_medals': format_int(medals.min() if not medals.empty else 0),
             'min_avg_life': format_float(avg_life.min() if not avg_life.empty else 0, 1),
             'max_csr_loss': format_signed(csr_delta.min() if not csr_delta.empty else 0, 0),
@@ -5906,7 +5906,7 @@ def build_player_hover_data(df: pd.DataFrame) -> dict:
             'games': format_int(games),
             'win_pct': format_float(win_pct, 1),
             'kda': format_float(kda, 2),
-            'csr': format_float(current_csr, 1) if current_csr is not None and not pd.isna(current_csr) else '-',
+            'csr': format_float(current_csr, 0) if current_csr is not None and not pd.isna(current_csr) else '-',
             'last_match': format_date(last_match)
         }
     
@@ -9139,6 +9139,55 @@ def build_session_highlights(mdf: pd.DataFrame) -> dict:
     }
 
 
+def _build_home_headline(squad_card: dict, intel: dict | None) -> dict | None:
+    """One-glance summary of the latest squad night for the top of Home.
+
+    Uses only values the report card already computed (session_rank record,
+    per-player formatted rows) plus the session's top-scored clips, so the
+    headline can never disagree with the tables below it.
+    """
+    if not squad_card or not squad_card.get('rows'):
+        return None
+    rows = list(squad_card.get('rows') or [])
+
+    def _pct(row):
+        try:
+            return float(str(row.get('score_pct') or '0').rstrip('%'))
+        except ValueError:
+            return 0.0
+
+    players = sorted(({
+        'player': row.get('player'),
+        'kda': row.get('kda'),
+        'csr_delta': row.get('csr_delta'),
+        'current_csr': row.get('current_csr'),
+        'score_grade': row.get('score_grade'),
+        'score_grade_class': row.get('score_grade_class'),
+        'score_pct': row.get('score_pct'),
+        'record': f"{row.get('wins', 0)}-{int(row.get('games') or 0) - int(row.get('wins') or 0)}",
+    } for row in rows if row.get('player')), key=lambda r: -_pct(r))
+    rank = squad_card.get('session_rank') or {}
+    reel = [e for e in ((intel or {}).get('reel') or []) if e.get('clip_score')]
+    clips = sorted(reel, key=lambda e: -(e.get('clip_score') or 0))[:3]
+    return {
+        'date': squad_card.get('session_date', ''),
+        'sid': squad_card.get('sid', ''),
+        'games': squad_card.get('game_count') or 0,
+        'record': rank.get('record'),
+        'win_pct': rank.get('win_pct'),
+        'rank': rank if rank.get('rank') else None,
+        'players': players,
+        'mvp': players[0] if players else None,
+        'clips': [{
+            'player': e.get('player'), 'css': e.get('css', ''), 'game_num': e.get('game_num'),
+            'time': e.get('time'), 'score': e.get('clip_score'),
+            'medals': (e.get('medals') or [])[:2], 'reasons': (e.get('clip_reasons') or [])[:1],
+            'url': e.get('watch_url') or f"/match/{e.get('match_id')}",
+            'external': bool(e.get('watch_url')),
+        } for e in clips],
+    }
+
+
 @app.route('/')
 def index():
     # When the squad is streaming, send fresh visitors straight to the live board.
@@ -9242,8 +9291,15 @@ def index():
         logger.warning('session highlights failed: %s', exc)
         session_highlights = {'has_data': False, 'superlatives': [], 'medal_haul': [], 'crazy_games': []}
 
+    try:
+        home_headline = None if request.args.get('sid') else _build_home_headline(squad_card, None)
+    except Exception as exc:
+        logger.warning('home headline failed: %s', exc)
+        home_headline = None
+
     return render_template('index.html',
                           app_title=APP_TITLE,
+                          home_headline=home_headline,
                           live_now=live_now,
                           streak_strip=streak_strip,
                           headlines=headlines,

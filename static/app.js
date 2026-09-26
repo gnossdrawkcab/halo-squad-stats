@@ -29,13 +29,15 @@ function attachTableNav() {
     nav.className = 'table-nav';
     const prev = document.createElement('button');
     prev.className = 'btn table-nav-btn';
-    prev.textContent = '←';
+    prev.textContent = '← Earlier columns';
+    prev.setAttribute('aria-label', 'Scroll table to earlier columns');
     prev.addEventListener('click', () => {
       wrap.scrollLeft -= wrap.clientWidth * 0.8;
     });
     const next = document.createElement('button');
     next.className = 'btn table-nav-btn';
-    next.textContent = '→';
+    next.textContent = 'More columns →';
+    next.setAttribute('aria-label', 'Scroll table to more columns');
     next.addEventListener('click', () => {
       wrap.scrollLeft += wrap.clientWidth * 0.8;
     });
