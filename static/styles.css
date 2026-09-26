@@ -4491,3 +4491,43 @@ main.page input[type=search],main.page input[type=text],main.page input[type=num
 .home-jump::-webkit-scrollbar{display:none}
 .home-jump a{flex:0 0 auto;display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--panel);color:var(--muted);font-size:.85rem;font-weight:600;text-decoration:none;white-space:nowrap}
 .home-jump a:hover{border-color:var(--accent);color:var(--ink)}
+
+/* ── Navigation drawer redesign (2026-09-26) ─────────────────────────────
+   Was ~2,200px of 48px bordered cards each with a boxed ☆. Now: full-width
+   search, a 2-column grid of the main destinations, compact list rows for
+   Explore/Tools with a quiet star, and left-aligned section labels. */
+.site-nav .nav-drawer-header{align-items:center}
+.site-nav .nav-close{width:40px;height:40px;padding:0;display:grid;place-items:center;border-radius:10px;font-size:1.05rem;text-transform:none;letter-spacing:0}
+.site-nav .nav-drawer-body{gap:14px!important}
+.site-nav .nav-finder{width:100%!important;margin:0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;display:grid;gap:6px}
+.site-nav .nav-finder[hidden]{display:none!important}
+.site-nav .nav-finder label{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800}
+.site-nav .nav-finder-input{display:flex;gap:6px;width:100%}
+.site-nav .nav-finder input{flex:1;width:100%;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:#211d1b!important;color:var(--ink)!important;color-scheme:dark;font:inherit}
+.site-nav .nav-finder input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.site-nav .nav-personal{text-align:left!important;display:grid;gap:10px}
+.site-nav .nav-personal[hidden]{display:none!important}
+.site-nav .nav-personal-section{justify-items:start!important;border:0!important;padding:0!important}
+.site-nav .nav-personal-links{display:flex!important;flex-wrap:wrap;gap:6px}
+.site-nav .nav-personal-link{min-height:34px!important;padding:6px 12px!important;border-radius:999px!important;font-size:.88rem!important}
+.site-nav .nav-section-title,.site-nav .nav-label{display:block;text-align:left!important;font-size:.72rem!important;letter-spacing:.14em!important;text-transform:uppercase;font-weight:800;color:var(--muted)!important;margin:0 0 4px 2px!important;padding:0!important;border:0!important}
+.site-nav .nav-label{color:var(--accent)!important;font-size:.78rem!important;margin-top:4px!important}
+/* Main destinations: 2-column tiles, no star. */
+.site-nav .nav-group-direct .nav-menu{display:grid!important;grid-template-columns:1fr 1fr;gap:6px}
+.site-nav .nav-group-direct .nav-link-row{display:block}
+.site-nav .nav-group-direct .nav-pin{display:none}
+.site-nav .nav-group-direct .nav-link{display:flex;align-items:center;min-height:46px!important;padding:8px 12px!important;border:1px solid var(--border)!important;border-radius:10px!important;background:var(--panel-strong)!important;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.site-nav .nav-group-direct .nav-link:hover,.site-nav .nav-group-direct .nav-link[aria-current="page"]{border-color:var(--accent)!important}
+/* Explore / Tools: compact rows. */
+.site-nav .nav-mega{display:grid!important;gap:12px}
+.site-nav .nav-menu-section{display:grid;gap:0!important;padding:0!important;border:0!important;background:none!important}
+.site-nav .nav-mega .nav-link-row{grid-template-columns:minmax(0,1fr) 36px;gap:0;border-radius:8px}
+.site-nav .nav-mega .nav-link-row:hover{background:rgba(255,255,255,.04)}
+.site-nav .nav-mega .nav-link{display:flex;align-items:center;min-height:40px!important;padding:6px 10px!important;border:0!important;background:none!important;border-radius:8px!important;font-weight:600;font-size:.95rem}
+.site-nav .nav-mega .nav-pin{width:36px;height:36px;border:0;background:none;opacity:.35;font-size:.95rem}
+.site-nav .nav-mega .nav-link-row:hover .nav-pin,.site-nav .nav-mega .nav-pin:focus-visible,.site-nav .nav-mega .nav-pin[aria-pressed="true"]{opacity:1}
+.site-nav .nav-mega .nav-pin[aria-pressed="true"]{background:none;color:#ffd77a}
+.site-nav .nav-utility{min-height:40px!important;padding:6px 10px!important;border:0!important;background:none!important;border-radius:8px;font-weight:600;color:var(--muted)!important;justify-content:flex-start}
+.site-nav .nav-utility:hover{background:rgba(255,255,255,.04)!important;color:var(--ink)!important}
+@media (hover:none){.site-nav .nav-mega .nav-pin{opacity:.55}}
+.site-nav .nav-personal,.site-nav .nav-finder,.site-nav .nav-group{width:100%;align-self:stretch;justify-self:stretch}
